@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-// Package plcconnector .
+// Package plcconnector implements communication with PLC.
 package plcconnector
 
 import (
@@ -369,7 +369,8 @@ func Init() {
 
 var callback func(service int, statut int, tag *Tag)
 
-// Callback .
+// Callback registers function called at receiving communication with PLC.
+// tag may be nil in event of error or reset.
 func Callback(function func(service int, status int, tag *Tag)) {
 	callback = function
 }
