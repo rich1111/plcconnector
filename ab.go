@@ -174,8 +174,9 @@ type Tag struct {
 }
 
 var (
-	tags map[string]Tag
-	tMut sync.RWMutex
+	tags    map[string]Tag
+	tMut    sync.RWMutex
+	verbose = false
 )
 
 func typeLen(t uint16) uint16 {
@@ -203,7 +204,9 @@ func readData(r io.Reader, data interface{}) error {
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Printf("%#v\n", data)
+	if verbose {
+		fmt.Printf("%#v\n", data)
+	}
 	return err
 }
 
@@ -279,6 +282,11 @@ var callback func(service int, statut int, tag *Tag)
 // Callback .
 func Callback(function func(service int, status int, tag *Tag)) {
 	callback = function
+}
+
+// SetVerbose enables debugging output.
+func SetVerbose(on bool) {
+	verbose = on
 }
 
 // Serve listens on the TCP network address host.
