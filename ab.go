@@ -199,6 +199,12 @@ func typeLen(t uint16) uint16 {
 	return 1
 }
 
+func debug(args ...interface{}) {
+	if verbose {
+		fmt.Println(args...)
+	}
+}
+
 func readData(r io.Reader, data interface{}) error {
 	err := binary.Read(r, binary.LittleEndian, data)
 	if err != nil {
@@ -221,7 +227,7 @@ func readTag(tag string, count uint16) ([]uint8, uint16, bool) {
 	tMut.RLock()
 	t, ok := tags[tag]
 	tMut.RUnlock()
-	fmt.Println(t, ok)
+	debug(t, ok)
 	if ok && count <= t.Count {
 		if callback != nil {
 			callback(ReadTag, Success, &t)
@@ -328,7 +334,7 @@ loop:
 			break loop
 		}
 
-		fmt.Println()
+		debug()
 		var encHead encapsulationHeader
 		err = readData(readBuf, &encHead)
 		if err != nil {
@@ -337,7 +343,7 @@ loop:
 
 		switch encHead.Command {
 		case registerSession:
-			fmt.Println("RegisterSession")
+			debug("RegisterSession")
 
 			var data registerSessionData
 			err = readData(readBuf, &data)
@@ -351,11 +357,11 @@ loop:
 			writeData(writeBuf, data)
 
 		case unregisterSession:
-			fmt.Println("UnregisterSession")
+			debug("UnregisterSession")
 			break loop
 
 		case sendRRData, sendUnitData:
-			fmt.Println("SendRRData/SendUnitData")
+			debug("SendRRData/SendUnitData")
 
 			var (
 				data         sendData
@@ -405,7 +411,7 @@ loop:
 
 			switch protd.Service {
 			case ForwardOpen:
-				fmt.Println("ForwardOpen")
+				debug("ForwardOpen")
 
 				var (
 					fodata forwardOpenData
@@ -437,7 +443,7 @@ loop:
 				writeData(writeBuf, resp)
 
 			case ForwardClose:
-				fmt.Println("ForwardClose")
+				debug("ForwardClose")
 
 				var (
 					fcdata forwardCloseData
@@ -463,7 +469,7 @@ loop:
 				writeData(writeBuf, resp)
 
 			case ReadTag:
-				fmt.Println("ReadTag")
+				debug("ReadTag")
 
 				var (
 					tagName  string
@@ -477,7 +483,7 @@ loop:
 				if err != nil {
 					break loop
 				}
-				fmt.Println(tagName, tagCount)
+				debug(tagName, tagCount)
 
 				if rtData, rtType, ok := readTag(tagName, tagCount); ok {
 					var resp readTagResponse
@@ -541,7 +547,7 @@ loop:
 				}
 
 			case WriteTag:
-				fmt.Println("WriteTag")
+				debug("WriteTag")
 
 				var (
 					tagName  string
@@ -560,7 +566,7 @@ loop:
 				if err != nil {
 					break loop
 				}
-				fmt.Println(tagName, tagType, tagCount)
+				debug(tagName, tagType, tagCount)
 
 				wrData := make([]uint8, typeLen(tagType)*tagCount)
 				err = readData(readBuf, wrData)
@@ -627,7 +633,7 @@ loop:
 				}
 
 			case Reset:
-				fmt.Println("Reset")
+				debug("Reset")
 
 				var resp response
 
@@ -651,7 +657,7 @@ loop:
 			}
 
 		default:
-			fmt.Println(encHead.Command)
+			debug(encHead.Command)
 
 			data := make([]uint8, encHead.Length)
 			err = readData(readBuf, &data)
