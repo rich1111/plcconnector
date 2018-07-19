@@ -11,6 +11,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 	"math/rand"
 	"net"
 	"sync"
@@ -168,9 +169,92 @@ type errorResponse struct {
 
 // Tag .
 type Tag struct {
-	Typ   uint16
-	Count uint16
-	Data  []uint8
+	Name  string
+	Typ   int
+	Count int
+
+	data []uint8
+}
+
+// DataBOOL returns array of BOOL
+func (t *Tag) DataBOOL() []bool {
+	ret := make([]bool, 0, t.Count)
+	for i := 0; i < len(t.data); i++ {
+		tmp := false
+		if t.data[i] != 0 {
+			tmp = true
+		}
+		ret = append(ret, tmp)
+	}
+	return ret
+}
+
+// DataSINT returns array of int8
+func (t *Tag) DataSINT() []int8 {
+	ret := make([]int8, 0, t.Count)
+	for i := 0; i < len(t.data); i++ {
+		ret = append(ret, int8(t.data[i]))
+	}
+	return ret
+}
+
+// DataINT returns array of int16
+func (t *Tag) DataINT() []int16 {
+	ret := make([]int16, 0, t.Count)
+	for i := 0; i < len(t.data); i += 2 {
+		tmp := int16(t.data[i])
+		tmp += int16(t.data[i+1]) << 8
+		ret = append(ret, tmp)
+	}
+	return ret
+}
+
+// DataDINT returns array of int32
+func (t *Tag) DataDINT() []int32 {
+	ret := make([]int32, 0, t.Count)
+	for i := 0; i < len(t.data); i += 4 {
+		tmp := int32(t.data[i])
+		tmp += int32(t.data[i+1]) << 8
+		tmp += int32(t.data[i+2]) << 16
+		tmp += int32(t.data[i+3]) << 24
+		ret = append(ret, tmp)
+	}
+	return ret
+}
+
+// DataREAL returns array of float32
+func (t *Tag) DataREAL() []float32 {
+	ret := make([]float32, 0, t.Count)
+	for i := 0; i < len(t.data); i += 4 {
+		tmp := uint32(t.data[i])
+		tmp += uint32(t.data[i+1]) << 8
+		tmp += uint32(t.data[i+2]) << 16
+		tmp += uint32(t.data[i+3]) << 24
+		ret = append(ret, math.Float32frombits(tmp))
+	}
+	return ret
+}
+
+// DataDWORD returns array of int32
+func (t *Tag) DataDWORD() []int32 {
+	return t.DataDINT()
+}
+
+// DataLINT returns array of int64
+func (t *Tag) DataLINT() []int64 {
+	ret := make([]int64, 0, t.Count)
+	for i := 0; i < len(t.data); i += 8 {
+		tmp := int64(t.data[i])
+		tmp += int64(t.data[i+1]) << 8
+		tmp += int64(t.data[i+2]) << 16
+		tmp += int64(t.data[i+3]) << 24
+		tmp += int64(t.data[i+4]) << 32
+		tmp += int64(t.data[i+5]) << 40
+		tmp += int64(t.data[i+6]) << 48
+		tmp += int64(t.data[i+7]) << 56
+		ret = append(ret, tmp)
+	}
+	return ret
 }
 
 var (
@@ -228,11 +312,11 @@ func readTag(tag string, count uint16) ([]uint8, uint16, bool) {
 	t, ok := tags[tag]
 	tMut.RUnlock()
 	debug(t, ok)
-	if ok && count <= t.Count {
+	if ok && count <= uint16(t.Count) {
 		if callback != nil {
 			callback(ReadTag, Success, &t)
 		}
-		return t.Data, t.Typ, true
+		return t.data, uint16(t.Typ), true
 	}
 	if callback != nil {
 		callback(ReadTag, PathSegmentError, nil)
@@ -241,7 +325,7 @@ func readTag(tag string, count uint16) ([]uint8, uint16, bool) {
 }
 
 func saveTag(tag string, typ, count uint16, data []uint8) bool {
-	t := Tag{Typ: typ, Count: count, Data: data}
+	t := Tag{Name: tag, Typ: int(typ), Count: int(count), data: data}
 	tMut.Lock()
 	tags[tag] = t
 	tMut.Unlock()
@@ -255,28 +339,28 @@ func saveTag(tag string, typ, count uint16, data []uint8) bool {
 func Init() {
 	tags = make(map[string]Tag)
 
-	tags["testBOOL"] = Tag{Typ: TypeBOOL, Count: 4, Data: []uint8{
+	tags["testBOOL"] = Tag{Name: "testBOOL", Typ: TypeBOOL, Count: 4, data: []uint8{
 		0x00, 0x01, 0xFF, 0x55}}
 
-	tags["testSINT"] = Tag{Typ: TypeSINT, Count: 4, Data: []uint8{
+	tags["testSINT"] = Tag{Name: "testSINT", Typ: TypeSINT, Count: 4, data: []uint8{
 		0xFF, 0xFE, 0x00, 0x01}}
 
-	tags["testINT"] = Tag{Typ: TypeINT, Count: 2, Data: []uint8{
+	tags["testINT"] = Tag{Name: "testINT", Typ: TypeINT, Count: 2, data: []uint8{
 		0xFF, 0xFF, 0x00, 0x01}}
 
-	tags["testDINT"] = Tag{Typ: TypeDINT, Count: 2, Data: []uint8{
+	tags["testDINT"] = Tag{Name: "testDINT", Typ: TypeDINT, Count: 2, data: []uint8{
 		0xFF, 0xFF, 0xFF, 0xFF,
 		0x01, 0x00, 0x00, 0x00}}
 
-	tags["testREAL"] = Tag{Typ: TypeREAL, Count: 2, Data: []uint8{
+	tags["testREAL"] = Tag{Name: "testREAL", Typ: TypeREAL, Count: 2, data: []uint8{
 		0xFE, 0xFE, 0x00, 0x00,
 		0xFE, 0x00, 0x00, 0x00}}
 
-	tags["testDWORD"] = Tag{Typ: TypeDWORD, Count: 2, Data: []uint8{
+	tags["testDWORD"] = Tag{Name: "testDWORD", Typ: TypeDWORD, Count: 2, data: []uint8{
 		0xFF, 0xFF, 0xFF, 0xFF,
 		0x01, 0x00, 0x00, 0x00}}
 
-	tags["testLINT"] = Tag{Typ: TypeLINT, Count: 2, Data: []uint8{
+	tags["testLINT"] = Tag{Name: "testLINT", Typ: TypeLINT, Count: 2, data: []uint8{
 		0xFF, 0xFF, 0xFF, 0xFF,
 		0xFF, 0xFF, 0xFF, 0xFF,
 		0x01, 0x00, 0x00, 0x00,

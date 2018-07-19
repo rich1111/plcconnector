@@ -16,7 +16,7 @@ import (
 	"strings"
 )
 
-func typeToString(t uint16) string {
+func typeToString(t int) string {
 	switch t {
 	case TypeBOOL:
 		return "BOOL"
@@ -74,11 +74,11 @@ type tagJSON struct {
 func tagToJSON(t *Tag) string {
 	var tj tagJSON
 	tj.Count = int(t.Count)
-	ln := int(typeLen(t.Typ))
-	for i := 0; i < len(t.Data); i += ln {
-		tmp := int(t.Data[i])
+	ln := int(typeLen(uint16(t.Typ)))
+	for i := 0; i < len(t.data); i += ln {
+		tmp := int64(t.data[i])
 		for j := 1; j < ln; j++ {
-			tmp += int(t.Data[i+j]) << uint(8*j)
+			tmp += int64(t.data[i+j]) << uint(8*j)
 		}
 		switch t.Typ {
 		case TypeBOOL:
@@ -86,15 +86,15 @@ func tagToJSON(t *Tag) string {
 				tmp = 1
 			}
 		case TypeSINT:
-			tmp = int(int8(tmp))
+			tmp = int64(int8(tmp))
 		case TypeINT:
-			tmp = int(int16(tmp))
+			tmp = int64(int16(tmp))
 		case TypeDINT:
-			tmp = int(int32(tmp))
+			tmp = int64(int32(tmp))
 		case TypeDWORD:
-			tmp = int(int32(tmp))
+			tmp = int64(int32(tmp))
 		case TypeLINT:
-			tmp = int(int64(tmp))
+			tmp = int64(int64(tmp))
 		}
 		if t.Typ == TypeREAL {
 			tj.Data = append(tj.Data, float64(math.Float32frombits(uint32(tmp))))
@@ -119,6 +119,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		tMut.RLock()
 		t, ok := tags[path.Base(r.URL.Path)]
 		if ok {
+			// if callback != nil {
+			// 	callback(ReadTag, Success, &t)
+			// }
 			str := tagToJSON(&t)
 			tMut.RUnlock()
 			w.Header().Set("Cache-Control", "no-store")
