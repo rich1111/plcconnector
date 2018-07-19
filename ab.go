@@ -176,7 +176,12 @@ type Tag struct {
 	data []uint8
 }
 
-// DataBOOL returns array of BOOL
+// DataBytes returns array of bytes.
+func (t *Tag) DataBytes() []byte {
+	return t.data
+}
+
+// DataBOOL returns array of BOOL.
 func (t *Tag) DataBOOL() []bool {
 	ret := make([]bool, 0, t.Count)
 	for i := 0; i < len(t.data); i++ {
@@ -189,7 +194,7 @@ func (t *Tag) DataBOOL() []bool {
 	return ret
 }
 
-// DataSINT returns array of int8
+// DataSINT returns array of int8.
 func (t *Tag) DataSINT() []int8 {
 	ret := make([]int8, 0, t.Count)
 	for i := 0; i < len(t.data); i++ {
@@ -198,7 +203,7 @@ func (t *Tag) DataSINT() []int8 {
 	return ret
 }
 
-// DataINT returns array of int16
+// DataINT returns array of int16.
 func (t *Tag) DataINT() []int16 {
 	ret := make([]int16, 0, t.Count)
 	for i := 0; i < len(t.data); i += 2 {
@@ -209,7 +214,7 @@ func (t *Tag) DataINT() []int16 {
 	return ret
 }
 
-// DataDINT returns array of int32
+// DataDINT returns array of int32.
 func (t *Tag) DataDINT() []int32 {
 	ret := make([]int32, 0, t.Count)
 	for i := 0; i < len(t.data); i += 4 {
@@ -222,7 +227,7 @@ func (t *Tag) DataDINT() []int32 {
 	return ret
 }
 
-// DataREAL returns array of float32
+// DataREAL returns array of float32.
 func (t *Tag) DataREAL() []float32 {
 	ret := make([]float32, 0, t.Count)
 	for i := 0; i < len(t.data); i += 4 {
@@ -235,12 +240,12 @@ func (t *Tag) DataREAL() []float32 {
 	return ret
 }
 
-// DataDWORD returns array of int32
+// DataDWORD returns array of int32.
 func (t *Tag) DataDWORD() []int32 {
 	return t.DataDINT()
 }
 
-// DataLINT returns array of int64
+// DataLINT returns array of int64.
 func (t *Tag) DataLINT() []int64 {
 	ret := make([]int64, 0, t.Count)
 	for i := 0; i < len(t.data); i += 8 {
