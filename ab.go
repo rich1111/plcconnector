@@ -372,6 +372,13 @@ func Init() {
 		0x00, 0x00, 0x00, 0x00}}
 }
 
+// AddTag adds tag.
+func AddTag(t Tag) {
+	tMut.Lock()
+	tags[t.Name] = t
+	tMut.Unlock()
+}
+
 var callback func(service int, statut int, tag *Tag)
 
 // Callback registers function called at receiving communication with PLC.
