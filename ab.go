@@ -374,6 +374,8 @@ func Init() {
 
 // AddTag adds tag.
 func AddTag(t Tag) {
+	size := typeLen(uint16(t.Typ)) * uint16(t.Count)
+	t.data = make([]uint8, size)
 	tMut.Lock()
 	tags[t.Name] = t
 	tMut.Unlock()
