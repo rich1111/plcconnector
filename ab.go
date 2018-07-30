@@ -390,6 +390,7 @@ func UpdateTag(name string, offset int, data []uint8) bool {
 		fmt.Println("plcconnector UpdateTag: no tag named ", name)
 		return false
 	}
+	offset *= int(typeLen(uint16(t.Typ)))
 	to := offset + len(data)
 	if to > len(t.data) {
 		fmt.Println("plcconnector UpdateTag: to large data ", name)
