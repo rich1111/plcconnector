@@ -445,8 +445,9 @@ func Serve(host string) error {
 		} else if err != nil {
 			fmt.Println("plcconnector Serve: ", err)
 			return err
+		} else {
+			go handleRequest(conn)
 		}
-		go handleRequest(conn)
 	}
 	debug("Serve shutdown")
 	return nil
