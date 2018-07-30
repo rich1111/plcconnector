@@ -394,6 +394,11 @@ func SetVerbose(on bool) {
 	verbose = on
 }
 
+var (
+	closeMut sync.RWMutex
+	closeI   bool
+)
+
 // Serve listens on the TCP network address host.
 func Serve(host string) error {
 	rand.Seed(time.Now().UnixNano())
@@ -408,12 +413,30 @@ func Serve(host string) error {
 	}
 
 	for {
+		serv.SetDeadline(time.Now().Add(time.Second))
 		conn, err := serv.AcceptTCP()
-		if err != nil {
+		if e, ok := err.(net.Error); ok && e.Timeout() {
+			closeMut.RLock()
+			endP := closeI
+			closeMut.RUnlock()
+			if endP {
+				break
+			}
+		} else if err != nil {
+			fmt.Println("plcconnector Serve: ", err)
 			return err
 		}
 		go handleRequest(conn)
 	}
+	debug("Serve shutdown")
+	return nil
+}
+
+// Close shutdowns server
+func Close() {
+	closeMut.Lock()
+	closeI = true
+	closeMut.Unlock()
 }
 
 func handleRequest(conn net.Conn) {
@@ -426,6 +449,13 @@ loop:
 	for {
 		readBuf.Reset(conn)
 		writeBuf.Reset()
+
+		closeMut.RLock()
+		endP := closeI
+		closeMut.RUnlock()
+		if endP {
+			break loop
+		}
 
 		err := conn.SetReadDeadline(time.Now().Add(timeout * time.Second))
 		if err != nil {

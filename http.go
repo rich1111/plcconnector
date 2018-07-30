@@ -5,6 +5,7 @@
 package plcconnector
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func typeToString(t int) string {
@@ -139,7 +141,28 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+var server *http.Server
+
 // ServeHTTP listens on the TCP network address host.
-func ServeHTTP(host string) error {
-	return http.ListenAndServe(host, http.HandlerFunc(handler))
+func ServeHTTP(host string) *http.Server {
+	server = &http.Server{Addr: host, Handler: http.HandlerFunc(handler)}
+	go func() {
+		err := server.ListenAndServe()
+		if err != nil {
+			fmt.Println("plcconnector ServeHTTP: ", err)
+		}
+	}()
+	return server
+}
+
+// CloseHTTP shutdowns the HTTP server
+func CloseHTTP() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	var err error
+	if err = server.Shutdown(ctx); err != nil {
+		fmt.Println("plcconnector CloseHTTP: ", err)
+	}
+	debug("server.Shutdown")
+	return err
 }
