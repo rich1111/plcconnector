@@ -382,7 +382,7 @@ func AddTag(t Tag) {
 }
 
 // UpdateTag sets data to the tag
-func UpdateTag(name string, offset, count int, data []uint8) bool {
+func UpdateTag(name string, offset int, data []uint8, dataSize int) bool {
 	tMut.Lock()
 	defer tMut.Unlock()
 	t, ok := tags[name]
@@ -390,8 +390,8 @@ func UpdateTag(name string, offset, count int, data []uint8) bool {
 		fmt.Println("plcconnector UpdateTag: no tag named ", name)
 		return false
 	}
-	to := int(typeLen(uint16(t.Typ))) * count
-	if offset+to > len(t.data) {
+	to := offset + dataSize
+	if to > len(t.data) {
 		fmt.Println("plcconnector UpdateTag: to large data ", name)
 		return false
 	}
