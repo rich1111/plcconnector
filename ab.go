@@ -263,7 +263,7 @@ func (t *Tag) DataLINT() []int64 {
 }
 
 var (
-	tags    map[string]Tag
+	tags    map[string]*Tag
 	tMut    sync.RWMutex
 	verbose = false
 )
@@ -314,12 +314,12 @@ func writeData(w io.Writer, data interface{}) {
 
 func readTag(tag string, count uint16) ([]uint8, uint16, bool) {
 	tMut.RLock()
+	defer tMut.RUnlock()
 	t, ok := tags[tag]
-	tMut.RUnlock()
 	debug(t, ok)
 	if ok && count <= uint16(t.Count) {
 		if callback != nil {
-			callback(ReadTag, Success, &t)
+			callback(ReadTag, Success, t)
 		}
 		return t.data, uint16(t.Typ), true
 	}
@@ -332,40 +332,40 @@ func readTag(tag string, count uint16) ([]uint8, uint16, bool) {
 func saveTag(tag string, typ, count uint16, data []uint8) bool {
 	t := Tag{Name: tag, Typ: int(typ), Count: int(count), data: data}
 	tMut.Lock()
-	tags[tag] = t
-	tMut.Unlock()
+	tags[tag] = &t
 	if callback != nil {
 		callback(WriteTag, Success, &t)
 	}
+	tMut.Unlock()
 	return true
 }
 
 // Init initialize library. Must be called first.
 func Init() {
-	tags = make(map[string]Tag)
+	tags = make(map[string]*Tag)
 
-	tags["testBOOL"] = Tag{Name: "testBOOL", Typ: TypeBOOL, Count: 4, data: []uint8{
+	tags["testBOOL"] = &Tag{Name: "testBOOL", Typ: TypeBOOL, Count: 4, data: []uint8{
 		0x00, 0x01, 0xFF, 0x55}}
 
-	tags["testSINT"] = Tag{Name: "testSINT", Typ: TypeSINT, Count: 4, data: []uint8{
+	tags["testSINT"] = &Tag{Name: "testSINT", Typ: TypeSINT, Count: 4, data: []uint8{
 		0xFF, 0xFE, 0x00, 0x01}}
 
-	tags["testINT"] = Tag{Name: "testINT", Typ: TypeINT, Count: 2, data: []uint8{
+	tags["testINT"] = &Tag{Name: "testINT", Typ: TypeINT, Count: 2, data: []uint8{
 		0xFF, 0xFF, 0x00, 0x01}}
 
-	tags["testDINT"] = Tag{Name: "testDINT", Typ: TypeDINT, Count: 2, data: []uint8{
+	tags["testDINT"] = &Tag{Name: "testDINT", Typ: TypeDINT, Count: 2, data: []uint8{
 		0xFF, 0xFF, 0xFF, 0xFF,
 		0x01, 0x00, 0x00, 0x00}}
 
-	tags["testREAL"] = Tag{Name: "testREAL", Typ: TypeREAL, Count: 2, data: []uint8{
+	tags["testREAL"] = &Tag{Name: "testREAL", Typ: TypeREAL, Count: 2, data: []uint8{
 		0xFE, 0xFE, 0x00, 0x00,
 		0xFE, 0x00, 0x00, 0x00}}
 
-	tags["testDWORD"] = Tag{Name: "testDWORD", Typ: TypeDWORD, Count: 2, data: []uint8{
+	tags["testDWORD"] = &Tag{Name: "testDWORD", Typ: TypeDWORD, Count: 2, data: []uint8{
 		0xFF, 0xFF, 0xFF, 0xFF,
 		0x01, 0x00, 0x00, 0x00}}
 
-	tags["testLINT"] = Tag{Name: "testLINT", Typ: TypeLINT, Count: 2, data: []uint8{
+	tags["testLINT"] = &Tag{Name: "testLINT", Typ: TypeLINT, Count: 2, data: []uint8{
 		0xFF, 0xFF, 0xFF, 0xFF,
 		0xFF, 0xFF, 0xFF, 0xFF,
 		0x01, 0x00, 0x00, 0x00,
@@ -377,8 +377,28 @@ func AddTag(t Tag) {
 	size := typeLen(uint16(t.Typ)) * uint16(t.Count)
 	t.data = make([]uint8, size)
 	tMut.Lock()
-	tags[t.Name] = t
+	tags[t.Name] = &t
 	tMut.Unlock()
+}
+
+// UpdateTag sets data to the tag
+func UpdateTag(name string, offset, count int, data []uint8) bool {
+	tMut.Lock()
+	defer tMut.Unlock()
+	t, ok := tags[name]
+	if !ok {
+		fmt.Println("plcconnector UpdateTag: no tag named ", name)
+		return false
+	}
+	to := int(typeLen(uint16(t.Typ))) * count
+	if offset+to > len(t.data) {
+		fmt.Println("plcconnector UpdateTag: to large data ", name)
+		return false
+	}
+	for i := offset; i < to; i++ {
+		t.data[i] = data[i-offset]
+	}
+	return true
 }
 
 var callback func(service int, statut int, tag *Tag)

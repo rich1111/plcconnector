@@ -46,7 +46,7 @@ func tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 
 	var toSend strings.Builder
 
-	toSend.WriteString("<!DOCTYPE html>\n<html><h3>PLC connector</h3><p>Wersja: 1</p>\n<table><tr><th>Nazwa</th><th>Rozmiar</th><th>Typ</th></tr>\n")
+	toSend.WriteString("<!DOCTYPE html>\n<html><h3>PLC connector</h3><p>Wersja: 2</p>\n<table><tr><th>Nazwa</th><th>Rozmiar</th><th>Typ</th></tr>\n")
 
 	tMut.RLock()
 	arr := make([]string, 0, len(tags))
@@ -124,7 +124,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			// if callback != nil {
 			// 	callback(ReadTag, Success, &t)
 			// }
-			str := tagToJSON(&t)
+			str := tagToJSON(t)
 			tMut.RUnlock()
 			w.Header().Set("Cache-Control", "no-store")
 			w.Header().Set("Content-Type", "application/json; charset=utf-8")
