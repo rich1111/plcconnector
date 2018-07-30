@@ -416,13 +416,17 @@ func SetVerbose(on bool) {
 }
 
 var (
-	closeMut sync.RWMutex
-	closeI   bool
+	closeWait *sync.Cond
+	closeWMut sync.Mutex
+	closeMut  sync.RWMutex
+	closeI    bool
 )
 
 // Serve listens on the TCP network address host.
 func Serve(host string) error {
 	rand.Seed(time.Now().UnixNano())
+
+	closeWait = sync.NewCond(&closeWMut)
 
 	addr, err := net.ResolveTCPAddr("tcp", host)
 	if err != nil {
@@ -451,6 +455,7 @@ func Serve(host string) error {
 		}
 	}
 	debug("Serve shutdown")
+	closeWait.Signal()
 	return nil
 }
 
@@ -459,6 +464,9 @@ func Close() {
 	closeMut.Lock()
 	closeI = true
 	closeMut.Unlock()
+	closeWait.L.Lock()
+	closeWait.Wait()
+	closeWait.L.Unlock()
 }
 
 func handleRequest(conn net.Conn) {
