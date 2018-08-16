@@ -41,6 +41,8 @@ func typeToString(t int) string {
 
 func asciiCode(x rune) (r string) {
 	switch x {
+	case 0:
+		r = "NUL"
 	case 1:
 		r = "SOH"
 	case 2:
@@ -103,10 +105,11 @@ func asciiCode(x rune) (r string) {
 		r = "RS"
 	case 31:
 		r = "US"
+	case 0x7F:
+		r = "DEL"
 	default:
-		r = "NUL"
+		r = string(x)
 	}
-	r = "&lt;" + r + "&gt;"
 	return
 }
 
@@ -117,7 +120,7 @@ func tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 
 	var toSend strings.Builder
 
-	toSend.WriteString("<!DOCTYPE html>\n<html><h3>PLC connector</h3><p>Wersja: 3</p>\n<table><tr><th>Nazwa</th><th>Rozmiar</th><th>Typ</th><th>ASCII</th></tr>\n")
+	toSend.WriteString("<!DOCTYPE html>\n<html><h3>PLC connector</h3><p>Wersja: 4</p>\n<table><tr><th>Nazwa</th><th>Rozmiar</th><th>Typ</th><th>ASCII</th></tr>\n")
 
 	tMut.RLock()
 	arr := make([]string, 0, len(tags))
@@ -151,12 +154,8 @@ func tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 				case TypeLINT:
 					tmp = int64(int64(tmp))
 				}
-				if tmp < 256 && tmp >= 0 {
-					if tmp < 32 {
-						ascii.WriteString(asciiCode(rune(tmp)))
-					} else {
-						ascii.WriteRune(rune(tmp))
-					}
+				if tmp < 256 && tmp >= 32 {
+					ascii.WriteRune(rune(tmp))
 				} else {
 					break
 				}
@@ -176,6 +175,7 @@ type tagJSON struct {
 	Typ   string    `json:"type"`
 	Count int       `json:"count"`
 	Data  []float64 `json:"data"`
+	ASCII []string  `json:"ascii,omitempty"`
 }
 
 func tagToJSON(t *Tag) string {
@@ -207,6 +207,13 @@ func tagToJSON(t *Tag) string {
 			tj.Data = append(tj.Data, float64(math.Float32frombits(uint32(tmp))))
 		} else {
 			tj.Data = append(tj.Data, float64(tmp))
+		}
+		if t.Typ != TypeREAL && t.Typ != TypeBOOL {
+			if tmp < 256 && tmp >= 0 {
+				tj.ASCII = append(tj.ASCII, asciiCode(rune(tmp)))
+			} else {
+				tj.ASCII = append(tj.ASCII, "")
+			}
 		}
 	}
 	tj.Typ = typeToString(t.Typ)
