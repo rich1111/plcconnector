@@ -370,6 +370,10 @@ func Init() {
 		0xFF, 0xFF, 0xFF, 0xFF,
 		0x01, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00}}
+
+	tags["testASCII"] = &Tag{Name: "testASCII", Typ: TypeSINT, Count: 9, data: []uint8{
+		'H', 'e', 'l', 'l',
+		'o', '!', 0x00, 0x01, 0x7F}}
 }
 
 // AddTag adds tag.
@@ -810,9 +814,17 @@ loop:
 				writeData(writeBuf, resp)
 
 			default:
+				var resp response
+
+				resp.Service = protd.Service + 128
+				resp.Status = 0x01
+
+				encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
 				writeData(writeBuf, encHead)
 				writeData(writeBuf, data)
-				writeData(writeBuf, protd)
+				writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
+				writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
+				writeData(writeBuf, resp)
 			}
 
 		default:
