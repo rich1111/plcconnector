@@ -123,7 +123,7 @@ func tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 
 	var toSend strings.Builder
 
-	toSend.WriteString("<!DOCTYPE html>\n<html><h3>PLC connector</h3><p>Wersja: 5</p>\n<table style='font-family:\"Courier New\", Courier, monospace;'><tr><th>Nazwa</th><th>Rozmiar</th><th>Typ</th><th>ASCII</th></tr>\n")
+	toSend.WriteString("<!DOCTYPE html>\n<html><h3>PLC connector</h3><p>Wersja: 6</p>\n<table style='font-family:\"Courier New\", Courier, monospace;'><tr><th>Nazwa</th><th>Rozmiar</th><th>Typ</th><th>ASCII</th></tr>\n")
 
 	tMut.RLock()
 	arr := make([]string, 0, len(tags))
@@ -246,6 +246,7 @@ func tagToHTML(t *Tag) string {
 	}
 
 	ln := int(typeLen(uint16(t.Typ)))
+	n := 0
 	for i := 0; i < len(t.data); i += ln {
 		tmp := int64(t.data[i])
 		for j := 1; j < ln; j++ {
@@ -284,12 +285,13 @@ func tagToHTML(t *Tag) string {
 			if tmp < 256 && tmp >= 0 {
 				ascii = asciiCode(rune(tmp))
 			}
-			toSend.WriteString(fmt.Sprintf("<td>%d</td><td>%v</td><td>%v</td><td>%v</td><td>%v</td></tr>\n", i, tmp, hx, ascii, bin))
+			toSend.WriteString(fmt.Sprintf("<td>%d</td><td>%v</td><td>%v</td><td>%v</td><td>%v</td></tr>\n", n, tmp, hx, ascii, bin))
 		} else if t.Typ == TypeBOOL {
-			toSend.WriteString(fmt.Sprintf("<td>%d</td><td>%v</td></tr>\n", i, tmp))
+			toSend.WriteString(fmt.Sprintf("<td>%d</td><td>%v</td></tr>\n", n, tmp))
 		} else {
-			toSend.WriteString(fmt.Sprintf("<td>%d</td><td>%v</td></tr>\n", i, math.Float32frombits(uint32(tmp))))
+			toSend.WriteString(fmt.Sprintf("<td>%d</td><td>%v</td></tr>\n", n, math.Float32frombits(uint32(tmp))))
 		}
+		n++
 	}
 
 	toSend.WriteString("</table></html>")
