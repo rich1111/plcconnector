@@ -5,7 +5,10 @@
 package plcconnector
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -120,7 +123,7 @@ func tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 
 	var toSend strings.Builder
 
-	toSend.WriteString("<!DOCTYPE html>\n<html><h3>PLC connector</h3><p>Wersja: 4</p>\n<table><tr><th>Nazwa</th><th>Rozmiar</th><th>Typ</th><th>ASCII</th></tr>\n")
+	toSend.WriteString("<!DOCTYPE html>\n<html><h3>PLC connector</h3><p>Wersja: 5</p>\n<table style='font-family:\"Courier New\", Courier, monospace;'><tr><th>Nazwa</th><th>Rozmiar</th><th>Typ</th><th>ASCII</th></tr>\n")
 
 	tMut.RLock()
 	arr := make([]string, 0, len(tags))
@@ -200,8 +203,6 @@ func tagToJSON(t *Tag) string {
 			tmp = int64(int32(tmp))
 		case TypeDWORD:
 			tmp = int64(int32(tmp))
-		case TypeLINT:
-			tmp = int64(int64(tmp))
 		}
 		if t.Typ == TypeREAL {
 			tj.Data = append(tj.Data, float64(math.Float32frombits(uint32(tmp))))
@@ -226,6 +227,76 @@ func tagToJSON(t *Tag) string {
 	return string(b)
 }
 
+func bytesToBinString(bs []byte) string {
+	var buf strings.Builder
+	for _, b := range bs {
+		buf.WriteString(fmt.Sprintf("%.8b", b))
+	}
+	return buf.String()
+}
+
+func tagToHTML(t *Tag) string {
+	var toSend strings.Builder
+
+	toSend.WriteString("<!DOCTYPE html>\n<html><h3>" + t.Name + "</h3>")
+	if t.Typ == TypeBOOL || t.Typ == TypeREAL {
+		toSend.WriteString("<table style='font-family:\"Courier New\", Courier, monospace;'><tr><th>N</th><th>" + typeToString(t.Typ) + "</th></tr>\n")
+	} else {
+		toSend.WriteString("<table style='font-family:\"Courier New\", Courier, monospace;'><tr><th>N</th><th>" + typeToString(t.Typ) + "</th><th>HEX</th><th>ASCII</th><th>BIN</th></tr>\n")
+	}
+
+	ln := int(typeLen(uint16(t.Typ)))
+	for i := 0; i < len(t.data); i += ln {
+		tmp := int64(t.data[i])
+		for j := 1; j < ln; j++ {
+			tmp += int64(t.data[i+j]) << uint(8*j)
+		}
+		hx := ""
+		var err error
+		buf := new(bytes.Buffer)
+
+		switch t.Typ {
+		case TypeBOOL:
+			if tmp != 0 {
+				tmp = 1
+			}
+		case TypeSINT:
+			err = binary.Write(buf, binary.BigEndian, int8(tmp))
+			tmp = int64(int8(tmp))
+		case TypeINT:
+			err = binary.Write(buf, binary.BigEndian, int16(tmp))
+			tmp = int64(int16(tmp))
+		case TypeDINT:
+			err = binary.Write(buf, binary.BigEndian, int32(tmp))
+			tmp = int64(int32(tmp))
+		case TypeDWORD:
+			err = binary.Write(buf, binary.BigEndian, int32(tmp))
+			tmp = int64(int32(tmp))
+		case TypeLINT:
+			err = binary.Write(buf, binary.BigEndian, tmp)
+		}
+		if t.Typ != TypeREAL && t.Typ != TypeBOOL {
+			ascii := ""
+			if err == nil {
+				hx = hex.EncodeToString(buf.Bytes())
+			}
+			bin := bytesToBinString(buf.Bytes())
+			if tmp < 256 && tmp >= 0 {
+				ascii = asciiCode(rune(tmp))
+			}
+			toSend.WriteString(fmt.Sprintf("<td>%d</td><td>%v</td><td>%v</td><td>%v</td><td>%v</td></tr>\n", i, tmp, hx, ascii, bin))
+		} else if t.Typ == TypeBOOL {
+			toSend.WriteString(fmt.Sprintf("<td>%d</td><td>%v</td></tr>\n", i, tmp))
+		} else {
+			toSend.WriteString(fmt.Sprintf("<td>%d</td><td>%v</td></tr>\n", i, math.Float32frombits(uint32(tmp))))
+		}
+	}
+
+	toSend.WriteString("</table></html>")
+
+	return toSend.String()
+}
+
 func handler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" {
 		tagsIndexHTML(w, r)
@@ -233,15 +304,22 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		tMut.RLock()
 		t, ok := tags[path.Base(r.URL.Path)]
 		if ok {
-			// if callback != nil {
-			// 	callback(ReadTag, Success, &t)
-			// }
-			str := tagToJSON(t)
-			tMut.RUnlock()
-			w.Header().Set("Cache-Control", "no-store")
-			w.Header().Set("Content-Type", "application/json; charset=utf-8")
-			w.Header().Set("X-Content-Type-Options", "nosniff")
-			io.WriteString(w, str)
+			_, json := r.URL.Query()["json"]
+			if json {
+				str := tagToJSON(t)
+				tMut.RUnlock()
+				w.Header().Set("Cache-Control", "no-store")
+				w.Header().Set("Content-Type", "application/json; charset=utf-8")
+				w.Header().Set("X-Content-Type-Options", "nosniff")
+				io.WriteString(w, str)
+			} else {
+				str := tagToHTML(t)
+				tMut.RUnlock()
+				w.Header().Set("Cache-Control", "no-store")
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				w.Header().Set("X-Content-Type-Options", "nosniff")
+				io.WriteString(w, str)
+			}
 		} else {
 			tMut.RUnlock()
 			w.Header().Set("Cache-Control", "no-store")
