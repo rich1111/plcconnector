@@ -21,6 +21,10 @@ import (
 	"time"
 )
 
+const (
+	tableStyle = "style='font-family:\"Courier New\", Courier, monospace; border-spacing: 20px 0;'"
+)
+
 func typeToString(t int) string {
 	switch t {
 	case TypeBOOL:
@@ -123,7 +127,7 @@ func tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 
 	var toSend strings.Builder
 
-	toSend.WriteString("<!DOCTYPE html>\n<html><h3>PLC connector</h3><p>Wersja: 6</p>\n<table style='font-family:\"Courier New\", Courier, monospace;'><tr><th>Nazwa</th><th>Rozmiar</th><th>Typ</th><th>ASCII</th></tr>\n")
+	toSend.WriteString("<!DOCTYPE html>\n<html><h3>PLC connector</h3><p>Wersja: 6</p>\n<table " + tableStyle + "><tr><th>Nazwa</th><th>Rozmiar</th><th>Typ</th><th>ASCII</th></tr>\n")
 
 	tMut.RLock()
 	arr := make([]string, 0, len(tags))
@@ -230,22 +234,44 @@ func tagToJSON(t *Tag) string {
 func bytesToBinString(bs []byte) string {
 	var buf strings.Builder
 	for _, b := range bs {
-		buf.WriteString(fmt.Sprintf("%.8b", b))
+		buf.WriteString(fmt.Sprintf("%.8b ", b))
 	}
 	return buf.String()
+}
+
+func hexTr(ln int) string {
+	var r strings.Builder
+	r.WriteString("<pre style='font-family:\"Courier New\", Courier, monospace; margin: 0px;'>")
+	for i := ln; i > 0; i-- {
+		r.WriteString(fmt.Sprintf("%v       ", i*8))
+	}
+	r.WriteString("</pre>")
+	return r.String()
+}
+
+func floatToString(f uint32) string {
+	s := f >> 31
+	e := (f & 0x7f800000) >> 23
+	m := f & 0x007fffff
+	return fmt.Sprintf("<td>%v</td><td>%v</td><td>%.8b</td><td>%.23b</td></tr>\n", math.Float32frombits(f), s, e, m)
 }
 
 func tagToHTML(t *Tag) string {
 	var toSend strings.Builder
 
+	ln := int(typeLen(uint16(t.Typ)))
+
 	toSend.WriteString("<!DOCTYPE html>\n<html><h3>" + t.Name + "</h3>")
-	if t.Typ == TypeBOOL || t.Typ == TypeREAL {
-		toSend.WriteString("<table style='font-family:\"Courier New\", Courier, monospace;'><tr><th>N</th><th>" + typeToString(t.Typ) + "</th></tr>\n")
+	toSend.WriteString("<table " + tableStyle + "><tr><th>N</th><th>" + typeToString(t.Typ) + "</th>")
+	if t.Typ == TypeBOOL {
+		toSend.WriteString("</tr>\n")
+	} else if t.Typ == TypeREAL {
+		toSend.WriteString("<th>SIGN</th><th>EXPONENT</th><th>MANTISSA</th></tr>\n")
 	} else {
-		toSend.WriteString("<table style='font-family:\"Courier New\", Courier, monospace;'><tr><th>N</th><th>" + typeToString(t.Typ) + "</th><th>HEX</th><th>ASCII</th><th>BIN</th></tr>\n")
+		toSend.WriteString("<th>HEX</th><th>ASCII</th><th>BIN</th></tr>\n")
+		toSend.WriteString(fmt.Sprintf("<td></td><td></td><td></td><td></td><td>%s</td></tr>\n", hexTr(ln)))
 	}
 
-	ln := int(typeLen(uint16(t.Typ)))
 	n := 0
 	for i := 0; i < len(t.data); i += ln {
 		tmp := int64(t.data[i])
@@ -289,7 +315,7 @@ func tagToHTML(t *Tag) string {
 		} else if t.Typ == TypeBOOL {
 			toSend.WriteString(fmt.Sprintf("<td>%d</td><td>%v</td></tr>\n", n, tmp))
 		} else {
-			toSend.WriteString(fmt.Sprintf("<td>%d</td><td>%v</td></tr>\n", n, math.Float32frombits(uint32(tmp))))
+			toSend.WriteString(fmt.Sprintf("<td>%d</td>%s</tr>\n", n, floatToString(uint32(tmp))))
 		}
 		n++
 	}
