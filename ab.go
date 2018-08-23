@@ -456,7 +456,7 @@ func Serve(host string) error {
 	serv := serv2.(*net.TCPListener)
 	for {
 		serv.SetDeadline(time.Now().Add(time.Second))
-		conn, err := serv.Accept()
+		conn, err := serv.AcceptTCP()
 		if e, ok := err.(net.Error); ok && e.Timeout() {
 			closeMut.RLock()
 			endP := closeI
