@@ -8,6 +8,7 @@ package plcconnector
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -15,6 +16,7 @@ import (
 	"math/rand"
 	"net"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -430,20 +432,31 @@ var (
 func Serve(host string) error {
 	rand.Seed(time.Now().UnixNano())
 
+	closeMut.Lock()
+	closeI = false
+	closeMut.Unlock()
+
 	closeWait = sync.NewCond(&closeWMut)
 
-	addr, err := net.ResolveTCPAddr("tcp", host)
+	sock := net.ListenConfig{}
+	sock.Control = func(network, address string, c syscall.RawConn) error {
+		return c.Control(func(fd uintptr) {
+			err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
+			if err != nil {
+				fmt.Println("plcconnector Serve: ", err)
+				return
+			}
+		})
+	}
+	serv2, err := sock.Listen(context.Background(), "tcp", host)
 	if err != nil {
+		fmt.Println("plcconnector Serve: ", err)
 		return err
 	}
-	serv, err := net.ListenTCP("tcp", addr)
-	if err != nil {
-		return err
-	}
-
+	serv := serv2.(*net.TCPListener)
 	for {
 		serv.SetDeadline(time.Now().Add(time.Second))
-		conn, err := serv.AcceptTCP()
+		conn, err := serv.Accept()
 		if e, ok := err.(net.Error); ok && e.Timeout() {
 			closeMut.RLock()
 			endP := closeI
@@ -458,6 +471,7 @@ func Serve(host string) error {
 			go handleRequest(conn)
 		}
 	}
+	serv.Close()
 	debug("Serve shutdown")
 	closeWait.Signal()
 	return nil

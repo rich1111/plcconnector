@@ -127,7 +127,7 @@ func tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 
 	var toSend strings.Builder
 
-	toSend.WriteString("<!DOCTYPE html>\n<html><h3>PLC connector</h3><p>Wersja: 7</p>\n<table " + tableStyle + "><tr><th>Nazwa</th><th>Rozmiar</th><th>Typ</th><th>ASCII</th></tr>\n")
+	toSend.WriteString("<!DOCTYPE html>\n<html><title>plcconnector</title><h3>PLC connector</h3><p>Wersja: 8</p>\n<table " + tableStyle + "><tr><th>Nazwa</th><th>Rozmiar</th><th>Typ</th><th>ASCII</th></tr>\n")
 
 	tMut.RLock()
 	arr := make([]string, 0, len(tags))
@@ -261,7 +261,7 @@ func tagToHTML(t *Tag) string {
 
 	ln := int(typeLen(uint16(t.Typ)))
 
-	toSend.WriteString("<!DOCTYPE html>\n<html><h3>" + t.Name + "</h3>")
+	toSend.WriteString("<!DOCTYPE html>\n<html><title>" + t.Name + "</title><h3>" + t.Name + "</h3>")
 	toSend.WriteString("<table " + tableStyle + "><tr><th>N</th><th>" + typeToString(t.Typ) + "</th>")
 	if t.Typ == TypeBOOL {
 		toSend.WriteString("</tr>\n")
