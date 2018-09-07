@@ -46,7 +46,7 @@ func typeToString(t int) string {
 	}
 }
 
-func asciiCode(x rune) (r string) {
+func asciiCode(x uint8) (r string) {
 	switch x {
 	case 0:
 		r = "NUL"
@@ -114,6 +114,262 @@ func asciiCode(x rune) (r string) {
 		r = "US"
 	case 0x7F:
 		r = "DEL"
+	case 0x80:
+		r = "Ç"
+	case 0x81:
+		r = "ü"
+	case 0x82:
+		r = "é"
+	case 0x83:
+		r = "â"
+	case 0x84:
+		r = "ä"
+	case 0x85:
+		r = "ů"
+	case 0x86:
+		r = "ć"
+	case 0x87:
+		r = "ç"
+	case 0x88:
+		r = "ł"
+	case 0x89:
+		r = "ë"
+	case 0x8A:
+		r = "Ő"
+	case 0x8B:
+		r = "ő"
+	case 0x8C:
+		r = "î"
+	case 0x8D:
+		r = "Ź"
+	case 0x8E:
+		r = "Ä"
+	case 0x8F:
+		r = "Ć"
+	case 0x90:
+		r = "É"
+	case 0x91:
+		r = "Ĺ"
+	case 0x92:
+		r = "ĺ"
+	case 0x93:
+		r = "ô"
+	case 0x94:
+		r = "ö"
+	case 0x95:
+		r = "Ľ"
+	case 0x96:
+		r = "ľ"
+	case 0x97:
+		r = "Ś"
+	case 0x98:
+		r = "ś"
+	case 0x99:
+		r = "Ö"
+	case 0x9A:
+		r = "Ü"
+	case 0x9B:
+		r = "Ť"
+	case 0x9C:
+		r = "ť"
+	case 0x9D:
+		r = "Ł"
+	case 0x9E:
+		r = "×"
+	case 0x9F:
+		r = "č"
+	case 0xA0:
+		r = "á"
+	case 0xA1:
+		r = "í"
+	case 0xA2:
+		r = "ó"
+	case 0xA3:
+		r = "ú"
+	case 0xA4:
+		r = "Ą"
+	case 0xA5:
+		r = "ą"
+	case 0xA6:
+		r = "Ž"
+	case 0xA7:
+		r = "ž"
+	case 0xA8:
+		r = "Ę"
+	case 0xA9:
+		r = "ę"
+	case 0xAA:
+		r = "¬"
+	case 0xAB:
+		r = "ź"
+	case 0xAC:
+		r = "Č"
+	case 0xAD:
+		r = "ş"
+	case 0xAE:
+		r = "«"
+	case 0xAF:
+		r = "»"
+	case 0xB0:
+		r = "░"
+	case 0xB1:
+		r = "▒"
+	case 0xB2:
+		r = "▓"
+	case 0xB3:
+		r = "│"
+	case 0xB4:
+		r = "┤"
+	case 0xB5:
+		r = "Á"
+	case 0xB6:
+		r = "Â"
+	case 0xB7:
+		r = "Ě"
+	case 0xB8:
+		r = "Ş"
+	case 0xB9:
+		r = "╣"
+	case 0xBA:
+		r = "║"
+	case 0xBB:
+		r = "╗"
+	case 0xBC:
+		r = "╝"
+	case 0xBD:
+		r = "Ż"
+	case 0xBE:
+		r = "ż"
+	case 0xBF:
+		r = "┐"
+	case 0xC0:
+		r = "└"
+	case 0xC1:
+		r = "┴"
+	case 0xC2:
+		r = "┬"
+	case 0xC3:
+		r = "├"
+	case 0xC4:
+		r = "─"
+	case 0xC5:
+		r = "┼"
+	case 0xC6:
+		r = "Ă"
+	case 0xC7:
+		r = "ă"
+	case 0xC8:
+		r = "╚"
+	case 0xC9:
+		r = "╔"
+	case 0xCA:
+		r = "╩"
+	case 0xCB:
+		r = "╦"
+	case 0xCC:
+		r = "╠"
+	case 0xCD:
+		r = "═"
+	case 0xCE:
+		r = "╬"
+	case 0xCF:
+		r = "¤"
+	case 0xD0:
+		r = "đ"
+	case 0xD1:
+		r = "Đ"
+	case 0xD2:
+		r = "Ď"
+	case 0xD3:
+		r = "Ë"
+	case 0xD4:
+		r = "ď"
+	case 0xD5:
+		r = "Ň"
+	case 0xD6:
+		r = "Í"
+	case 0xD7:
+		r = "Î"
+	case 0xD8:
+		r = "ě"
+	case 0xD9:
+		r = "┘"
+	case 0xDA:
+		r = "┌"
+	case 0xDB:
+		r = "█"
+	case 0xDC:
+		r = "▄"
+	case 0xDD:
+		r = "Ţ"
+	case 0xDE:
+		r = "Ů"
+	case 0xDF:
+		r = "▀"
+	case 0xE0:
+		r = "Ó"
+	case 0xE1:
+		r = "ß"
+	case 0xE2:
+		r = "Ô"
+	case 0xE3:
+		r = "Ń"
+	case 0xE4:
+		r = "ń"
+	case 0xE5:
+		r = "ň"
+	case 0xE6:
+		r = "Š"
+	case 0xE7:
+		r = "š"
+	case 0xE8:
+		r = "Ŕ"
+	case 0xE9:
+		r = "Ú"
+	case 0xEA:
+		r = "ŕ"
+	case 0xEB:
+		r = "Ű"
+	case 0xEC:
+		r = "ý"
+	case 0xED:
+		r = "Ý"
+	case 0xEE:
+		r = "ţ"
+	case 0xEF:
+		r = "´"
+	case 0xF0:
+		r = "SHY"
+	case 0xF1:
+		r = "˝"
+	case 0xF2:
+		r = "˛"
+	case 0xF3:
+		r = "ˇ"
+	case 0xF4:
+		r = "˘"
+	case 0xF5:
+		r = "§"
+	case 0xF6:
+		r = "÷"
+	case 0xF7:
+		r = "¸"
+	case 0xF8:
+		r = "°"
+	case 0xF9:
+		r = "¨"
+	case 0xFA:
+		r = "˙"
+	case 0xFB:
+		r = "ű"
+	case 0xFC:
+		r = "Ř"
+	case 0xFD:
+		r = "ř"
+	case 0xFE:
+		r = "■"
+	case 0xFF:
+		r = "NBSP"
 	default:
 		r = string(x)
 	}
@@ -214,8 +470,8 @@ func tagToJSON(t *Tag) string {
 			tj.Data = append(tj.Data, float64(tmp))
 		}
 		if t.Typ != TypeREAL && t.Typ != TypeBOOL {
-			if tmp < 256 && tmp >= 0 {
-				tj.ASCII = append(tj.ASCII, asciiCode(rune(tmp)))
+			if tmp <= 256 && ((t.Typ == TypeSINT && tmp >= -128) || (t.Typ != TypeSINT && tmp >= 0)) {
+				tj.ASCII = append(tj.ASCII, asciiCode(uint8(tmp)))
 			} else {
 				tj.ASCII = append(tj.ASCII, "")
 			}
@@ -308,8 +564,8 @@ func tagToHTML(t *Tag) string {
 				hx = hex.EncodeToString(buf.Bytes())
 			}
 			bin := bytesToBinString(buf.Bytes())
-			if tmp < 256 && tmp >= 0 {
-				ascii = asciiCode(rune(tmp))
+			if tmp <= 256 && ((t.Typ == TypeSINT && tmp >= -128) || (t.Typ != TypeSINT && tmp >= 0)) {
+				ascii = asciiCode(uint8(tmp))
 			}
 			toSend.WriteString(fmt.Sprintf("<td>%d</td><td>%v</td><td>%v</td><td>%v</td><td>%v</td></tr>\n", n, tmp, hx, ascii, bin))
 		} else if t.Typ == TypeBOOL {
