@@ -316,14 +316,21 @@ func writeData(w io.Writer, data interface{}) {
 
 func readTag(tag string, count uint16) ([]uint8, uint16, bool) {
 	tMut.RLock()
-	defer tMut.RUnlock()
-	t, ok := tags[tag]
-	debug(t, ok)
-	if ok && count <= uint16(t.Count) {
+	tg, ok := tags[tag]
+	debug(tg, ok)
+	tgtyp := uint16(tg.Typ)
+	tgdata := make([]uint8, count*typeLen(tgtyp))
+	if count > uint16(tg.Count) {
+		ok = false
+	} else {
+		copy(tgdata, tg.data)
+	}
+	tMut.RUnlock()
+	if ok {
 		if callback != nil {
-			callback(ReadTag, Success, t)
+			callback(ReadTag, Success, &Tag{Name: tag, Typ: int(tgtyp), Count: int(count), data: tgdata})
 		}
-		return t.data, uint16(t.Typ), true
+		return tgdata, tgtyp, true
 	}
 	if callback != nil {
 		callback(ReadTag, PathSegmentError, nil)
@@ -332,13 +339,17 @@ func readTag(tag string, count uint16) ([]uint8, uint16, bool) {
 }
 
 func saveTag(tag string, typ, count uint16, data []uint8) bool {
-	t := Tag{Name: tag, Typ: int(typ), Count: int(count), data: data}
 	tMut.Lock()
-	tags[tag] = &t
-	if callback != nil {
-		callback(WriteTag, Success, &t)
+	tg, ok := tags[tag]
+	if ok && tg.Typ == int(typ) && tg.Count >= int(count) {
+		copy(tg.data, data)
+	} else {
+		tags[tag] = &Tag{Name: tag, Typ: int(typ), Count: int(count), data: data}
 	}
 	tMut.Unlock()
+	if callback != nil {
+		callback(WriteTag, Success, &Tag{Name: tag, Typ: int(typ), Count: int(count), data: data})
+	}
 	return true
 }
 
