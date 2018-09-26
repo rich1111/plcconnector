@@ -328,12 +328,12 @@ func readTag(tag string, count uint16) ([]uint8, uint16, bool) {
 	tMut.RUnlock()
 	if ok {
 		if callback != nil {
-			callback(ReadTag, Success, &Tag{Name: tag, Typ: int(tgtyp), Count: int(count), data: tgdata})
+			go callback(ReadTag, Success, &Tag{Name: tag, Typ: int(tgtyp), Count: int(count), data: tgdata})
 		}
 		return tgdata, tgtyp, true
 	}
 	if callback != nil {
-		callback(ReadTag, PathSegmentError, nil)
+		go callback(ReadTag, PathSegmentError, nil)
 	}
 	return nil, 0, false
 }
@@ -348,7 +348,7 @@ func saveTag(tag string, typ, count uint16, data []uint8) bool {
 	}
 	tMut.Unlock()
 	if callback != nil {
-		callback(WriteTag, Success, &Tag{Name: tag, Typ: int(typ), Count: int(count), data: data})
+		go callback(WriteTag, Success, &Tag{Name: tag, Typ: int(typ), Count: int(count), data: data})
 	}
 	return true
 }
@@ -828,7 +828,7 @@ loop:
 				resp.Service = Reset + 128
 
 				if callback != nil {
-					callback(Reset, Success, nil)
+					go callback(Reset, Success, nil)
 				}
 
 				encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
