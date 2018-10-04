@@ -653,6 +653,8 @@ loop:
 				resp.OriginatorSerialNumber = fcdata.OriginatorSerialNumber
 				resp.AppReplySize = 0
 
+				connID = 0
+
 				encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
 				writeData(writeBuf, encHead)
 				writeData(writeBuf, data)
