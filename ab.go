@@ -315,13 +315,19 @@ func writeData(w io.Writer, data interface{}) {
 func readTag(tag string, count uint16) ([]uint8, uint16, bool) {
 	tMut.RLock()
 	tg, ok := tags[tag]
-	debug(tg, ok)
-	tgtyp := uint16(tg.Typ)
-	tgdata := make([]uint8, count*typeLen(tgtyp))
-	if count > uint16(tg.Count) {
-		ok = false
-	} else {
-		copy(tgdata, tg.data)
+	var (
+		tgtyp  uint16
+		tgdata []uint8
+	)
+	if ok {
+		debug(tg, ok)
+		tgtyp = uint16(tg.Typ)
+		tgdata = make([]uint8, count*typeLen(tgtyp))
+		if count > uint16(tg.Count) {
+			ok = false
+		} else {
+			copy(tgdata, tg.data)
+		}
 	}
 	tMut.RUnlock()
 	if ok {
