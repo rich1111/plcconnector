@@ -565,6 +565,7 @@ loop:
 			}
 
 			data.Timeout = 0
+			cidok := false
 
 			for i := uint16(0); i < data.ItemCount; i++ {
 				err = readData(readBuf, &item)
@@ -583,6 +584,9 @@ loop:
 					if err != nil {
 						break loop
 					}
+				}
+				if item.Type == connDataItem || item.Type == connAddressItem {
+					cidok = true
 				}
 			}
 
@@ -683,7 +687,7 @@ loop:
 					dataLen = uint16(binary.Size(resp)) + typeLen(resp.TagType)*tagCount
 					addrLen = 0
 
-					if connID != 0 {
+					if cidok && connID != 0 {
 						dataLen += uint16(binary.Size(protSeqCount))
 						addrLen = uint16(binary.Size(connID))
 					}
@@ -691,7 +695,7 @@ loop:
 					encHead.Length = uint16(binary.Size(data)+2*binary.Size(itemType{})) + addrLen + dataLen
 					writeData(writeBuf, encHead)
 					writeData(writeBuf, data)
-					if connID != 0 {
+					if cidok && connID != 0 {
 						writeData(writeBuf, itemType{Type: connAddressItem, Length: addrLen})
 						writeData(writeBuf, connID)
 						writeData(writeBuf, itemType{Type: connDataItem, Length: dataLen})
@@ -714,7 +718,7 @@ loop:
 					dataLen = uint16(binary.Size(resp))
 					addrLen = 0
 
-					if connID != 0 {
+					if cidok && connID != 0 {
 						dataLen += uint16(binary.Size(protSeqCount))
 						addrLen = uint16(binary.Size(connID))
 					}
@@ -722,7 +726,7 @@ loop:
 					encHead.Length = uint16(binary.Size(data)+2*binary.Size(itemType{})) + addrLen + dataLen
 					writeData(writeBuf, encHead)
 					writeData(writeBuf, data)
-					if connID != 0 {
+					if cidok && connID != 0 {
 						writeData(writeBuf, itemType{Type: connAddressItem, Length: addrLen})
 						writeData(writeBuf, connID)
 						writeData(writeBuf, itemType{Type: connDataItem, Length: dataLen})
@@ -771,7 +775,7 @@ loop:
 					dataLen = uint16(binary.Size(resp))
 					addrLen = 0
 
-					if connID != 0 {
+					if cidok && connID != 0 {
 						dataLen += uint16(binary.Size(protSeqCount))
 						addrLen = uint16(binary.Size(connID))
 					}
@@ -779,7 +783,7 @@ loop:
 					encHead.Length = uint16(binary.Size(data)+2*binary.Size(itemType{})) + addrLen + dataLen
 					writeData(writeBuf, encHead)
 					writeData(writeBuf, data)
-					if connID != 0 {
+					if cidok && connID != 0 {
 						writeData(writeBuf, itemType{Type: connAddressItem, Length: addrLen})
 						writeData(writeBuf, connID)
 						writeData(writeBuf, itemType{Type: connDataItem, Length: dataLen})
@@ -800,7 +804,7 @@ loop:
 					dataLen = uint16(binary.Size(resp))
 					addrLen = 0
 
-					if connID != 0 {
+					if cidok && connID != 0 {
 						dataLen += uint16(binary.Size(protSeqCount))
 						addrLen = uint16(binary.Size(connID))
 					}
@@ -808,7 +812,7 @@ loop:
 					encHead.Length = uint16(binary.Size(data)+2*binary.Size(itemType{})) + addrLen + dataLen
 					writeData(writeBuf, encHead)
 					writeData(writeBuf, data)
-					if connID != 0 {
+					if cidok && connID != 0 {
 						writeData(writeBuf, itemType{Type: connAddressItem, Length: addrLen})
 						writeData(writeBuf, connID)
 						writeData(writeBuf, itemType{Type: connDataItem, Length: dataLen})
