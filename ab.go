@@ -109,7 +109,6 @@ type forwardOpenData struct {
 	TOConnPar              uint16
 	TransportType          uint8
 	ConnPathSize           uint8
-	ConnPath               [6]uint8
 }
 
 type forwardCloseData struct {
@@ -119,7 +118,6 @@ type forwardCloseData struct {
 	OriginatorSerialNumber uint32
 	ConnPathSize           uint8
 	_                      uint8
-	ConnPath               [6]uint8
 }
 
 type forwardOpenResponse struct {
@@ -613,6 +611,11 @@ loop:
 				if err != nil {
 					break loop
 				}
+				connPath := make([]uint8, fodata.ConnPathSize*2)
+				err = readData(readBuf, &connPath)
+				if err != nil {
+					break loop
+				}
 
 				resp.Service = ForwardOpen | 128
 				resp.Status = 0
@@ -642,6 +645,11 @@ loop:
 					resp   forwardCloseResponse
 				)
 				err = readData(readBuf, &fcdata)
+				if err != nil {
+					break loop
+				}
+				connPath := make([]uint8, fcdata.ConnPathSize*2)
+				err = readData(readBuf, &connPath)
 				if err != nil {
 					break loop
 				}
