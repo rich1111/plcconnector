@@ -47,6 +47,8 @@ const (
 )
 
 const (
+	listServices      = 0x04
+	listInterfaces    = 0x64
 	registerSession   = 0x65
 	sendRRData        = 0x6f
 	sendUnitData      = 0x70
@@ -58,6 +60,11 @@ const (
 	connDataItem    = 0xb1
 
 	ansiExtended = 0x91
+
+	capabilityFlagsCipTCP          = 32
+	capabilityFlagsCipUDPClass0or1 = 256
+
+	cipItemIDListServiceResponse = 256
 )
 
 const (
@@ -76,6 +83,14 @@ type encapsulationHeader struct {
 type registerSessionData struct {
 	ProtocolVersion uint16
 	OptionFlags     uint16
+}
+
+type listServicesData struct {
+	TypeCode                     uint16
+	Length                       uint16
+	EncapsulationProtocolVersion uint16
+	CapabilityFlags              uint16
+	NameOfService                [16]int8
 }
 
 type sendData struct {
@@ -552,6 +567,38 @@ loop:
 			debug("UnregisterSession")
 			break loop
 
+		case listServices:
+			debug("ListServices")
+
+			var (
+				itemCount uint16
+				data      listServicesData
+			)
+
+			itemCount = 1
+
+			data.TypeCode = cipItemIDListServiceResponse
+			data.Length = uint16(binary.Size(data) - 4)
+			data.EncapsulationProtocolVersion = 1
+			data.CapabilityFlags = capabilityFlagsCipTCP
+			data.NameOfService = [16]int8{65, 66, 67, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+
+			encHead.Length = uint16(binary.Size(data) + binary.Size(itemCount))
+			writeData(writeBuf, encHead)
+			writeData(writeBuf, itemCount)
+			writeData(writeBuf, data)
+
+		case listInterfaces:
+			debug("ListInterfaces")
+
+			var itemCount uint16
+
+			itemCount = 0
+
+			encHead.Length = uint16(binary.Size(itemCount))
+			writeData(writeBuf, encHead)
+			writeData(writeBuf, itemCount)
+
 		case sendRRData, sendUnitData:
 			debug("SendRRData/SendUnitData")
 
@@ -873,7 +920,7 @@ loop:
 			}
 
 		default:
-			debug(encHead.Command)
+			debug("unknown command: ", encHead.Command)
 
 			data := make([]uint8, encHead.Length)
 			err = readData(readBuf, &data)
