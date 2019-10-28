@@ -15,6 +15,8 @@ import (
 	"math"
 	"math/rand"
 	"net"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -47,7 +49,9 @@ const (
 )
 
 const (
+	nop               = 0x00
 	listServices      = 0x04
+	listIdentity      = 0x63
 	listInterfaces    = 0x64
 	registerSession   = 0x65
 	sendRRData        = 0x6f
@@ -86,11 +90,24 @@ type registerSessionData struct {
 }
 
 type listServicesData struct {
-	TypeCode                     uint16
-	Length                       uint16
 	EncapsulationProtocolVersion uint16
 	CapabilityFlags              uint16
 	NameOfService                [16]int8
+}
+
+type listIdentityData struct {
+	EncapsulationProtocolVersion uint16
+	SocketFamily                 uint16
+	SocketPort                   uint16
+	SocketAddr                   uint32
+	SocketZero                   [8]uint8
+	VendorID                     uint16
+	DeviceType                   uint16
+	ProductCode                  uint16
+	Revision                     [2]uint8
+	Status                       uint16
+	SerialNumber                 uint32
+	ProductNameLength            uint8
 }
 
 type sendData struct {
@@ -189,6 +206,53 @@ type Tag struct {
 	Count int
 
 	data []uint8
+}
+
+func htons(v uint16) uint16 {
+	return binary.BigEndian.Uint16([]byte{byte(v >> 8), byte(v)})
+}
+
+func htonl(v uint32) uint32 {
+	return binary.BigEndian.Uint32([]byte{byte(v >> 24), byte(v >> 16), byte(v >> 8), byte(v)})
+}
+
+func getIP4() uint32 {
+	ifaces, err := net.Interfaces()
+	if err == nil {
+		for _, i := range ifaces {
+			addrs, err := i.Addrs()
+			if err == nil {
+				for _, addr := range addrs {
+					var ip net.IP
+					switch v := addr.(type) {
+					case *net.IPNet:
+						ip = v.IP
+					case *net.IPAddr:
+						ip = v.IP
+					}
+					if !ip.IsLoopback() {
+						ipstr := ip.String()
+						if !strings.Contains(ipstr, ":") {
+							return (uint32(ip[0]) << 24) | (uint32(ip[1]) << 16) | (uint32(ip[2]) << 8) | uint32(ip[3])
+						}
+					}
+				}
+			}
+		}
+	}
+	return 0
+}
+
+func getPort(host string) uint16 {
+	_, portstr, err := net.SplitHostPort(host)
+	if err != nil {
+		return 0
+	}
+	port, err := strconv.Atoi(portstr)
+	if err != nil {
+		return 0
+	}
+	return uint16(port)
 }
 
 // DataBytes returns array of bytes.
@@ -483,6 +547,7 @@ func Serve(host string) error {
 		fmt.Println("plcconnector Serve: ", err)
 		return err
 	}
+	port := getPort(host)
 	serv := serv2.(*net.TCPListener)
 	for {
 		serv.SetDeadline(time.Now().Add(time.Second))
@@ -498,7 +563,7 @@ func Serve(host string) error {
 			fmt.Println("plcconnector Serve: ", err)
 			return err
 		} else {
-			go handleRequest(conn)
+			go handleRequest(conn, port)
 		}
 	}
 	serv.Close()
@@ -517,7 +582,7 @@ func Close() {
 	closeWait.L.Unlock()
 }
 
-func handleRequest(conn net.Conn) {
+func handleRequest(conn net.Conn, port uint16) {
 	connID := uint32(0)
 
 	readBuf := bufio.NewReader(conn)
@@ -549,6 +614,16 @@ loop:
 		}
 
 		switch encHead.Command {
+		case nop:
+			debug("NOP")
+
+			data := make([]byte, encHead.Length)
+			err = readData(readBuf, &data)
+			if err != nil {
+				break loop
+			}
+			continue loop
+
 		case registerSession:
 			debug("RegisterSession")
 
@@ -567,33 +642,67 @@ loop:
 			debug("UnregisterSession")
 			break loop
 
+		case listIdentity:
+			debug("ListIdentity")
+
+			itemCount := uint16(1)
+			state := uint8(0)
+			productName := []byte{77, 111, 110, 103, 111, 108, 80, 76, 67}
+			var (
+				data listIdentityData
+				typ  itemType
+			)
+
+			data.EncapsulationProtocolVersion = 1
+			data.SocketFamily = htons(2)
+			data.SocketPort = htons(port)
+			data.SocketAddr = getIP4()
+			data.VendorID = 1
+			data.DeviceType = 0x0E // PLC
+			data.ProductCode = 1
+			data.Revision[0] = 1
+			data.Revision[1] = 0
+			data.Status = 0 // Owned
+			data.SerialNumber = 1
+			data.ProductNameLength = uint8(len(productName))
+
+			typ.Type = 0x0C
+			typ.Length = uint16(binary.Size(data) + len(productName) + binary.Size(state))
+
+			encHead.Length = uint16(binary.Size(itemCount) + binary.Size(typ) + int(typ.Length))
+			writeData(writeBuf, encHead)
+			writeData(writeBuf, itemCount)
+			writeData(writeBuf, typ)
+			writeData(writeBuf, data)
+			writeData(writeBuf, productName)
+			writeData(writeBuf, state)
+
 		case listServices:
 			debug("ListServices")
 
+			itemCount := uint16(1)
 			var (
-				itemCount uint16
-				data      listServicesData
+				data listServicesData
+				typ  itemType
 			)
 
-			itemCount = 1
+			typ.Type = cipItemIDListServiceResponse
+			typ.Length = uint16(binary.Size(data))
 
-			data.TypeCode = cipItemIDListServiceResponse
-			data.Length = uint16(binary.Size(data) - 4)
 			data.EncapsulationProtocolVersion = 1
 			data.CapabilityFlags = capabilityFlagsCipTCP
-			data.NameOfService = [16]int8{65, 66, 67, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+			data.NameOfService = [16]int8{67, 111, 110, 110, 101, 99, 116, 105, 111, 110, 115, 0, 0, 0, 0, 0} // Connections
 
-			encHead.Length = uint16(binary.Size(data) + binary.Size(itemCount))
+			encHead.Length = uint16(binary.Size(itemCount) + binary.Size(typ) + binary.Size(data))
 			writeData(writeBuf, encHead)
 			writeData(writeBuf, itemCount)
+			writeData(writeBuf, typ)
 			writeData(writeBuf, data)
 
 		case listInterfaces:
 			debug("ListInterfaces")
 
-			var itemCount uint16
-
-			itemCount = 0
+			itemCount := uint16(0)
 
 			encHead.Length = uint16(binary.Size(itemCount))
 			writeData(writeBuf, encHead)
@@ -920,13 +1029,14 @@ loop:
 			}
 
 		default:
-			debug("unknown command: ", encHead.Command)
+			debug("unknown command:", encHead.Command)
 
 			data := make([]uint8, encHead.Length)
 			err = readData(readBuf, &data)
 			if err != nil {
 				break loop
 			}
+			encHead.Status = 0x01
 
 			writeData(writeBuf, encHead)
 			writeData(writeBuf, data)
