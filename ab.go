@@ -24,6 +24,7 @@ import (
 
 // Service
 const (
+	GetAttrAll   = 0x01
 	Reset        = 0x05
 	ForwardOpen  = 0x54
 	ForwardClose = 0x4e
@@ -68,7 +69,7 @@ const (
 	capabilityFlagsCipTCP          = 32
 	capabilityFlagsCipUDPClass0or1 = 256
 
-	cipItemIDListServiceResponse = 256
+	cipItemIDListServiceResponse = 0x100
 )
 
 const (
@@ -90,24 +91,37 @@ type registerSessionData struct {
 }
 
 type listServicesData struct {
-	EncapsulationProtocolVersion uint16
-	CapabilityFlags              uint16
-	NameOfService                [16]int8
+	ProtocolVersion uint16
+	CapabilityFlags uint16
+	NameOfService   [16]int8
 }
 
 type listIdentityData struct {
-	EncapsulationProtocolVersion uint16
-	SocketFamily                 uint16
-	SocketPort                   uint16
-	SocketAddr                   uint32
-	SocketZero                   [8]uint8
-	VendorID                     uint16
-	DeviceType                   uint16
-	ProductCode                  uint16
-	Revision                     [2]uint8
-	Status                       uint16
-	SerialNumber                 uint32
-	ProductNameLength            uint8
+	ProtocolVersion   uint16
+	SocketFamily      uint16
+	SocketPort        uint16
+	SocketAddr        uint32
+	SocketZero        [8]uint8
+	VendorID          uint16
+	DeviceType        uint16
+	ProductCode       uint16
+	Revision          [2]uint8
+	Status            uint16
+	SerialNumber      uint32
+	ProductNameLength uint8
+}
+
+type identityRsp struct {
+	Service           uint8
+	_                 uint8
+	RspStatus         uint16
+	VendorID          uint16
+	DeviceType        uint16
+	ProductCode       uint16
+	Revision          [2]uint8
+	Status            uint16
+	SerialNumber      uint32
+	ProductNameLength uint8
 }
 
 type sendData struct {
@@ -186,9 +200,10 @@ type readTagResponse struct {
 }
 
 type response struct {
-	Service uint8
-	_       uint8
-	Status  uint16
+	Service       uint8
+	_             uint8
+	Status        uint16
+	AddStatusSize uint8 // FIXME: potrzebne?
 }
 
 type errorResponse struct {
@@ -613,6 +628,7 @@ loop:
 			break loop
 		}
 
+	command:
 		switch encHead.Command {
 		case nop:
 			debug("NOP")
@@ -653,7 +669,7 @@ loop:
 				typ  itemType
 			)
 
-			data.EncapsulationProtocolVersion = 1
+			data.ProtocolVersion = 1
 			data.SocketFamily = htons(2)
 			data.SocketPort = htons(port)
 			data.SocketAddr = getIP4()
@@ -689,9 +705,9 @@ loop:
 			typ.Type = cipItemIDListServiceResponse
 			typ.Length = uint16(binary.Size(data))
 
-			data.EncapsulationProtocolVersion = 1
+			data.ProtocolVersion = 1
 			data.CapabilityFlags = capabilityFlagsCipTCP
-			data.NameOfService = [16]int8{67, 111, 110, 110, 101, 99, 116, 105, 111, 110, 115, 0, 0, 0, 0, 0} // Connections
+			data.NameOfService = [16]int8{67, 111, 109, 109, 117, 110, 105, 99, 97, 116, 105, 111, 110, 115, 0, 0} // Communications
 
 			encHead.Length = uint16(binary.Size(itemCount) + binary.Size(typ) + binary.Size(data))
 			writeData(writeBuf, encHead)
@@ -726,30 +742,66 @@ loop:
 
 			data.Timeout = 0
 			cidok := false
+			itemserror := false
 
-			for i := uint16(0); i < data.ItemCount; i++ {
-				err = readData(readBuf, &item)
+			if data.ItemCount != 2 {
+				encHead.Length = 0
+				encHead.Status = 0x03 // Incorrect data
+				writeData(writeBuf, encHead)
+				break command
+			}
+
+			// address item
+			err = readData(readBuf, &item)
+			if err != nil {
+				break loop
+			}
+			if item.Type == connAddressItem { // TODO itemdata to connID
+				itemdata := make([]uint8, item.Length)
+				err = readData(readBuf, &itemdata)
 				if err != nil {
 					break loop
 				}
-				if item.Length > 0 && item.Type != unconnDataItem && item.Type != connDataItem {
-					itemdata := make([]uint8, item.Length)
-					err = readData(readBuf, &itemdata)
-					if err != nil {
-						break loop
-					}
-				}
-				if item.Type == connDataItem {
-					err = readData(readBuf, &protSeqCount)
-					if err != nil {
-						break loop
-					}
-				}
-				if item.Type == connDataItem || item.Type == connAddressItem {
-					cidok = true
+				cidok = true
+			} else if item.Type != nullAddressItem {
+				debug("unkown address item:", item.Type)
+				itemserror = true
+				itemdata := make([]uint8, item.Length)
+				err = readData(readBuf, &itemdata)
+				if err != nil {
+					break loop
 				}
 			}
 
+			// data item
+			err = readData(readBuf, &item)
+			if err != nil {
+				break loop
+			}
+			if item.Type == connDataItem {
+				err = readData(readBuf, &protSeqCount)
+				if err != nil {
+					break loop
+				}
+				cidok = true
+			} else if item.Type != unconnDataItem {
+				debug("unkown data item:", item.Type)
+				itemserror = true
+				itemdata := make([]uint8, item.Length)
+				err = readData(readBuf, &itemdata)
+				if err != nil {
+					break loop
+				}
+			}
+
+			if itemserror {
+				encHead.Length = 0
+				encHead.Status = 0x03 // Incorrect data
+				writeData(writeBuf, encHead)
+				break command
+			}
+
+			// CIP
 			err = readData(readBuf, &protd)
 			if err != nil {
 				break loop
@@ -762,6 +814,46 @@ loop:
 			}
 
 			switch protd.Service {
+			case GetAttrAll:
+				debug("GetAttributesAll")
+
+				switch protdPath[1] { // class
+				case 0x01: // Identity
+					debug("Identity")
+					var resp identityRsp
+					productName := []byte{77, 111, 110, 103, 111, 108, 80, 76, 67}
+
+					resp.Service = protd.Service + 128
+					resp.VendorID = 1
+					resp.DeviceType = 0x0E // PLC
+					resp.ProductCode = 1
+					resp.Revision[0] = 1
+					resp.Revision[1] = 0
+					resp.Status = 0 // Owned
+					resp.SerialNumber = 1
+					resp.ProductNameLength = uint8(len(productName))
+
+					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp) + len(productName))
+					writeData(writeBuf, encHead)
+					writeData(writeBuf, data)
+					writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
+					writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + len(productName))})
+					writeData(writeBuf, resp)
+					writeData(writeBuf, productName)
+				default:
+					var resp response
+
+					resp.Service = protd.Service + 128
+					resp.Status = 0x05 // Path destination unknown
+
+					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
+					writeData(writeBuf, encHead)
+					writeData(writeBuf, data)
+					writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
+					writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
+					writeData(writeBuf, resp)
+				}
+
 			case ForwardOpen:
 				debug("ForwardOpen")
 
@@ -1015,10 +1107,11 @@ loop:
 				writeData(writeBuf, resp)
 
 			default:
+				debug("unknown service:", protd.Service)
 				var resp response
 
 				resp.Service = protd.Service + 128
-				resp.Status = 0x01
+				resp.Status = 0x08 // Service not supported
 
 				encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
 				writeData(writeBuf, encHead)
