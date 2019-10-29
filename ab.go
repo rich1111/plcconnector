@@ -26,6 +26,7 @@ import (
 const (
 	GetAttrAll   = 0x01
 	Reset        = 0x05
+	GetAttr      = 0x0E
 	ForwardOpen  = 0x54
 	ForwardClose = 0x4e
 	ReadTag      = 0x4c
@@ -200,10 +201,9 @@ type readTagResponse struct {
 }
 
 type response struct {
-	Service       uint8
-	_             uint8
-	Status        uint16
-	AddStatusSize uint8 // FIXME: potrzebne?
+	Service uint8
+	_       uint8
+	Status  uint16
 }
 
 type errorResponse struct {
@@ -674,8 +674,8 @@ loop:
 			data.SocketPort = htons(port)
 			data.SocketAddr = getIP4()
 			data.VendorID = 1
-			data.DeviceType = 0x0E // PLC
-			data.ProductCode = 1
+			data.DeviceType = 0x0C // communications adapter
+			data.ProductCode = 65001
 			data.Revision[0] = 1
 			data.Revision[1] = 0
 			data.Status = 0 // Owned
@@ -825,8 +825,8 @@ loop:
 
 					resp.Service = protd.Service + 128
 					resp.VendorID = 1
-					resp.DeviceType = 0x0E // PLC
-					resp.ProductCode = 1
+					resp.DeviceType = 0x0C // communications adapter
+					resp.ProductCode = 65001
 					resp.Revision[0] = 1
 					resp.Revision[1] = 0
 					resp.Status = 0 // Owned
@@ -853,6 +853,19 @@ loop:
 					writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
 					writeData(writeBuf, resp)
 				}
+
+			case GetAttr:
+				var resp response
+
+				resp.Service = protd.Service + 128
+				resp.Status = 0x05 // Path destination unknown
+
+				encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
+				writeData(writeBuf, encHead)
+				writeData(writeBuf, data)
+				writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
+				writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
+				writeData(writeBuf, resp)
 
 			case ForwardOpen:
 				debug("ForwardOpen")
