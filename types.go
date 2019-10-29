@@ -13,18 +13,19 @@ const (
 
 // Data types
 const (
-	TypeBOOL  = 0xc1 // 1 byte
-	TypeSINT  = 0xc2 // 1 byte
-	TypeINT   = 0xc3 // 2 bytes
-	TypeDINT  = 0xc4 // 4 bytes
-	TypeREAL  = 0xca // 4 bytes
-	TypeDWORD = 0xd3 // 4 bytes
-	TypeLINT  = 0xc5 // 8 bytes
+	TypeBOOL  = 0xC1 // 1 byte
+	TypeSINT  = 0xC2 // 1 byte
+	TypeINT   = 0xC3 // 2 bytes
+	TypeDINT  = 0xC4 // 4 bytes
+	TypeREAL  = 0xCA // 4 bytes
+	TypeDWORD = 0xD3 // 4 bytes
+	TypeLINT  = 0xC5 // 8 bytes
 
-	TypeUINT  = 0x01
-	TypeUDINT = 0x02
+	TypeUINT  = 0xC7
+	TypeUDINT = 0xC8
 
-	TypeShortString = 0x03
+	TypeShortString = 0xDA
+	TypeStringI     = 0x04
 )
 
 // Status codes

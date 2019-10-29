@@ -3,6 +3,7 @@ package plcconnector
 import (
 	"bytes"
 	"encoding/binary"
+	"strconv"
 )
 
 // Class .
@@ -48,8 +49,18 @@ func AttrUDINT(v uint32, n string) Attribute {
 func AttrShortString(v string, n string) Attribute {
 	var a Attribute
 	a.Name = n
-	a.Type = TypeUDINT
+	a.Type = TypeShortString
 	a.data = []byte{byte(len(v))}
+	a.data = append(a.data, []byte(v)...)
+	return a
+}
+
+// AttrStringI .
+func AttrStringI(v string, n string) Attribute {
+	var a Attribute
+	a.Name = n
+	a.Type = TypeStringI
+	a.data = []byte{1, 'e', 'n', 'g', 0xDA, 4, 0, byte(len(v))}
 	a.data = append(a.data, []byte(v)...)
 	return a
 }
@@ -65,9 +76,9 @@ func (in Instance) getAttrAll() ([]byte, int) {
 // NewInstance .
 func NewInstance(noattr int) Instance {
 	var i Instance
-	i.Attr = make([]Attribute, noattr)
+	i.Attr = make([]Attribute, noattr+1)
 	for a := range i.Attr {
-		i.Attr[a] = AttrUINT(0, "")
+		i.Attr[a] = AttrUINT(0, "attr_"+strconv.Itoa(a))
 	}
 	return i
 }

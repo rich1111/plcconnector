@@ -67,8 +67,13 @@ func main() {
 	c := plc.Init(true)
 
 	c.Class[1].Inst[1].Attr[7] = plc.AttrShortString("MongolPLC", "ProductName")
+
 	c.Class[0xF4] = plc.NewClass("Port", 9)
 	c.Class[0xF4].Inst[0].Attr[8] = plc.AttrUINT(0, "EntryPort")
+
+	c.Class[0x37] = plc.NewClass("File", 32)
+	c.Class[0x37].Inst[0xC8] = plc.NewInstance(11) // EDS
+	c.Class[0x37].Inst[0xC8].Attr[4] = plc.AttrStringI("EDS.gz", "FileName")
 
 	// nie wyświetlaj dodatkowych informacji
 	c.Verbose = true
