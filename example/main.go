@@ -67,6 +67,8 @@ func main() {
 	c := plc.Init(true)
 
 	c.Class[1].Inst[1].Attr[7] = plc.AttrShortString("MongolPLC", "ProductName")
+	c.Class[0xF4] = plc.NewClass("Port", 9)
+	c.Class[0xF4].Inst[0].Attr[8] = plc.AttrUINT(0, "EntryPort")
 
 	// nie wyświetlaj dodatkowych informacji
 	c.Verbose = true

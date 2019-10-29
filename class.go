@@ -56,10 +56,29 @@ func AttrShortString(v string, n string) Attribute {
 
 func (in Instance) getAttrAll() ([]byte, int) {
 	var buf bytes.Buffer
-	for _, a := range in.Attr {
-		buf.Write(a.data)
+	for a := 1; a < len(in.Attr); a++ {
+		buf.Write(in.Attr[a].data)
 	}
 	return buf.Bytes(), buf.Len()
+}
+
+// NewInstance .
+func NewInstance(noattr int) Instance {
+	var i Instance
+	i.Attr = make([]Attribute, noattr)
+	for a := range i.Attr {
+		i.Attr[a] = AttrUINT(0, "")
+	}
+	return i
+}
+
+// NewClass .
+func NewClass(n string, attrs int) Class {
+	var c Class
+	c.Name = n
+	c.Inst = make(map[int]Instance)
+	c.Inst[0] = NewInstance(attrs)
+	return c
 }
 
 func defaultIdentityClass() Class {

@@ -478,7 +478,7 @@ loop:
 				resp.Service = protd.Service + 128
 
 				if cok && iok {
-					p.debug(c.Name)
+					p.debug(c.Name, protdPath[3])
 
 					attrdata, attrlen := in.getAttrAll()
 
@@ -523,7 +523,7 @@ loop:
 				resp.Service = protd.Service + 128
 
 				if cok && iok && aok {
-
+					p.debug(c.Name, protdPath[3], at.Name)
 					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp) + len(at.data))
 					p.writeData(writeBuf, encHead)
 					p.writeData(writeBuf, data)
