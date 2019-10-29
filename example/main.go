@@ -64,18 +64,18 @@ func main() {
 	}()
 
 	// inicjalizacja
-	plc.Init()
+	c := plc.Init()
 
 	// nie wyświetlaj dodatkowych informacji
-	plc.SetVerbose(true)
-	plc.SetDumpPackets(false)
+	c.Verbose = true
+	c.DumpNetwork = false
 
 	// callback
-	plc.Callback(call)
+	c.Callback(call)
 
 	// strona WWW
-	go plc.ServeHTTP("0.0.0.0:28080")
+	go c.ServeHTTP("0.0.0.0:28080")
 
 	// serwer
-	plc.Serve("0.0.0.0:44818")
+	c.Serve("0.0.0.0:44818")
 }

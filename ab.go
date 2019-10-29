@@ -223,6 +223,21 @@ type Tag struct {
 	data []uint8
 }
 
+// PLC .
+type PLC struct {
+	callback  func(service int, statut int, tag *Tag)
+	closeI    bool
+	closeMut  sync.RWMutex
+	closeWMut sync.Mutex
+	closeWait *sync.Cond
+	port      uint16
+	tMut      sync.RWMutex
+	tags      map[string]*Tag
+
+	Verbose     bool // enables debugging output
+	DumpNetwork bool // enables dumping network packets
+}
+
 func htons(v uint16) uint16 {
 	return binary.BigEndian.Uint16([]byte{byte(v >> 8), byte(v)})
 }
@@ -356,13 +371,6 @@ func (t *Tag) DataLINT() []int64 {
 	return ret
 }
 
-var (
-	tags    map[string]*Tag
-	tMut    sync.RWMutex
-	dumpon  = false
-	verbose = false
-)
-
 func typeLen(t uint16) uint16 {
 	switch t {
 	case TypeBOOL:
@@ -383,39 +391,39 @@ func typeLen(t uint16) uint16 {
 	return 1
 }
 
-func debug(args ...interface{}) {
-	if verbose {
+func (p *PLC) debug(args ...interface{}) {
+	if p.Verbose {
 		fmt.Println(args...)
 	}
 }
 
-func readData(r io.Reader, data interface{}) error {
+func (p *PLC) readData(r io.Reader, data interface{}) error {
 	err := binary.Read(r, binary.LittleEndian, data)
 	if err != nil {
 		fmt.Println(err)
 	}
-	if dumpon {
+	if p.DumpNetwork {
 		fmt.Printf("%#v\n", data)
 	}
 	return err
 }
 
-func writeData(w io.Writer, data interface{}) {
+func (p *PLC) writeData(w io.Writer, data interface{}) {
 	err := binary.Write(w, binary.LittleEndian, data)
 	if err != nil {
 		fmt.Println(err)
 	}
 }
 
-func readTag(tag string, count uint16) ([]uint8, uint16, bool) {
-	tMut.RLock()
-	tg, ok := tags[tag]
+func (p *PLC) readTag(tag string, count uint16) ([]uint8, uint16, bool) {
+	p.tMut.RLock()
+	tg, ok := p.tags[tag]
 	var (
 		tgtyp  uint16
 		tgdata []uint8
 	)
 	if ok {
-		debug(tag+":", tg)
+		p.debug(tag+":", tg)
 		tgtyp = uint16(tg.Typ)
 		tgdata = make([]uint8, count*typeLen(tgtyp))
 		if count > uint16(tg.Count) {
@@ -424,84 +432,87 @@ func readTag(tag string, count uint16) ([]uint8, uint16, bool) {
 			copy(tgdata, tg.data)
 		}
 	}
-	tMut.RUnlock()
+	p.tMut.RUnlock()
 	if ok {
-		if callback != nil {
-			go callback(ReadTag, Success, &Tag{Name: tag, Typ: int(tgtyp), Count: int(count), data: tgdata})
+		if p.callback != nil {
+			go p.callback(ReadTag, Success, &Tag{Name: tag, Typ: int(tgtyp), Count: int(count), data: tgdata})
 		}
 		return tgdata, tgtyp, true
 	}
-	if callback != nil {
-		go callback(ReadTag, PathSegmentError, nil)
+	if p.callback != nil {
+		go p.callback(ReadTag, PathSegmentError, nil)
 	}
 	return nil, 0, false
 }
 
-func saveTag(tag string, typ, count uint16, data []uint8) bool {
-	tMut.Lock()
-	tg, ok := tags[tag]
+func (p *PLC) saveTag(tag string, typ, count uint16, data []uint8) bool {
+	p.tMut.Lock()
+	tg, ok := p.tags[tag]
 	if ok && tg.Typ == int(typ) && tg.Count >= int(count) {
 		copy(tg.data, data)
 	} else {
-		tags[tag] = &Tag{Name: tag, Typ: int(typ), Count: int(count), data: data}
+		p.tags[tag] = &Tag{Name: tag, Typ: int(typ), Count: int(count), data: data}
 	}
-	tMut.Unlock()
-	if callback != nil {
-		go callback(WriteTag, Success, &Tag{Name: tag, Typ: int(typ), Count: int(count), data: data})
+	p.tMut.Unlock()
+	if p.callback != nil {
+		go p.callback(WriteTag, Success, &Tag{Name: tag, Typ: int(typ), Count: int(count), data: data})
 	}
 	return true
 }
 
 // Init initialize library. Must be called first.
-func Init() {
-	tags = make(map[string]*Tag)
+func Init() *PLC {
+	var p PLC
+	p.tags = make(map[string]*Tag)
 
-	tags["testBOOL"] = &Tag{Name: "testBOOL", Typ: TypeBOOL, Count: 4, data: []uint8{
+	p.tags["testBOOL"] = &Tag{Name: "testBOOL", Typ: TypeBOOL, Count: 4, data: []uint8{
 		0x00, 0x01, 0xFF, 0x55}}
 
-	tags["testSINT"] = &Tag{Name: "testSINT", Typ: TypeSINT, Count: 4, data: []uint8{
+	p.tags["testSINT"] = &Tag{Name: "testSINT", Typ: TypeSINT, Count: 4, data: []uint8{
 		0xFF, 0xFE, 0x00, 0x01}}
 
-	tags["testINT"] = &Tag{Name: "testINT", Typ: TypeINT, Count: 10, data: []uint8{
+	p.tags["testINT"] = &Tag{Name: "testINT", Typ: TypeINT, Count: 10, data: []uint8{
 		0xFF, 0xFF, 0x00, 0x01, 0xFE, 0x00, 0xFC, 0x00, 0xCA, 0x00, 0xBD, 0x00, 0xB1, 0x00, 0xFF, 0x00, 127, 0x00, 128, 0x00}}
 
-	tags["testDINT"] = &Tag{Name: "testDINT", Typ: TypeDINT, Count: 2, data: []uint8{
+	p.tags["testDINT"] = &Tag{Name: "testDINT", Typ: TypeDINT, Count: 2, data: []uint8{
 		0xFF, 0xFF, 0xFF, 0xFF,
 		0x01, 0x00, 0x00, 0x00}}
 
-	tags["testREAL"] = &Tag{Name: "testREAL", Typ: TypeREAL, Count: 2, data: []uint8{
+	p.tags["testREAL"] = &Tag{Name: "testREAL", Typ: TypeREAL, Count: 2, data: []uint8{
 		0xa4, 0x70, 0x9d, 0x3f,
 		0xcd, 0xcc, 0x44, 0xc1}}
 
-	tags["testDWORD"] = &Tag{Name: "testDWORD", Typ: TypeDWORD, Count: 2, data: []uint8{
+	p.tags["testDWORD"] = &Tag{Name: "testDWORD", Typ: TypeDWORD, Count: 2, data: []uint8{
 		0xFF, 0xFF, 0xFF, 0xFF,
 		0x01, 0x00, 0x00, 0x00}}
 
-	tags["testLINT"] = &Tag{Name: "testLINT", Typ: TypeLINT, Count: 2, data: []uint8{
+	p.tags["testLINT"] = &Tag{Name: "testLINT", Typ: TypeLINT, Count: 2, data: []uint8{
 		0xFF, 0xFF, 0xFF, 0xFF,
 		0xFF, 0xFF, 0xFF, 0xFF,
 		0x01, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00}}
 
-	tags["testASCII"] = &Tag{Name: "testASCII", Typ: TypeSINT, Count: 17, data: []uint8{
+	p.tags["testASCII"] = &Tag{Name: "testASCII", Typ: TypeSINT, Count: 17, data: []uint8{
 		'H', 'e', 'l', 'l',
 		'o', '!', 0x00, 0x01, 0x7F, 0xFE, 0xFC, 0xCA, 0xBD, 0xB1, 0xFF, 127, 128}}
+
+	return &p
 }
 
 // AddTag adds tag.
-func AddTag(t Tag) {
+func (p *PLC) AddTag(t Tag) {
 	size := typeLen(uint16(t.Typ)) * uint16(t.Count)
 	t.data = make([]uint8, size)
-	tMut.Lock()
-	tags[t.Name] = &t
-	tMut.Unlock()
+	p.tMut.Lock()
+	p.tags[t.Name] = &t
+	p.tMut.Unlock()
 }
 
 // UpdateTag sets data to the tag
-func UpdateTag(name string, offset int, data []uint8) bool {
-	tMut.Lock()
-	defer tMut.Unlock()
-	t, ok := tags[name]
+func (p *PLC) UpdateTag(name string, offset int, data []uint8) bool {
+	p.tMut.Lock()
+	defer p.tMut.Unlock()
+	t, ok := p.tags[name]
 	if !ok {
 		fmt.Println("plcconnector UpdateTag: no tag named ", name)
 		return false
@@ -518,40 +529,21 @@ func UpdateTag(name string, offset int, data []uint8) bool {
 	return true
 }
 
-var callback func(service int, statut int, tag *Tag)
-
 // Callback registers function called at receiving communication with PLC.
 // tag may be nil in event of error or reset.
-func Callback(function func(service int, status int, tag *Tag)) {
-	callback = function
+func (p *PLC) Callback(function func(service int, status int, tag *Tag)) {
+	p.callback = function
 }
-
-// SetVerbose enables debugging output.
-func SetVerbose(on bool) {
-	verbose = on
-}
-
-// SetDumpPackets enables network packets dumping
-func SetDumpPackets(on bool) {
-	dumpon = on
-}
-
-var (
-	closeWait *sync.Cond
-	closeWMut sync.Mutex
-	closeMut  sync.RWMutex
-	closeI    bool
-)
 
 // Serve listens on the TCP network address host.
-func Serve(host string) error {
+func (p *PLC) Serve(host string) error {
 	rand.Seed(time.Now().UnixNano())
 
-	closeMut.Lock()
-	closeI = false
-	closeMut.Unlock()
+	p.closeMut.Lock()
+	p.closeI = false
+	p.closeMut.Unlock()
 
-	closeWait = sync.NewCond(&closeWMut)
+	p.closeWait = sync.NewCond(&p.closeWMut)
 
 	sock := net.ListenConfig{}
 	sock.Control = func(network, address string, c syscall.RawConn) error {
@@ -568,15 +560,15 @@ func Serve(host string) error {
 		fmt.Println("plcconnector Serve: ", err)
 		return err
 	}
-	port := getPort(host)
+	p.port = getPort(host)
 	serv := serv2.(*net.TCPListener)
 	for {
 		serv.SetDeadline(time.Now().Add(time.Second))
 		conn, err := serv.AcceptTCP()
 		if e, ok := err.(net.Error); ok && e.Timeout() {
-			closeMut.RLock()
-			endP := closeI
-			closeMut.RUnlock()
+			p.closeMut.RLock()
+			endP := p.closeI
+			p.closeMut.RUnlock()
 			if endP {
 				break
 			}
@@ -584,26 +576,26 @@ func Serve(host string) error {
 			fmt.Println("plcconnector Serve: ", err)
 			return err
 		} else {
-			go handleRequest(conn, port)
+			go p.handleRequest(conn)
 		}
 	}
 	serv.Close()
-	debug("Serve shutdown")
-	closeWait.Signal()
+	p.debug("Serve shutdown")
+	p.closeWait.Signal()
 	return nil
 }
 
 // Close shutdowns server
-func Close() {
-	closeMut.Lock()
-	closeI = true
-	closeMut.Unlock()
-	closeWait.L.Lock()
-	closeWait.Wait()
-	closeWait.L.Unlock()
+func (p *PLC) Close() {
+	p.closeMut.Lock()
+	p.closeI = true
+	p.closeMut.Unlock()
+	p.closeWait.L.Lock()
+	p.closeWait.Wait()
+	p.closeWait.L.Unlock()
 }
 
-func handleRequest(conn net.Conn, port uint16) {
+func (p *PLC) handleRequest(conn net.Conn) {
 	connID := uint32(0)
 
 	readBuf := bufio.NewReader(conn)
@@ -614,9 +606,9 @@ loop:
 		readBuf.Reset(conn)
 		writeBuf.Reset()
 
-		closeMut.RLock()
-		endP := closeI
-		closeMut.RUnlock()
+		p.closeMut.RLock()
+		endP := p.closeI
+		p.closeMut.RUnlock()
 		if endP {
 			break loop
 		}
@@ -627,9 +619,9 @@ loop:
 			break loop
 		}
 
-		debug()
+		p.debug()
 		var encHead encapsulationHeader
-		err = readData(readBuf, &encHead)
+		err = p.readData(readBuf, &encHead)
 		if err != nil {
 			break loop
 		}
@@ -637,35 +629,35 @@ loop:
 	command:
 		switch encHead.Command {
 		case nop:
-			debug("NOP")
+			p.debug("NOP")
 
 			data := make([]byte, encHead.Length)
-			err = readData(readBuf, &data)
+			err = p.readData(readBuf, &data)
 			if err != nil {
 				break loop
 			}
 			continue loop
 
 		case registerSession:
-			debug("RegisterSession")
+			p.debug("RegisterSession")
 
 			var data registerSessionData
-			err = readData(readBuf, &data)
+			err = p.readData(readBuf, &data)
 			if err != nil {
 				break loop
 			}
 
 			encHead.SessionHandle = rand.Uint32()
 
-			writeData(writeBuf, encHead)
-			writeData(writeBuf, data)
+			p.writeData(writeBuf, encHead)
+			p.writeData(writeBuf, data)
 
 		case unregisterSession:
-			debug("UnregisterSession")
+			p.debug("UnregisterSession")
 			break loop
 
 		case listIdentity:
-			debug("ListIdentity")
+			p.debug("ListIdentity")
 
 			itemCount := uint16(1)
 			state := uint8(0)
@@ -677,7 +669,7 @@ loop:
 
 			data.ProtocolVersion = 1
 			data.SocketFamily = htons(2)
-			data.SocketPort = htons(port)
+			data.SocketPort = htons(p.port)
 			data.SocketAddr = getIP4()
 			data.VendorID = 1
 			data.DeviceType = 0x0C // communications adapter
@@ -692,15 +684,15 @@ loop:
 			typ.Length = uint16(binary.Size(data) + len(productName) + binary.Size(state))
 
 			encHead.Length = uint16(binary.Size(itemCount) + binary.Size(typ) + int(typ.Length))
-			writeData(writeBuf, encHead)
-			writeData(writeBuf, itemCount)
-			writeData(writeBuf, typ)
-			writeData(writeBuf, data)
-			writeData(writeBuf, productName)
-			writeData(writeBuf, state)
+			p.writeData(writeBuf, encHead)
+			p.writeData(writeBuf, itemCount)
+			p.writeData(writeBuf, typ)
+			p.writeData(writeBuf, data)
+			p.writeData(writeBuf, productName)
+			p.writeData(writeBuf, state)
 
 		case listServices:
-			debug("ListServices")
+			p.debug("ListServices")
 
 			itemCount := uint16(1)
 			var (
@@ -716,22 +708,22 @@ loop:
 			data.NameOfService = [16]int8{67, 111, 109, 109, 117, 110, 105, 99, 97, 116, 105, 111, 110, 115, 0, 0} // Communications
 
 			encHead.Length = uint16(binary.Size(itemCount) + binary.Size(typ) + binary.Size(data))
-			writeData(writeBuf, encHead)
-			writeData(writeBuf, itemCount)
-			writeData(writeBuf, typ)
-			writeData(writeBuf, data)
+			p.writeData(writeBuf, encHead)
+			p.writeData(writeBuf, itemCount)
+			p.writeData(writeBuf, typ)
+			p.writeData(writeBuf, data)
 
 		case listInterfaces:
-			debug("ListInterfaces")
+			p.debug("ListInterfaces")
 
 			itemCount := uint16(0)
 
 			encHead.Length = uint16(binary.Size(itemCount))
-			writeData(writeBuf, encHead)
-			writeData(writeBuf, itemCount)
+			p.writeData(writeBuf, encHead)
+			p.writeData(writeBuf, itemCount)
 
 		case sendRRData, sendUnitData:
-			debug("SendRRData/SendUnitData")
+			p.debug("SendRRData/SendUnitData")
 
 			var (
 				data         sendData
@@ -741,7 +733,7 @@ loop:
 				protd        protocolData
 				protSeqCount uint16
 			)
-			err = readData(readBuf, &data)
+			err = p.readData(readBuf, &data)
 			if err != nil {
 				break loop
 			}
@@ -751,51 +743,51 @@ loop:
 			itemserror := false
 
 			if data.ItemCount != 2 {
-				debug("itemCount != 2")
+				p.debug("itemCount != 2")
 				encHead.Length = 0
 				encHead.Status = 0x03 // Incorrect data
-				writeData(writeBuf, encHead)
+				p.writeData(writeBuf, encHead)
 				break command
 			}
 
 			// address item
-			err = readData(readBuf, &item)
+			err = p.readData(readBuf, &item)
 			if err != nil {
 				break loop
 			}
 			if item.Type == connAddressItem { // TODO itemdata to connID
 				itemdata := make([]uint8, item.Length)
-				err = readData(readBuf, &itemdata)
+				err = p.readData(readBuf, &itemdata)
 				if err != nil {
 					break loop
 				}
 				cidok = true
 			} else if item.Type != nullAddressItem {
-				debug("unkown address item:", item.Type)
+				p.debug("unkown address item:", item.Type)
 				itemserror = true
 				itemdata := make([]uint8, item.Length)
-				err = readData(readBuf, &itemdata)
+				err = p.readData(readBuf, &itemdata)
 				if err != nil {
 					break loop
 				}
 			}
 
 			// data item
-			err = readData(readBuf, &item)
+			err = p.readData(readBuf, &item)
 			if err != nil {
 				break loop
 			}
 			if item.Type == connDataItem {
-				err = readData(readBuf, &protSeqCount)
+				err = p.readData(readBuf, &protSeqCount)
 				if err != nil {
 					break loop
 				}
 				cidok = true
 			} else if item.Type != unconnDataItem {
-				debug("unkown data item:", item.Type)
+				p.debug("unkown data item:", item.Type)
 				itemserror = true
 				itemdata := make([]uint8, item.Length)
-				err = readData(readBuf, &itemdata)
+				err = p.readData(readBuf, &itemdata)
 				if err != nil {
 					break loop
 				}
@@ -804,29 +796,29 @@ loop:
 			if itemserror {
 				encHead.Length = 0
 				encHead.Status = 0x03 // Incorrect data
-				writeData(writeBuf, encHead)
+				p.writeData(writeBuf, encHead)
 				break command
 			}
 
 			// CIP
-			err = readData(readBuf, &protd)
+			err = p.readData(readBuf, &protd)
 			if err != nil {
 				break loop
 			}
 
 			protdPath := make([]uint8, protd.PathSize*2)
-			err = readData(readBuf, &protdPath)
+			err = p.readData(readBuf, &protdPath)
 			if err != nil {
 				break loop
 			}
 
 			switch protd.Service {
 			case GetAttrAll:
-				debug("GetAttributesAll")
+				p.debug("GetAttributesAll")
 
 				switch protdPath[1] { // class
 				case 0x01: // Identity
-					debug("Identity")
+					p.debug("Identity")
 					var resp identityRsp
 					productName := []byte{77, 111, 110, 103, 111, 108, 80, 76, 67}
 
@@ -841,14 +833,14 @@ loop:
 					resp.ProductNameLength = uint8(len(productName))
 
 					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp) + len(productName))
-					writeData(writeBuf, encHead)
-					writeData(writeBuf, data)
-					writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
-					writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + len(productName))})
-					writeData(writeBuf, resp)
-					writeData(writeBuf, productName)
+					p.writeData(writeBuf, encHead)
+					p.writeData(writeBuf, data)
+					p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
+					p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + len(productName))})
+					p.writeData(writeBuf, resp)
+					p.writeData(writeBuf, productName)
 				default:
-					debug("path unknown", protdPath)
+					p.debug("path unknown", protdPath)
 
 					var resp response
 
@@ -856,16 +848,16 @@ loop:
 					resp.Status = 0x05 // Path destination unknown
 
 					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
-					writeData(writeBuf, encHead)
-					writeData(writeBuf, data)
-					writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
-					writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
-					writeData(writeBuf, resp)
+					p.writeData(writeBuf, encHead)
+					p.writeData(writeBuf, data)
+					p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
+					p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
+					p.writeData(writeBuf, resp)
 				}
 
 			case GetAttr:
-				debug("GetAttributesSingle")
-				debug("path unknown", protdPath)
+				p.debug("GetAttributesSingle")
+				p.debug("path unknown", protdPath)
 
 				var resp response
 
@@ -873,25 +865,25 @@ loop:
 				resp.Status = 0x05 // Path destination unknown
 
 				encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
-				writeData(writeBuf, encHead)
-				writeData(writeBuf, data)
-				writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
-				writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
-				writeData(writeBuf, resp)
+				p.writeData(writeBuf, encHead)
+				p.writeData(writeBuf, data)
+				p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
+				p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
+				p.writeData(writeBuf, resp)
 
 			case ForwardOpen:
-				debug("ForwardOpen")
+				p.debug("ForwardOpen")
 
 				var (
 					fodata forwardOpenData
 					resp   forwardOpenResponse
 				)
-				err = readData(readBuf, &fodata)
+				err = p.readData(readBuf, &fodata)
 				if err != nil {
 					break loop
 				}
 				connPath := make([]uint8, fodata.ConnPathSize*2)
-				err = readData(readBuf, &connPath)
+				err = p.readData(readBuf, &connPath)
 				if err != nil {
 					break loop
 				}
@@ -910,25 +902,25 @@ loop:
 				connID = fodata.TOConnectionID
 
 				encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
-				writeData(writeBuf, encHead)
-				writeData(writeBuf, data)
-				writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
-				writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
-				writeData(writeBuf, resp)
+				p.writeData(writeBuf, encHead)
+				p.writeData(writeBuf, data)
+				p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
+				p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
+				p.writeData(writeBuf, resp)
 
 			case ForwardClose:
-				debug("ForwardClose")
+				p.debug("ForwardClose")
 
 				var (
 					fcdata forwardCloseData
 					resp   forwardCloseResponse
 				)
-				err = readData(readBuf, &fcdata)
+				err = p.readData(readBuf, &fcdata)
 				if err != nil {
 					break loop
 				}
 				connPath := make([]uint8, fcdata.ConnPathSize*2)
-				err = readData(readBuf, &connPath)
+				err = p.readData(readBuf, &connPath)
 				if err != nil {
 					break loop
 				}
@@ -943,14 +935,14 @@ loop:
 				connID = 0
 
 				encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
-				writeData(writeBuf, encHead)
-				writeData(writeBuf, data)
-				writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
-				writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
-				writeData(writeBuf, resp)
+				p.writeData(writeBuf, encHead)
+				p.writeData(writeBuf, data)
+				p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
+				p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
+				p.writeData(writeBuf, resp)
 
 			case ReadTag:
-				debug("ReadTag")
+				p.debug("ReadTag")
 
 				var (
 					tagName  string
@@ -960,13 +952,13 @@ loop:
 				if protd.PathSize > 0 && protdPath[0] == ansiExtended {
 					tagName = string(protdPath[2 : protdPath[1]+2])
 				}
-				err = readData(readBuf, &tagCount)
+				err = p.readData(readBuf, &tagCount)
 				if err != nil {
 					break loop
 				}
-				debug(tagName, tagCount)
+				p.debug(tagName, tagCount)
 
-				if rtData, rtType, ok := readTag(tagName, tagCount); ok {
+				if rtData, rtType, ok := p.readTag(tagName, tagCount); ok {
 					var resp readTagResponse
 
 					resp.Service = ReadTag | 128
@@ -982,19 +974,19 @@ loop:
 					}
 
 					encHead.Length = uint16(binary.Size(data)+2*binary.Size(itemType{})) + addrLen + dataLen
-					writeData(writeBuf, encHead)
-					writeData(writeBuf, data)
+					p.writeData(writeBuf, encHead)
+					p.writeData(writeBuf, data)
 					if cidok && connID != 0 {
-						writeData(writeBuf, itemType{Type: connAddressItem, Length: addrLen})
-						writeData(writeBuf, connID)
-						writeData(writeBuf, itemType{Type: connDataItem, Length: dataLen})
-						writeData(writeBuf, protSeqCount)
+						p.writeData(writeBuf, itemType{Type: connAddressItem, Length: addrLen})
+						p.writeData(writeBuf, connID)
+						p.writeData(writeBuf, itemType{Type: connDataItem, Length: dataLen})
+						p.writeData(writeBuf, protSeqCount)
 					} else {
-						writeData(writeBuf, itemType{Type: nullAddressItem, Length: addrLen})
-						writeData(writeBuf, itemType{Type: unconnDataItem, Length: dataLen})
+						p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: addrLen})
+						p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: dataLen})
 					}
-					writeData(writeBuf, resp)
-					writeData(writeBuf, rtData)
+					p.writeData(writeBuf, resp)
+					p.writeData(writeBuf, rtData)
 
 				} else {
 					var resp errorResponse
@@ -1013,22 +1005,22 @@ loop:
 					}
 
 					encHead.Length = uint16(binary.Size(data)+2*binary.Size(itemType{})) + addrLen + dataLen
-					writeData(writeBuf, encHead)
-					writeData(writeBuf, data)
+					p.writeData(writeBuf, encHead)
+					p.writeData(writeBuf, data)
 					if cidok && connID != 0 {
-						writeData(writeBuf, itemType{Type: connAddressItem, Length: addrLen})
-						writeData(writeBuf, connID)
-						writeData(writeBuf, itemType{Type: connDataItem, Length: dataLen})
-						writeData(writeBuf, protSeqCount)
+						p.writeData(writeBuf, itemType{Type: connAddressItem, Length: addrLen})
+						p.writeData(writeBuf, connID)
+						p.writeData(writeBuf, itemType{Type: connDataItem, Length: dataLen})
+						p.writeData(writeBuf, protSeqCount)
 					} else {
-						writeData(writeBuf, itemType{Type: nullAddressItem, Length: addrLen})
-						writeData(writeBuf, itemType{Type: unconnDataItem, Length: dataLen})
+						p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: addrLen})
+						p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: dataLen})
 					}
-					writeData(writeBuf, resp)
+					p.writeData(writeBuf, resp)
 				}
 
 			case WriteTag:
-				debug("WriteTag")
+				p.debug("WriteTag")
 
 				var (
 					tagName  string
@@ -1039,23 +1031,23 @@ loop:
 				if protd.PathSize > 0 && protdPath[0] == ansiExtended {
 					tagName = string(protdPath[2 : protdPath[1]+2])
 				}
-				err = readData(readBuf, &tagType)
+				err = p.readData(readBuf, &tagType)
 				if err != nil {
 					break loop
 				}
-				err = readData(readBuf, &tagCount)
+				err = p.readData(readBuf, &tagCount)
 				if err != nil {
 					break loop
 				}
-				debug(tagName, tagType, tagCount)
+				p.debug(tagName, tagType, tagCount)
 
 				wrData := make([]uint8, typeLen(tagType)*tagCount)
-				err = readData(readBuf, wrData)
+				err = p.readData(readBuf, wrData)
 				if err != nil {
 					break loop
 				}
 
-				if saveTag(tagName, tagType, tagCount, wrData) {
+				if p.saveTag(tagName, tagType, tagCount, wrData) {
 					var resp response
 
 					resp.Service = WriteTag | 128
@@ -1070,18 +1062,18 @@ loop:
 					}
 
 					encHead.Length = uint16(binary.Size(data)+2*binary.Size(itemType{})) + addrLen + dataLen
-					writeData(writeBuf, encHead)
-					writeData(writeBuf, data)
+					p.writeData(writeBuf, encHead)
+					p.writeData(writeBuf, data)
 					if cidok && connID != 0 {
-						writeData(writeBuf, itemType{Type: connAddressItem, Length: addrLen})
-						writeData(writeBuf, connID)
-						writeData(writeBuf, itemType{Type: connDataItem, Length: dataLen})
-						writeData(writeBuf, protSeqCount)
+						p.writeData(writeBuf, itemType{Type: connAddressItem, Length: addrLen})
+						p.writeData(writeBuf, connID)
+						p.writeData(writeBuf, itemType{Type: connDataItem, Length: dataLen})
+						p.writeData(writeBuf, protSeqCount)
 					} else {
-						writeData(writeBuf, itemType{Type: nullAddressItem, Length: addrLen})
-						writeData(writeBuf, itemType{Type: unconnDataItem, Length: dataLen})
+						p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: addrLen})
+						p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: dataLen})
 					}
-					writeData(writeBuf, resp)
+					p.writeData(writeBuf, resp)
 				} else {
 					var resp errorResponse
 
@@ -1099,65 +1091,65 @@ loop:
 					}
 
 					encHead.Length = uint16(binary.Size(data)+2*binary.Size(itemType{})) + addrLen + dataLen
-					writeData(writeBuf, encHead)
-					writeData(writeBuf, data)
+					p.writeData(writeBuf, encHead)
+					p.writeData(writeBuf, data)
 					if cidok && connID != 0 {
-						writeData(writeBuf, itemType{Type: connAddressItem, Length: addrLen})
-						writeData(writeBuf, connID)
-						writeData(writeBuf, itemType{Type: connDataItem, Length: dataLen})
-						writeData(writeBuf, protSeqCount)
+						p.writeData(writeBuf, itemType{Type: connAddressItem, Length: addrLen})
+						p.writeData(writeBuf, connID)
+						p.writeData(writeBuf, itemType{Type: connDataItem, Length: dataLen})
+						p.writeData(writeBuf, protSeqCount)
 					} else {
-						writeData(writeBuf, itemType{Type: nullAddressItem, Length: addrLen})
-						writeData(writeBuf, itemType{Type: unconnDataItem, Length: dataLen})
+						p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: addrLen})
+						p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: dataLen})
 					}
-					writeData(writeBuf, resp)
+					p.writeData(writeBuf, resp)
 				}
 
 			case Reset:
-				debug("Reset")
+				p.debug("Reset")
 
 				var resp response
 
 				resp.Service = Reset + 128
 
-				if callback != nil {
-					go callback(Reset, Success, nil)
+				if p.callback != nil {
+					go p.callback(Reset, Success, nil)
 				}
 
 				encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
-				writeData(writeBuf, encHead)
-				writeData(writeBuf, data)
-				writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
-				writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
-				writeData(writeBuf, resp)
+				p.writeData(writeBuf, encHead)
+				p.writeData(writeBuf, data)
+				p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
+				p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
+				p.writeData(writeBuf, resp)
 
 			default:
-				debug("unknown service:", protd.Service)
+				p.debug("unknown service:", protd.Service)
 				var resp response
 
 				resp.Service = protd.Service + 128
 				resp.Status = 0x08 // Service not supported
 
 				encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
-				writeData(writeBuf, encHead)
-				writeData(writeBuf, data)
-				writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
-				writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
-				writeData(writeBuf, resp)
+				p.writeData(writeBuf, encHead)
+				p.writeData(writeBuf, data)
+				p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
+				p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
+				p.writeData(writeBuf, resp)
 			}
 
 		default:
-			debug("unknown command:", encHead.Command)
+			p.debug("unknown command:", encHead.Command)
 
 			data := make([]uint8, encHead.Length)
-			err = readData(readBuf, &data)
+			err = p.readData(readBuf, &data)
 			if err != nil {
 				break loop
 			}
 			encHead.Status = 0x01
 
-			writeData(writeBuf, encHead)
-			writeData(writeBuf, data)
+			p.writeData(writeBuf, encHead)
+			p.writeData(writeBuf, data)
 		}
 
 		err = conn.SetWriteDeadline(time.Now().Add(timeout * time.Second))

@@ -376,7 +376,7 @@ func asciiCode(x uint8) (r string) {
 	return
 }
 
-func tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
+func (p *PLC) tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -385,27 +385,27 @@ func tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 
 	toSend.WriteString("<!DOCTYPE html>\n<html><title>plcconnector</title><h3>PLC connector</h3><p>Wersja: 11</p>\n<table " + tableStyle + "><tr><th>Nazwa</th><th>Rozmiar</th><th>Typ</th><th>ASCII</th></tr>\n")
 
-	tMut.RLock()
-	arr := make([]string, 0, len(tags))
+	p.tMut.RLock()
+	arr := make([]string, 0, len(p.tags))
 
-	for n := range tags {
+	for n := range p.tags {
 		arr = append(arr, n)
 	}
 
 	sort.Strings(arr)
 
 	for _, n := range arr {
-		toSend.WriteString("<tr><td><a href=\"/" + n + "\">" + n + "</a></td><td>" + strconv.Itoa(tags[n].Count) + "</td><td>" + typeToString(tags[n].Typ) + "</td><td>")
+		toSend.WriteString("<tr><td><a href=\"/" + n + "\">" + n + "</a></td><td>" + strconv.Itoa(p.tags[n].Count) + "</td><td>" + typeToString(p.tags[n].Typ) + "</td><td>")
 		var ascii strings.Builder
-		if tags[n].Typ != TypeREAL && tags[n].Typ != TypeBOOL {
-			ascii.Grow(tags[n].Count)
-			ln := int(typeLen(uint16(tags[n].Typ)))
-			for i := 0; i < len(tags[n].data); i += ln {
-				tmp := int64(tags[n].data[i])
+		if p.tags[n].Typ != TypeREAL && p.tags[n].Typ != TypeBOOL {
+			ascii.Grow(p.tags[n].Count)
+			ln := int(typeLen(uint16(p.tags[n].Typ)))
+			for i := 0; i < len(p.tags[n].data); i += ln {
+				tmp := int64(p.tags[n].data[i])
 				for j := 1; j < ln; j++ {
-					tmp += int64(tags[n].data[i+j]) << uint(8*j)
+					tmp += int64(p.tags[n].data[i+j]) << uint(8*j)
 				}
-				switch tags[n].Typ {
+				switch p.tags[n].Typ {
 				case TypeSINT:
 					tmp = int64(int8(tmp))
 				case TypeINT:
@@ -427,7 +427,7 @@ func tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 			toSend.WriteString("</td></tr>\n")
 		}
 	}
-	tMut.RUnlock()
+	p.tMut.RUnlock()
 
 	toSend.WriteString("</table></html>")
 
@@ -581,31 +581,31 @@ func tagToHTML(t *Tag) string {
 	return toSend.String()
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
+func (p *PLC) handler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" {
-		tagsIndexHTML(w, r)
+		p.tagsIndexHTML(w, r)
 	} else {
-		tMut.RLock()
-		t, ok := tags[path.Base(r.URL.Path)]
+		p.tMut.RLock()
+		t, ok := p.tags[path.Base(r.URL.Path)]
 		if ok {
 			_, json := r.URL.Query()["json"]
 			if json {
 				str := tagToJSON(t)
-				tMut.RUnlock()
+				p.tMut.RUnlock()
 				w.Header().Set("Cache-Control", "no-store")
 				w.Header().Set("Content-Type", "application/json; charset=utf-8")
 				w.Header().Set("X-Content-Type-Options", "nosniff")
 				io.WriteString(w, str)
 			} else {
 				str := tagToHTML(t)
-				tMut.RUnlock()
+				p.tMut.RUnlock()
 				w.Header().Set("Cache-Control", "no-store")
 				w.Header().Set("Content-Type", "text/html; charset=utf-8")
 				w.Header().Set("X-Content-Type-Options", "nosniff")
 				io.WriteString(w, str)
 			}
 		} else {
-			tMut.RUnlock()
+			p.tMut.RUnlock()
 			w.Header().Set("Cache-Control", "no-store")
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -618,8 +618,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 var server *http.Server
 
 // ServeHTTP listens on the TCP network address host.
-func ServeHTTP(host string) *http.Server {
-	server = &http.Server{Addr: host, Handler: http.HandlerFunc(handler)}
+func (p *PLC) ServeHTTP(host string) *http.Server {
+	server = &http.Server{Addr: host, Handler: http.HandlerFunc(p.handler)}
 	go func() {
 		err := server.ListenAndServe()
 		if err != nil {
@@ -630,13 +630,13 @@ func ServeHTTP(host string) *http.Server {
 }
 
 // CloseHTTP shutdowns the HTTP server
-func CloseHTTP() error {
+func (p *PLC) CloseHTTP() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	var err error
 	if err = server.Shutdown(ctx); err != nil {
 		fmt.Println("plcconnector CloseHTTP: ", err)
 	}
-	debug("server.Shutdown")
+	p.debug("server.Shutdown")
 	return err
 }
