@@ -64,7 +64,7 @@ func main() {
 	}()
 
 	// inicjalizacja
-	c := plc.Init()
+	c := plc.Init(true)
 
 	// nie wyświetlaj dodatkowych informacji
 	c.Verbose = true

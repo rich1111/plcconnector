@@ -19,6 +19,73 @@ import (
 	"time"
 )
 
+// PLC .
+type PLC struct {
+	callback  func(service int, statut int, tag *Tag)
+	class     map[int]Class
+	closeI    bool
+	closeMut  sync.RWMutex
+	closeWMut sync.Mutex
+	closeWait *sync.Cond
+	port      uint16
+	tMut      sync.RWMutex
+	tags      map[string]*Tag
+
+	DumpNetwork bool // enables dumping network packets
+	Verbose     bool // enables debugging output
+	Timeout     time.Duration
+}
+
+// Init initialize library. Must be called first.
+func Init(testTags bool) *PLC {
+	var p PLC
+	p.class = make(map[int]Class)
+	p.tags = make(map[string]*Tag)
+	p.Timeout = 60 * time.Second
+
+	p.InitClass(1, defaultIdentityClass())
+
+	if testTags {
+		p.tags["testBOOL"] = &Tag{Name: "testBOOL", Typ: TypeBOOL, Count: 4, data: []uint8{
+			0x00, 0x01, 0xFF, 0x55}}
+
+		p.tags["testSINT"] = &Tag{Name: "testSINT", Typ: TypeSINT, Count: 4, data: []uint8{
+			0xFF, 0xFE, 0x00, 0x01}}
+
+		p.tags["testINT"] = &Tag{Name: "testINT", Typ: TypeINT, Count: 10, data: []uint8{
+			0xFF, 0xFF, 0x00, 0x01, 0xFE, 0x00, 0xFC, 0x00, 0xCA, 0x00, 0xBD, 0x00, 0xB1, 0x00, 0xFF, 0x00, 127, 0x00, 128, 0x00}}
+
+		p.tags["testDINT"] = &Tag{Name: "testDINT", Typ: TypeDINT, Count: 2, data: []uint8{
+			0xFF, 0xFF, 0xFF, 0xFF,
+			0x01, 0x00, 0x00, 0x00}}
+
+		p.tags["testREAL"] = &Tag{Name: "testREAL", Typ: TypeREAL, Count: 2, data: []uint8{
+			0xa4, 0x70, 0x9d, 0x3f,
+			0xcd, 0xcc, 0x44, 0xc1}}
+
+		p.tags["testDWORD"] = &Tag{Name: "testDWORD", Typ: TypeDWORD, Count: 2, data: []uint8{
+			0xFF, 0xFF, 0xFF, 0xFF,
+			0x01, 0x00, 0x00, 0x00}}
+
+		p.tags["testLINT"] = &Tag{Name: "testLINT", Typ: TypeLINT, Count: 2, data: []uint8{
+			0xFF, 0xFF, 0xFF, 0xFF,
+			0xFF, 0xFF, 0xFF, 0xFF,
+			0x01, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00}}
+
+		p.tags["testASCII"] = &Tag{Name: "testASCII", Typ: TypeSINT, Count: 17, data: []uint8{
+			'H', 'e', 'l', 'l',
+			'o', '!', 0x00, 0x01, 0x7F, 0xFE, 0xFC, 0xCA, 0xBD, 0xB1, 0xFF, 127, 128}}
+	}
+
+	return &p
+}
+
+// InitClass .
+func (p *PLC) InitClass(no int, cl Class) {
+	p.class[no] = cl
+}
+
 func (p *PLC) debug(args ...interface{}) {
 	if p.Verbose {
 		fmt.Println(args...)
@@ -86,46 +153,6 @@ func (p *PLC) saveTag(tag string, typ, count uint16, data []uint8) bool {
 		go p.callback(WriteTag, Success, &Tag{Name: tag, Typ: int(typ), Count: int(count), data: data})
 	}
 	return true
-}
-
-// Init initialize library. Must be called first.
-func Init() *PLC {
-	var p PLC
-	p.tags = make(map[string]*Tag)
-	p.Timeout = 60 * time.Second
-
-	p.tags["testBOOL"] = &Tag{Name: "testBOOL", Typ: TypeBOOL, Count: 4, data: []uint8{
-		0x00, 0x01, 0xFF, 0x55}}
-
-	p.tags["testSINT"] = &Tag{Name: "testSINT", Typ: TypeSINT, Count: 4, data: []uint8{
-		0xFF, 0xFE, 0x00, 0x01}}
-
-	p.tags["testINT"] = &Tag{Name: "testINT", Typ: TypeINT, Count: 10, data: []uint8{
-		0xFF, 0xFF, 0x00, 0x01, 0xFE, 0x00, 0xFC, 0x00, 0xCA, 0x00, 0xBD, 0x00, 0xB1, 0x00, 0xFF, 0x00, 127, 0x00, 128, 0x00}}
-
-	p.tags["testDINT"] = &Tag{Name: "testDINT", Typ: TypeDINT, Count: 2, data: []uint8{
-		0xFF, 0xFF, 0xFF, 0xFF,
-		0x01, 0x00, 0x00, 0x00}}
-
-	p.tags["testREAL"] = &Tag{Name: "testREAL", Typ: TypeREAL, Count: 2, data: []uint8{
-		0xa4, 0x70, 0x9d, 0x3f,
-		0xcd, 0xcc, 0x44, 0xc1}}
-
-	p.tags["testDWORD"] = &Tag{Name: "testDWORD", Typ: TypeDWORD, Count: 2, data: []uint8{
-		0xFF, 0xFF, 0xFF, 0xFF,
-		0x01, 0x00, 0x00, 0x00}}
-
-	p.tags["testLINT"] = &Tag{Name: "testLINT", Typ: TypeLINT, Count: 2, data: []uint8{
-		0xFF, 0xFF, 0xFF, 0xFF,
-		0xFF, 0xFF, 0xFF, 0xFF,
-		0x01, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00}}
-
-	p.tags["testASCII"] = &Tag{Name: "testASCII", Typ: TypeSINT, Count: 17, data: []uint8{
-		'H', 'e', 'l', 'l',
-		'o', '!', 0x00, 0x01, 0x7F, 0xFE, 0xFC, 0xCA, 0xBD, 0xB1, 0xFF, 127, 128}}
-
-	return &p
 }
 
 // AddTag adds tag.
@@ -285,7 +312,7 @@ loop:
 			p.debug("UnregisterSession")
 			break loop
 
-		case listIdentity:
+		case listIdentity: // UDP!
 			p.debug("ListIdentity")
 
 			itemCount := uint16(1)
@@ -444,36 +471,32 @@ loop:
 			switch protd.Service {
 			case GetAttrAll:
 				p.debug("GetAttributesAll")
+				var (
+					resp response
+					iok  bool
+					in   Instance
+				)
+				c, cok := p.class[int(protdPath[1])]
+				if cok {
+					in, iok = c.Inst[int(protdPath[3])]
+				}
+				resp.Service = protd.Service + 128
 
-				switch protdPath[1] { // class
-				case 0x01: // Identity
-					p.debug("Identity")
-					var resp identityRsp
-					productName := []byte{77, 111, 110, 103, 111, 108, 80, 76, 67}
+				if cok && iok {
+					p.debug(c.Name)
 
-					resp.Service = protd.Service + 128
-					resp.VendorID = 1
-					resp.DeviceType = 0x0C // communications adapter
-					resp.ProductCode = 65001
-					resp.Revision[0] = 1
-					resp.Revision[1] = 0
-					resp.Status = 0 // Owned
-					resp.SerialNumber = 1
-					resp.ProductNameLength = uint8(len(productName))
+					attrdata, attrlen := in.getAttrAll()
 
-					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp) + len(productName))
+					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp) + attrlen)
 					p.writeData(writeBuf, encHead)
 					p.writeData(writeBuf, data)
 					p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
-					p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + len(productName))})
+					p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + attrlen)})
 					p.writeData(writeBuf, resp)
-					p.writeData(writeBuf, productName)
-				default:
+					p.writeData(writeBuf, attrdata)
+				} else {
 					p.debug("path unknown", protdPath)
 
-					var resp response
-
-					resp.Service = protd.Service + 128
 					resp.Status = 0x05 // Path destination unknown
 
 					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
@@ -486,19 +509,45 @@ loop:
 
 			case GetAttr:
 				p.debug("GetAttributesSingle")
-				p.debug("path unknown", protdPath)
 
-				var resp response
-
+				var (
+					resp response
+					iok  bool
+					in   Instance
+					aok  bool
+					at   Attribute
+				)
+				c, cok := p.class[int(protdPath[1])]
+				if cok {
+					in, iok = c.Inst[int(protdPath[3])]
+					if iok && int(protdPath[5]) < len(in.Attr) {
+						at = in.Attr[protdPath[5]]
+						aok = true
+					}
+				}
 				resp.Service = protd.Service + 128
-				resp.Status = 0x05 // Path destination unknown
 
-				encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
-				p.writeData(writeBuf, encHead)
-				p.writeData(writeBuf, data)
-				p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
-				p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
-				p.writeData(writeBuf, resp)
+				if cok && iok && aok {
+
+					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp) + len(at.data))
+					p.writeData(writeBuf, encHead)
+					p.writeData(writeBuf, data)
+					p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
+					p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + len(at.data))})
+					p.writeData(writeBuf, resp)
+					p.writeData(writeBuf, at.data)
+				} else {
+					p.debug("path unknown", protdPath)
+
+					resp.Status = 0x05 // Path destination unknown
+
+					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
+					p.writeData(writeBuf, encHead)
+					p.writeData(writeBuf, data)
+					p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
+					p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
+					p.writeData(writeBuf, resp)
+				}
 
 			case ForwardOpen:
 				p.debug("ForwardOpen")

@@ -1,26 +1,5 @@
 package plcconnector
 
-import (
-	"sync"
-	"time"
-)
-
-// PLC .
-type PLC struct {
-	callback  func(service int, statut int, tag *Tag)
-	closeI    bool
-	closeMut  sync.RWMutex
-	closeWMut sync.Mutex
-	closeWait *sync.Cond
-	port      uint16
-	tMut      sync.RWMutex
-	tags      map[string]*Tag
-
-	DumpNetwork bool // enables dumping network packets
-	Verbose     bool // enables debugging output
-	Timeout     time.Duration
-}
-
 // Service
 const (
 	GetAttrAll   = 0x01
@@ -41,6 +20,11 @@ const (
 	TypeREAL  = 0xca // 4 bytes
 	TypeDWORD = 0xd3 // 4 bytes
 	TypeLINT  = 0xc5 // 8 bytes
+
+	TypeUINT  = 0x01
+	TypeUDINT = 0x02
+
+	TypeShortString = 0x03
 )
 
 // Status codes
@@ -70,6 +54,10 @@ const (
 	capabilityFlagsCipUDPClass0or1 = 256
 
 	cipItemIDListServiceResponse = 0x100
+
+	pathClass = 0x20
+	pathInst  = 0x24
+	pathAttr  = 0x28
 )
 
 type encapsulationHeader struct {
@@ -98,19 +86,6 @@ type listIdentityData struct {
 	SocketPort        uint16
 	SocketAddr        uint32
 	SocketZero        [8]uint8
-	VendorID          uint16
-	DeviceType        uint16
-	ProductCode       uint16
-	Revision          [2]uint8
-	Status            uint16
-	SerialNumber      uint32
-	ProductNameLength uint8
-}
-
-type identityRsp struct {
-	Service           uint8
-	_                 uint8
-	RspStatus         uint16
 	VendorID          uint16
 	DeviceType        uint16
 	ProductCode       uint16
