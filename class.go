@@ -24,18 +24,6 @@ type Attribute struct {
 	data []uint8
 }
 
-// productName := []byte{77, 111, 110, 103, 111, 108, 80, 76, 67}
-
-// 					resp.Service = protd.Service + 128
-// 					resp.VendorID = 1
-// 					resp.DeviceType = 0x0C // communications adapter
-// 					resp.ProductCode = 65001
-// 					resp.Revision[0] = 1
-// 					resp.Revision[1] = 0
-// 					resp.Status = 0 // Owned
-// 					resp.SerialNumber = 1
-// 					resp.ProductNameLength = uint8(len(productName))
-
 // AttrUINT .
 func AttrUINT(v uint16, n string) Attribute {
 	var a Attribute

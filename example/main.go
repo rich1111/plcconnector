@@ -66,6 +66,8 @@ func main() {
 	// inicjalizacja
 	c := plc.Init(true)
 
+	c.Class[1].Inst[1].Attr[7] = plc.AttrShortString("MongolPLC", "ProductName")
+
 	// nie wyświetlaj dodatkowych informacji
 	c.Verbose = true
 	c.DumpNetwork = false

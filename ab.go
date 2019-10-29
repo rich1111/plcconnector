@@ -22,7 +22,6 @@ import (
 // PLC .
 type PLC struct {
 	callback  func(service int, statut int, tag *Tag)
-	class     map[int]Class
 	closeI    bool
 	closeMut  sync.RWMutex
 	closeWMut sync.Mutex
@@ -31,6 +30,7 @@ type PLC struct {
 	tMut      sync.RWMutex
 	tags      map[string]*Tag
 
+	Class       map[int]Class
 	DumpNetwork bool // enables dumping network packets
 	Verbose     bool // enables debugging output
 	Timeout     time.Duration
@@ -39,11 +39,11 @@ type PLC struct {
 // Init initialize library. Must be called first.
 func Init(testTags bool) *PLC {
 	var p PLC
-	p.class = make(map[int]Class)
+	p.Class = make(map[int]Class)
 	p.tags = make(map[string]*Tag)
 	p.Timeout = 60 * time.Second
 
-	p.InitClass(1, defaultIdentityClass())
+	p.Class[1] = defaultIdentityClass()
 
 	if testTags {
 		p.tags["testBOOL"] = &Tag{Name: "testBOOL", Typ: TypeBOOL, Count: 4, data: []uint8{
@@ -79,11 +79,6 @@ func Init(testTags bool) *PLC {
 	}
 
 	return &p
-}
-
-// InitClass .
-func (p *PLC) InitClass(no int, cl Class) {
-	p.class[no] = cl
 }
 
 func (p *PLC) debug(args ...interface{}) {
@@ -476,7 +471,7 @@ loop:
 					iok  bool
 					in   Instance
 				)
-				c, cok := p.class[int(protdPath[1])]
+				c, cok := p.Class[int(protdPath[1])]
 				if cok {
 					in, iok = c.Inst[int(protdPath[3])]
 				}
@@ -517,7 +512,7 @@ loop:
 					aok  bool
 					at   Attribute
 				)
-				c, cok := p.class[int(protdPath[1])]
+				c, cok := p.Class[int(protdPath[1])]
 				if cok {
 					in, iok = c.Inst[int(protdPath[3])]
 					if iok && int(protdPath[5]) < len(in.Attr) {
