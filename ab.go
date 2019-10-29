@@ -359,6 +359,7 @@ func (t *Tag) DataLINT() []int64 {
 var (
 	tags    map[string]*Tag
 	tMut    sync.RWMutex
+	dumpon  = false
 	verbose = false
 )
 
@@ -393,7 +394,7 @@ func readData(r io.Reader, data interface{}) error {
 	if err != nil {
 		fmt.Println(err)
 	}
-	if verbose {
+	if dumpon {
 		fmt.Printf("%#v\n", data)
 	}
 	return err
@@ -414,7 +415,7 @@ func readTag(tag string, count uint16) ([]uint8, uint16, bool) {
 		tgdata []uint8
 	)
 	if ok {
-		debug(tg, ok)
+		debug(tag+":", tg)
 		tgtyp = uint16(tg.Typ)
 		tgdata = make([]uint8, count*typeLen(tgtyp))
 		if count > uint16(tg.Count) {
@@ -528,6 +529,11 @@ func Callback(function func(service int, status int, tag *Tag)) {
 // SetVerbose enables debugging output.
 func SetVerbose(on bool) {
 	verbose = on
+}
+
+// SetDumpPackets enables network packets dumping
+func SetDumpPackets(on bool) {
+	dumpon = on
 }
 
 var (
@@ -745,6 +751,7 @@ loop:
 			itemserror := false
 
 			if data.ItemCount != 2 {
+				debug("itemCount != 2")
 				encHead.Length = 0
 				encHead.Status = 0x03 // Incorrect data
 				writeData(writeBuf, encHead)
@@ -841,6 +848,8 @@ loop:
 					writeData(writeBuf, resp)
 					writeData(writeBuf, productName)
 				default:
+					debug("path unknown", protdPath)
+
 					var resp response
 
 					resp.Service = protd.Service + 128
@@ -855,6 +864,9 @@ loop:
 				}
 
 			case GetAttr:
+				debug("GetAttributesSingle")
+				debug("path unknown", protdPath)
+
 				var resp response
 
 				resp.Service = protd.Service + 128

@@ -68,6 +68,7 @@ func main() {
 
 	// nie wyświetlaj dodatkowych informacji
 	plc.SetVerbose(true)
+	plc.SetDumpPackets(false)
 
 	// callback
 	plc.Callback(call)
