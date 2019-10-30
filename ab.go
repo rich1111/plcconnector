@@ -234,6 +234,7 @@ type req struct {
 	p        *PLC
 	readBuf  *bufio.Reader
 	writeBuf *bytes.Buffer
+	wrCIPBuf *bytes.Buffer
 }
 
 func (r *req) read(data interface{}) error {
@@ -254,9 +255,17 @@ func (r *req) write(data interface{}) {
 	}
 }
 
+func (r *req) writeCIP(data interface{}) {
+	err := binary.Write(r.wrCIPBuf, binary.LittleEndian, data)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
 func (r *req) reset() {
 	r.readBuf.Reset(r.c)
 	r.writeBuf.Reset()
+	r.wrCIPBuf.Reset()
 }
 
 func (p *PLC) handleRequest(conn net.Conn) {
@@ -266,6 +275,7 @@ func (p *PLC) handleRequest(conn net.Conn) {
 	r.p = p
 	r.readBuf = bufio.NewReader(conn)
 	r.writeBuf = new(bytes.Buffer)
+	r.wrCIPBuf = new(bytes.Buffer)
 
 loop:
 	for {
@@ -328,8 +338,6 @@ loop:
 
 			var (
 				item         itemType
-				dataLen      uint16
-				addrLen      uint16
 				protd        protocolData
 				protSeqCount uint16
 				resp         response
@@ -341,6 +349,7 @@ loop:
 
 			r.rrdata.Timeout = 0
 			cidok := false
+			mayCon := false
 			itemserror := false
 
 			if r.rrdata.ItemCount != 2 {
@@ -415,6 +424,7 @@ loop:
 			switch protd.Service {
 			case GetAttrAll:
 				p.debug("GetAttributesAll")
+				mayCon = true
 				var (
 					iok bool
 					in  *Instance
@@ -427,26 +437,20 @@ loop:
 				if cok && iok {
 					p.debug(c.Name, protdPath[3])
 
-					attrdata, attrlen := in.getAttrAll()
+					attrdata := in.getAttrAll()
 
-					r.write(r.rrdata)
-					r.write(itemType{Type: nullAddressItem, Length: 0})
-					r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + attrlen)})
 					r.write(resp)
 					r.write(attrdata)
 				} else {
 					p.debug("path unknown", protdPath)
 
 					resp.Status = 0x05 // Path destination unknown
-
-					r.write(r.rrdata)
-					r.write(itemType{Type: nullAddressItem, Length: 0})
-					r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
 					r.write(resp)
 				}
 
 			case GetAttr:
 				p.debug("GetAttributesSingle")
+				mayCon = true
 
 				var (
 					iok bool
@@ -468,24 +472,19 @@ loop:
 
 				if cok && iok && aok {
 					p.debug(c.Name, protdPath[3], at.Name)
-					r.write(r.rrdata)
-					r.write(itemType{Type: nullAddressItem, Length: 0})
-					r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + len(at.data))})
+
 					r.write(resp)
 					r.write(at.data)
 				} else {
 					p.debug("path unknown", protdPath)
 
 					resp.Status = 0x05 // Path destination unknown
-
-					r.write(r.rrdata)
-					r.write(itemType{Type: nullAddressItem, Length: 0})
-					r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
 					r.write(resp)
 				}
 
 			case InititateUpload: // TODO only File class?
 				p.debug("InititateUpload")
+				mayCon = true
 				var (
 					iok     bool
 					in      *Instance
@@ -511,24 +510,18 @@ loop:
 					in.argUint8[1] = 0       // TransferNumber
 					in.argUint8[2] = 0       // TransferNumber rollover
 
-					r.write(r.rrdata)
-					r.write(itemType{Type: nullAddressItem, Length: 0})
-					r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + binary.Size(sr))})
 					r.write(resp)
 					r.write(sr)
 				} else {
 					p.debug("path unknown", protdPath)
 
 					resp.Status = 0x05 // Path destination unknown
-
-					r.write(r.rrdata)
-					r.write(itemType{Type: nullAddressItem, Length: 0})
-					r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
 					r.write(resp)
 				}
 
 			case UploadTransfer: // TODO only File class?
 				p.debug("UploadTransfer")
+				mayCon = true
 				var (
 					iok        bool
 					in         *Instance
@@ -584,9 +577,6 @@ loop:
 						p.debug(sr)
 						p.debug(len(dt), pos, posto)
 
-						r.write(r.rrdata)
-						r.write(itemType{Type: nullAddressItem, Length: 0})
-						r.write(itemType{Type: unconnDataItem, Length: ln})
 						r.write(resp)
 						r.write(sr)
 						r.write(dt)
@@ -600,9 +590,6 @@ loop:
 						resp.AddStatusSize = 1
 						addStatus := uint16(0x06)
 
-						r.write(r.rrdata)
-						r.write(itemType{Type: nullAddressItem, Length: 0})
-						r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + binary.Size(addStatus))})
 						r.write(resp)
 						r.write(addStatus)
 					}
@@ -610,10 +597,6 @@ loop:
 					p.debug("path unknown", protdPath)
 
 					resp.Status = 0x05 // Path destination unknown
-
-					r.write(r.rrdata)
-					r.write(itemType{Type: nullAddressItem, Length: 0})
-					r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
 					r.write(resp)
 				}
 
@@ -645,9 +628,6 @@ loop:
 
 				r.connID = fodata.TOConnectionID
 
-				r.write(r.rrdata)
-				r.write(itemType{Type: nullAddressItem, Length: 0})
-				r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + binary.Size(sr))})
 				r.write(resp)
 				r.write(sr)
 
@@ -675,14 +655,12 @@ loop:
 
 				r.connID = 0
 
-				r.write(r.rrdata)
-				r.write(itemType{Type: nullAddressItem, Length: 0})
-				r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + binary.Size(sr))})
 				r.write(resp)
 				r.write(sr)
 
 			case ReadTag:
 				p.debug("ReadTag")
+				mayCon = true
 
 				var (
 					tagName  string
@@ -699,57 +677,21 @@ loop:
 				p.debug(tagName, tagCount)
 
 				if rtData, tagType, ok := p.readTag(tagName, tagCount); ok {
-					dataLen = uint16(binary.Size(resp)+binary.Size(tagType)) + typeLen(tagType)*tagCount
-					addrLen = 0
-
-					if cidok && r.connID != 0 {
-						dataLen += uint16(binary.Size(protSeqCount))
-						addrLen = uint16(binary.Size(r.connID))
-					}
-
-					r.write(r.rrdata)
-					if cidok && r.connID != 0 {
-						r.write(itemType{Type: connAddressItem, Length: addrLen})
-						r.write(r.connID)
-						r.write(itemType{Type: connDataItem, Length: dataLen})
-						r.write(protSeqCount)
-					} else {
-						r.write(itemType{Type: nullAddressItem, Length: addrLen})
-						r.write(itemType{Type: unconnDataItem, Length: dataLen})
-					}
 					r.write(resp)
 					r.write(tagType)
 					r.write(rtData)
-
 				} else {
 					resp.Status = PathSegmentError
 					resp.AddStatusSize = 1
 					addStatus := uint16(0)
 
-					dataLen = uint16(binary.Size(resp) + binary.Size(addStatus))
-					addrLen = 0
-
-					if cidok && r.connID != 0 {
-						dataLen += uint16(binary.Size(protSeqCount))
-						addrLen = uint16(binary.Size(r.connID))
-					}
-
-					r.write(r.rrdata)
-					if cidok && r.connID != 0 {
-						r.write(itemType{Type: connAddressItem, Length: addrLen})
-						r.write(r.connID)
-						r.write(itemType{Type: connDataItem, Length: dataLen})
-						r.write(protSeqCount)
-					} else {
-						r.write(itemType{Type: nullAddressItem, Length: addrLen})
-						r.write(itemType{Type: unconnDataItem, Length: dataLen})
-					}
 					r.write(resp)
 					r.write(addStatus)
 				}
 
 			case WriteTag:
 				p.debug("WriteTag")
+				mayCon = true
 
 				var (
 					tagName  string
@@ -777,48 +719,12 @@ loop:
 				}
 
 				if p.saveTag(tagName, tagType, tagCount, wrData) {
-					dataLen = uint16(binary.Size(resp))
-					addrLen = 0
-
-					if cidok && r.connID != 0 {
-						dataLen += uint16(binary.Size(protSeqCount))
-						addrLen = uint16(binary.Size(r.connID))
-					}
-
-					r.write(r.rrdata)
-					if cidok && r.connID != 0 {
-						r.write(itemType{Type: connAddressItem, Length: addrLen})
-						r.write(r.connID)
-						r.write(itemType{Type: connDataItem, Length: dataLen})
-						r.write(protSeqCount)
-					} else {
-						r.write(itemType{Type: nullAddressItem, Length: addrLen})
-						r.write(itemType{Type: unconnDataItem, Length: dataLen})
-					}
 					r.write(resp)
 				} else {
 					resp.Status = PathSegmentError
 					resp.AddStatusSize = 1
 					addStatus := uint16(0)
 
-					dataLen = uint16(binary.Size(resp) + binary.Size(addStatus))
-					addrLen = 0
-
-					if cidok && r.connID != 0 {
-						dataLen += uint16(binary.Size(protSeqCount))
-						addrLen = uint16(binary.Size(r.connID))
-					}
-
-					r.write(r.rrdata)
-					if cidok && r.connID != 0 {
-						r.write(itemType{Type: connAddressItem, Length: addrLen})
-						r.write(r.connID)
-						r.write(itemType{Type: connDataItem, Length: dataLen})
-						r.write(protSeqCount)
-					} else {
-						r.write(itemType{Type: nullAddressItem, Length: addrLen})
-						r.write(itemType{Type: unconnDataItem, Length: dataLen})
-					}
 					r.write(resp)
 					r.write(addStatus)
 				}
@@ -829,21 +735,24 @@ loop:
 				if p.callback != nil {
 					go p.callback(Reset, Success, nil)
 				}
-
-				r.write(r.rrdata)
-				r.write(itemType{Type: nullAddressItem, Length: 0})
-				r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
 				r.write(resp)
 
 			default:
 				p.debug("unknown service:", protd.Service)
 
 				resp.Status = 0x08 // Service not supported
-
-				r.write(r.rrdata)
-				r.write(itemType{Type: nullAddressItem, Length: 0})
-				r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
 				r.write(resp)
+			}
+
+			r.writeCIP(r.rrdata)
+			if mayCon && cidok && r.connID != 0 {
+				r.writeCIP(itemType{Type: connAddressItem, Length: uint16(binary.Size(r.connID))})
+				r.writeCIP(r.connID)
+				r.writeCIP(itemType{Type: connDataItem, Length: uint16(binary.Size(protSeqCount) + r.writeBuf.Len())})
+				r.writeCIP(protSeqCount)
+			} else {
+				r.writeCIP(itemType{Type: nullAddressItem, Length: 0})
+				r.writeCIP(itemType{Type: unconnDataItem, Length: uint16(r.writeBuf.Len())})
 			}
 
 		default:
@@ -865,7 +774,7 @@ loop:
 			break loop
 		}
 
-		r.encHead.Length = uint16(r.writeBuf.Len())
+		r.encHead.Length = uint16(r.wrCIPBuf.Len() + r.writeBuf.Len())
 		var buf bytes.Buffer
 
 		err = binary.Write(&buf, binary.LittleEndian, r.encHead)
@@ -873,6 +782,7 @@ loop:
 			fmt.Println(err)
 			break loop
 		}
+		buf.Write(r.wrCIPBuf.Bytes())
 		buf.Write(r.writeBuf.Bytes())
 
 		_, err = conn.Write(buf.Bytes())

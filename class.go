@@ -86,14 +86,14 @@ func AttrStringI(v string, n string) *Attribute {
 	return &a
 }
 
-func (in Instance) getAttrAll() ([]byte, int) {
+func (in Instance) getAttrAll() []byte {
 	var buf bytes.Buffer
 	for a := 1; a < len(in.Attr); a++ {
 		if in.Attr[a] != nil {
 			buf.Write(in.Attr[a].data)
 		}
 	}
-	return buf.Bytes(), buf.Len()
+	return buf.Bytes()
 }
 
 // NewInstance .
