@@ -180,12 +180,8 @@ type uploadTransferResponse struct {
 }
 
 type response struct {
-	Service uint8
-	_       uint8
-	Status  uint16
-}
-
-type addStatus struct {
+	Service       uint8
+	_             uint8
+	Status        uint8
 	AddStatusSize uint8
-	AddStatus     uint16
 }

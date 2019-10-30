@@ -600,18 +600,17 @@ loop:
 							r.write(in.Attr[7].data)
 						}
 					} else {
-						var sr addStatus
 						p.debug("transfer number error", transferNo)
 
 						resp.Status = 0x20 // Invalid Parameter
-						sr.AddStatusSize = 1
-						sr.AddStatus = 0x06
+						resp.AddStatusSize = 1
+						addStatus := uint16(0x06)
 
 						r.write(r.rrdata)
 						r.write(itemType{Type: nullAddressItem, Length: 0})
-						r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + binary.Size(sr))})
+						r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + binary.Size(addStatus))})
 						r.write(resp)
-						r.write(sr)
+						r.write(addStatus)
 					}
 				} else {
 					p.debug("path unknown", protdPath)
@@ -729,13 +728,11 @@ loop:
 					r.write(rtData)
 
 				} else {
-					var sr addStatus
-
 					resp.Status = PathSegmentError
-					sr.AddStatusSize = 1
-					sr.AddStatus = 0
+					resp.AddStatusSize = 1
+					addStatus := uint16(0)
 
-					dataLen = uint16(binary.Size(resp) + binary.Size(sr))
+					dataLen = uint16(binary.Size(resp) + binary.Size(addStatus))
 					addrLen = 0
 
 					if cidok && r.connID != 0 {
@@ -754,7 +751,7 @@ loop:
 						r.write(itemType{Type: unconnDataItem, Length: dataLen})
 					}
 					r.write(resp)
-					r.write(sr)
+					r.write(addStatus)
 				}
 
 			case WriteTag:
@@ -806,13 +803,11 @@ loop:
 					}
 					r.write(resp)
 				} else {
-					var sr addStatus
-
 					resp.Status = PathSegmentError
-					sr.AddStatusSize = 1
-					sr.AddStatus = 0
+					resp.AddStatusSize = 1
+					addStatus := uint16(0)
 
-					dataLen = uint16(binary.Size(resp) + binary.Size(sr))
+					dataLen = uint16(binary.Size(resp) + binary.Size(addStatus))
 					addrLen = 0
 
 					if cidok && r.connID != 0 {
@@ -831,7 +826,7 @@ loop:
 						r.write(itemType{Type: unconnDataItem, Length: dataLen})
 					}
 					r.write(resp)
-					r.write(sr)
+					r.write(addStatus)
 				}
 
 			case Reset:
