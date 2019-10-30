@@ -142,9 +142,6 @@ type forwardCloseData struct {
 }
 
 type forwardOpenResponse struct {
-	Service                uint8
-	_                      uint8
-	Status                 uint16
 	OTConnectionID         uint32
 	TOConnectionID         uint32
 	ConnSerialNumber       uint16
@@ -157,9 +154,6 @@ type forwardOpenResponse struct {
 }
 
 type forwardCloseResponse struct {
-	Service                uint8
-	_                      uint8
-	Status                 uint16
 	ConnSerialNumber       uint16
 	VendorID               uint16
 	OriginatorSerialNumber uint32
@@ -185,23 +179,13 @@ type uploadTransferResponse struct {
 	TranferPacketType uint8
 }
 
-type readTagResponse struct {
-	Service uint8
-	_       uint8
-	Status  uint16
-	TagType uint16
-}
-
 type response struct {
 	Service uint8
 	_       uint8
 	Status  uint16
 }
 
-type errorResponse struct {
-	Service       uint8
-	_             uint8
-	Status        uint8
+type addStatus struct {
 	AddStatusSize uint8
 	AddStatus     uint16
 }

@@ -390,6 +390,7 @@ loop:
 				addrLen      uint16
 				protd        protocolData
 				protSeqCount uint16
+				resp         response
 			)
 			err = p.readData(readBuf, &data)
 			if err != nil {
@@ -470,19 +471,20 @@ loop:
 				break loop
 			}
 
+			resp.Service = protd.Service + 128
+			resp.Status = Success
+
 			switch protd.Service {
 			case GetAttrAll:
 				p.debug("GetAttributesAll")
 				var (
-					resp response
-					iok  bool
-					in   *Instance
+					iok bool
+					in  *Instance
 				)
 				c, cok := p.Class[int(protdPath[1])]
 				if cok {
 					in, iok = c.Inst[int(protdPath[3])]
 				}
-				resp.Service = protd.Service + 128
 
 				if cok && iok {
 					p.debug(c.Name, protdPath[3])
@@ -513,11 +515,10 @@ loop:
 				p.debug("GetAttributesSingle")
 
 				var (
-					resp response
-					iok  bool
-					in   *Instance
-					aok  bool
-					at   *Attribute
+					iok bool
+					in  *Instance
+					aok bool
+					at  *Attribute
 				)
 				c, cok := p.Class[int(protdPath[1])]
 				if cok {
@@ -554,7 +555,6 @@ loop:
 			case InititateUpload: // TODO only File class?
 				p.debug("InititateUpload")
 				var (
-					resp    response
 					iok     bool
 					in      *Instance
 					maxSize uint8
@@ -563,7 +563,6 @@ loop:
 				if cok {
 					in, iok = c.Inst[int(protdPath[3])]
 				}
-				resp.Service = protd.Service + 128
 
 				err = p.readData(readBuf, &maxSize)
 				if err != nil {
@@ -573,20 +572,20 @@ loop:
 				if cok && iok {
 					p.debug(c.Name, protdPath[3], maxSize)
 
-					var servresp initUploadResponse
-					servresp.FileSize = uint32(len(in.data))
-					servresp.TransferSize = maxSize
+					var sr initUploadResponse
+					sr.FileSize = uint32(len(in.data))
+					sr.TransferSize = maxSize
 					in.argUint8[0] = maxSize // TransferSize
 					in.argUint8[1] = 0       // TransferNumber
 					in.argUint8[2] = 0       // TransferNumber rollover
 
-					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp) + binary.Size(servresp))
+					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp) + binary.Size(sr))
 					p.writeData(writeBuf, encHead)
 					p.writeData(writeBuf, data)
 					p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
-					p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + binary.Size(servresp))})
+					p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + binary.Size(sr))})
 					p.writeData(writeBuf, resp)
-					p.writeData(writeBuf, servresp)
+					p.writeData(writeBuf, sr)
 				} else {
 					p.debug("path unknown", protdPath)
 
@@ -603,7 +602,6 @@ loop:
 			case UploadTransfer: // TODO only File class?
 				p.debug("UploadTransfer")
 				var (
-					resp       response
 					iok        bool
 					in         *Instance
 					transferNo uint8
@@ -612,7 +610,6 @@ loop:
 				if cok {
 					in, iok = c.Inst[int(protdPath[3])]
 				}
-				resp.Service = protd.Service + 128
 
 				err = p.readData(readBuf, &transferNo)
 				if err != nil {
@@ -628,7 +625,7 @@ loop:
 							in.argUint8[2]++ // FIXME retry!
 						}
 
-						var servresp uploadTransferResponse
+						var sr uploadTransferResponse
 						addcksum := false
 						dtlen := len(in.data)
 						pos := (int(in.argUint8[2]) + 1) * int(transferNo) * int(in.argUint8[0])
@@ -637,26 +634,26 @@ loop:
 							posto = dtlen
 						}
 						dt := in.data[pos:posto]
-						servresp.TransferNumber = transferNo
+						sr.TransferNumber = transferNo
 						if transferNo == 0 && dtlen <= int(in.argUint8[0]) {
-							servresp.TranferPacketType = tptFirstLast
+							sr.TranferPacketType = tptFirstLast
 							addcksum = true
 						} else if transferNo == 0 && in.argUint8[2] == 0 {
-							servresp.TranferPacketType = tptFirst
+							sr.TranferPacketType = tptFirst
 						} else if pos+int(in.argUint8[0]) >= dtlen {
-							servresp.TranferPacketType = tptLast
+							sr.TranferPacketType = tptLast
 							addcksum = true
 						} else {
-							servresp.TranferPacketType = tptMiddle
+							sr.TranferPacketType = tptMiddle
 						}
 						in.argUint8[1] = transferNo
 
-						ln := uint16(binary.Size(resp) + binary.Size(servresp) + len(dt))
+						ln := uint16(binary.Size(resp) + binary.Size(sr) + len(dt))
 						if addcksum {
 							ln += uint16(binary.Size(in.Attr[7].data))
 						}
 
-						p.debug(servresp)
+						p.debug(sr)
 						p.debug(len(dt), pos, posto)
 
 						encHead.Length = uint16(binary.Size(data)+2*binary.Size(itemType{})) + ln
@@ -665,26 +662,26 @@ loop:
 						p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
 						p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: ln})
 						p.writeData(writeBuf, resp)
-						p.writeData(writeBuf, servresp)
+						p.writeData(writeBuf, sr)
 						p.writeData(writeBuf, dt)
 						if addcksum {
 							p.writeData(writeBuf, in.Attr[7].data)
 						}
 					} else {
-						var er errorResponse
+						var sr addStatus
 						p.debug("transfer number error", transferNo)
 
-						er.Service = protd.Service + 128
-						er.Status = 0x20 // Invalid Parameter
-						er.AddStatusSize = 1
-						er.AddStatus = 0x06
+						resp.Status = 0x20 // Invalid Parameter
+						sr.AddStatusSize = 1
+						sr.AddStatus = 0x06
 
-						encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(er))
+						encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp) + binary.Size(sr))
 						p.writeData(writeBuf, encHead)
 						p.writeData(writeBuf, data)
 						p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
-						p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(er))})
-						p.writeData(writeBuf, er)
+						p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + binary.Size(sr))})
+						p.writeData(writeBuf, resp)
+						p.writeData(writeBuf, sr)
 					}
 				} else {
 					p.debug("path unknown", protdPath)
@@ -704,7 +701,7 @@ loop:
 
 				var (
 					fodata forwardOpenData
-					resp   forwardOpenResponse
+					sr     forwardOpenResponse
 				)
 				err = p.readData(readBuf, &fodata)
 				if err != nil {
@@ -716,32 +713,31 @@ loop:
 					break loop
 				}
 
-				resp.Service = ForwardOpen | 128
-				resp.Status = 0
-				resp.OTConnectionID = rand.Uint32()
-				resp.TOConnectionID = fodata.TOConnectionID
-				resp.ConnSerialNumber = fodata.ConnSerialNumber
-				resp.VendorID = fodata.VendorID
-				resp.OriginatorSerialNumber = fodata.OriginatorSerialNumber
-				resp.OTAPI = fodata.OTRPI
-				resp.TOAPI = fodata.TORPI
-				resp.AppReplySize = 0
+				sr.OTConnectionID = rand.Uint32()
+				sr.TOConnectionID = fodata.TOConnectionID
+				sr.ConnSerialNumber = fodata.ConnSerialNumber
+				sr.VendorID = fodata.VendorID
+				sr.OriginatorSerialNumber = fodata.OriginatorSerialNumber
+				sr.OTAPI = fodata.OTRPI
+				sr.TOAPI = fodata.TORPI
+				sr.AppReplySize = 0
 
 				connID = fodata.TOConnectionID
 
-				encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
+				encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp) + binary.Size(sr))
 				p.writeData(writeBuf, encHead)
 				p.writeData(writeBuf, data)
 				p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
-				p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
+				p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + binary.Size(sr))})
 				p.writeData(writeBuf, resp)
+				p.writeData(writeBuf, sr)
 
 			case ForwardClose:
 				p.debug("ForwardClose")
 
 				var (
 					fcdata forwardCloseData
-					resp   forwardCloseResponse
+					sr     forwardCloseResponse
 				)
 				err = p.readData(readBuf, &fcdata)
 				if err != nil {
@@ -753,21 +749,20 @@ loop:
 					break loop
 				}
 
-				resp.Service = ForwardClose | 128
-				resp.Status = 0
-				resp.ConnSerialNumber = fcdata.ConnSerialNumber
-				resp.VendorID = fcdata.VendorID
-				resp.OriginatorSerialNumber = fcdata.OriginatorSerialNumber
-				resp.AppReplySize = 0
+				sr.ConnSerialNumber = fcdata.ConnSerialNumber
+				sr.VendorID = fcdata.VendorID
+				sr.OriginatorSerialNumber = fcdata.OriginatorSerialNumber
+				sr.AppReplySize = 0
 
 				connID = 0
 
-				encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
+				encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp) + binary.Size(sr))
 				p.writeData(writeBuf, encHead)
 				p.writeData(writeBuf, data)
 				p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
-				p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
+				p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + binary.Size(sr))})
 				p.writeData(writeBuf, resp)
+				p.writeData(writeBuf, sr)
 
 			case ReadTag:
 				p.debug("ReadTag")
@@ -786,14 +781,8 @@ loop:
 				}
 				p.debug(tagName, tagCount)
 
-				if rtData, rtType, ok := p.readTag(tagName, tagCount); ok {
-					var resp readTagResponse
-
-					resp.Service = ReadTag | 128
-					resp.Status = Success
-					resp.TagType = rtType
-
-					dataLen = uint16(binary.Size(resp)) + typeLen(resp.TagType)*tagCount
+				if rtData, tagType, ok := p.readTag(tagName, tagCount); ok {
+					dataLen = uint16(binary.Size(resp)+binary.Size(tagType)) + typeLen(tagType)*tagCount
 					addrLen = 0
 
 					if cidok && connID != 0 {
@@ -814,17 +803,17 @@ loop:
 						p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: dataLen})
 					}
 					p.writeData(writeBuf, resp)
+					p.writeData(writeBuf, tagType)
 					p.writeData(writeBuf, rtData)
 
 				} else {
-					var resp errorResponse
+					var sr addStatus
 
-					resp.Service = ReadTag | 128
 					resp.Status = PathSegmentError
-					resp.AddStatusSize = 1
-					resp.AddStatus = 0
+					sr.AddStatusSize = 1
+					sr.AddStatus = 0
 
-					dataLen = uint16(binary.Size(resp))
+					dataLen = uint16(binary.Size(resp) + binary.Size(sr))
 					addrLen = 0
 
 					if cidok && connID != 0 {
@@ -845,6 +834,7 @@ loop:
 						p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: dataLen})
 					}
 					p.writeData(writeBuf, resp)
+					p.writeData(writeBuf, sr)
 				}
 
 			case WriteTag:
@@ -876,11 +866,6 @@ loop:
 				}
 
 				if p.saveTag(tagName, tagType, tagCount, wrData) {
-					var resp response
-
-					resp.Service = WriteTag | 128
-					resp.Status = Success
-
 					dataLen = uint16(binary.Size(resp))
 					addrLen = 0
 
@@ -903,14 +888,13 @@ loop:
 					}
 					p.writeData(writeBuf, resp)
 				} else {
-					var resp errorResponse
+					var sr addStatus
 
-					resp.Service = WriteTag | 128
 					resp.Status = PathSegmentError
-					resp.AddStatusSize = 1
-					resp.AddStatus = 0
+					sr.AddStatusSize = 1
+					sr.AddStatus = 0
 
-					dataLen = uint16(binary.Size(resp))
+					dataLen = uint16(binary.Size(resp) + binary.Size(sr))
 					addrLen = 0
 
 					if cidok && connID != 0 {
@@ -931,14 +915,11 @@ loop:
 						p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: dataLen})
 					}
 					p.writeData(writeBuf, resp)
+					p.writeData(writeBuf, sr)
 				}
 
 			case Reset:
 				p.debug("Reset")
-
-				var resp response
-
-				resp.Service = Reset + 128
 
 				if p.callback != nil {
 					go p.callback(Reset, Success, nil)
@@ -953,9 +934,7 @@ loop:
 
 			default:
 				p.debug("unknown service:", protd.Service)
-				var resp response
 
-				resp.Service = protd.Service + 128
 				resp.Status = 0x08 // Service not supported
 
 				encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
