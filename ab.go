@@ -321,7 +321,6 @@ loop:
 
 			r.encHead.SessionHandle = rand.Uint32()
 
-			r.write(r.encHead)
 			r.write(data)
 
 		case unregisterSession:
