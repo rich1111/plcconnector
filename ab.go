@@ -517,7 +517,7 @@ loop:
 					iok  bool
 					in   *Instance
 					aok  bool
-					at   Attribute
+					at   *Attribute
 				)
 				c, cok := p.Class[int(protdPath[1])]
 				if cok {
