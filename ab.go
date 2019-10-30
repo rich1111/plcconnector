@@ -14,7 +14,6 @@ import (
 	"math/rand"
 	"net"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -186,15 +185,7 @@ func (p *PLC) Serve(host string) error {
 	p.closeWait = sync.NewCond(&p.closeWMut)
 
 	sock := net.ListenConfig{}
-	sock.Control = func(network, address string, c syscall.RawConn) error {
-		return c.Control(func(fd uintptr) {
-			err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
-			if err != nil {
-				fmt.Println("plcconnector Serve: ", err)
-				return
-			}
-		})
-	}
+	sock.Control = sockControl
 	serv2, err := sock.Listen(context.Background(), "tcp", host)
 	if err != nil {
 		fmt.Println("plcconnector Serve: ", err)
