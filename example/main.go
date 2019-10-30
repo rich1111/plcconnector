@@ -64,7 +64,11 @@ func main() {
 	}()
 
 	// inicjalizacja
-	c, err := plc.Init("test.eds", true)
+	eds := ""
+	if len(os.Args) >= 2 {
+		eds = os.Args[1]
+	}
+	c, err := plc.Init(eds, true)
 	if err != nil {
 		fmt.Println(err)
 		return

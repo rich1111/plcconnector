@@ -25,6 +25,7 @@ type PLC struct {
 	closeMut  sync.RWMutex
 	closeWMut sync.Mutex
 	closeWait *sync.Cond
+	eds       map[string]map[string]string
 	port      uint16
 	tMut      sync.RWMutex
 	tags      map[string]*Tag
