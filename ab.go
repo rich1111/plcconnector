@@ -37,13 +37,20 @@ type PLC struct {
 }
 
 // Init initialize library. Must be called first.
-func Init(testTags bool) *PLC {
+func Init(eds string, testTags bool) (*PLC, error) {
 	var p PLC
 	p.Class = make(map[int]Class)
 	p.tags = make(map[string]*Tag)
 	p.Timeout = 60 * time.Second
 
-	p.Class[1] = defaultIdentityClass()
+	if eds == "" {
+		p.Class[1] = defaultIdentityClass()
+	} else {
+		err := p.loadEDS(eds)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	if testTags {
 		p.tags["testBOOL"] = &Tag{Name: "testBOOL", Typ: TypeBOOL, Count: 4, data: []uint8{
@@ -78,7 +85,7 @@ func Init(testTags bool) *PLC {
 			'o', '!', 0x00, 0x01, 0x7F, 0xFE, 0xFC, 0xCA, 0xBD, 0xB1, 0xFF, 127, 128}}
 	}
 
-	return &p
+	return &p, nil
 }
 
 func (p *PLC) debug(args ...interface{}) {
@@ -469,7 +476,7 @@ loop:
 				var (
 					resp response
 					iok  bool
-					in   Instance
+					in   *Instance
 				)
 				c, cok := p.Class[int(protdPath[1])]
 				if cok {
@@ -508,7 +515,7 @@ loop:
 				var (
 					resp response
 					iok  bool
-					in   Instance
+					in   *Instance
 					aok  bool
 					at   Attribute
 				)
@@ -531,6 +538,154 @@ loop:
 					p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + len(at.data))})
 					p.writeData(writeBuf, resp)
 					p.writeData(writeBuf, at.data)
+				} else {
+					p.debug("path unknown", protdPath)
+
+					resp.Status = 0x05 // Path destination unknown
+
+					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
+					p.writeData(writeBuf, encHead)
+					p.writeData(writeBuf, data)
+					p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
+					p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
+					p.writeData(writeBuf, resp)
+				}
+
+			case InititateUpload: // TODO only File class?
+				p.debug("InititateUpload")
+				var (
+					resp    response
+					iok     bool
+					in      *Instance
+					maxSize uint8
+				)
+				c, cok := p.Class[int(protdPath[1])]
+				if cok {
+					in, iok = c.Inst[int(protdPath[3])]
+				}
+				resp.Service = protd.Service + 128
+
+				err = p.readData(readBuf, &maxSize)
+				if err != nil {
+					break loop
+				}
+
+				if cok && iok {
+					p.debug(c.Name, protdPath[3], maxSize)
+
+					var servresp initUploadResponse
+					servresp.FileSize = uint32(len(in.data))
+					servresp.TransferSize = maxSize
+					in.argUint8[0] = maxSize // TransferSize
+					in.argUint8[1] = 0       // TransferNumber
+					in.argUint8[2] = 0       // TransferNumber rollover
+
+					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp) + binary.Size(servresp))
+					p.writeData(writeBuf, encHead)
+					p.writeData(writeBuf, data)
+					p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
+					p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + binary.Size(servresp))})
+					p.writeData(writeBuf, resp)
+					p.writeData(writeBuf, servresp)
+				} else {
+					p.debug("path unknown", protdPath)
+
+					resp.Status = 0x05 // Path destination unknown
+
+					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
+					p.writeData(writeBuf, encHead)
+					p.writeData(writeBuf, data)
+					p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
+					p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
+					p.writeData(writeBuf, resp)
+				}
+
+			case UploadTransfer: // TODO only File class?
+				p.debug("UploadTransfer")
+				var (
+					resp       response
+					iok        bool
+					in         *Instance
+					transferNo uint8
+				)
+				c, cok := p.Class[int(protdPath[1])]
+				if cok {
+					in, iok = c.Inst[int(protdPath[3])]
+				}
+				resp.Service = protd.Service + 128
+
+				err = p.readData(readBuf, &transferNo)
+				if err != nil {
+					break loop
+				}
+
+				if cok && iok {
+					if transferNo == in.argUint8[1] || transferNo == in.argUint8[1]+1 || (transferNo == 0 && in.argUint8[1] == 255) {
+						p.debug(c.Name, protdPath[3], transferNo)
+
+						if transferNo == 0 && in.argUint8[1] == 255 { // rollover
+							p.debug("rollover")
+							in.argUint8[2]++ // FIXME retry!
+						}
+
+						var servresp uploadTransferResponse
+						addcksum := false
+						dtlen := len(in.data)
+						pos := (int(in.argUint8[2]) + 1) * int(transferNo) * int(in.argUint8[0])
+						posto := pos + int(in.argUint8[0])
+						if posto > dtlen {
+							posto = dtlen
+						}
+						dt := in.data[pos:posto]
+						servresp.TransferNumber = transferNo
+						if transferNo == 0 && dtlen <= int(in.argUint8[0]) {
+							servresp.TranferPacketType = tptFirstLast
+							addcksum = true
+						} else if transferNo == 0 && in.argUint8[2] == 0 {
+							servresp.TranferPacketType = tptFirst
+						} else if pos+int(in.argUint8[0]) >= dtlen {
+							servresp.TranferPacketType = tptLast
+							addcksum = true
+						} else {
+							servresp.TranferPacketType = tptMiddle
+						}
+						in.argUint8[1] = transferNo
+
+						ln := uint16(binary.Size(resp) + binary.Size(servresp) + len(dt))
+						if addcksum {
+							ln += uint16(binary.Size(in.Attr[7].data))
+						}
+
+						p.debug(servresp)
+						p.debug(len(dt), pos, posto)
+
+						encHead.Length = uint16(binary.Size(data)+2*binary.Size(itemType{})) + ln
+						p.writeData(writeBuf, encHead)
+						p.writeData(writeBuf, data)
+						p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
+						p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: ln})
+						p.writeData(writeBuf, resp)
+						p.writeData(writeBuf, servresp)
+						p.writeData(writeBuf, dt)
+						if addcksum {
+							p.writeData(writeBuf, in.Attr[7].data)
+						}
+					} else {
+						var er errorResponse
+						p.debug("transfer number error", transferNo)
+
+						er.Service = protd.Service + 128
+						er.Status = 0x20 // Invalid Parameter
+						er.AddStatusSize = 1
+						er.AddStatus = 0x06
+
+						encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(er))
+						p.writeData(writeBuf, encHead)
+						p.writeData(writeBuf, data)
+						p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
+						p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(er))})
+						p.writeData(writeBuf, er)
+					}
 				} else {
 					p.debug("path unknown", protdPath)
 

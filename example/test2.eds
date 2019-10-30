@@ -1,0 +1,89 @@
+$ EZ-EDS Version 3.21.1.20161208 Generated Electronic Data Sheet
+
+[File]
+        DescText = "Test EDS Description";
+        CreateDate = 01-14-2011;
+        CreateTime = 13:50:01;
+        ModDate = 10-01-2018;
+        ModTime = 11:05:31;
+        Revision = 1.1;
+
+[Device]
+        VendCode = 65500;
+        VendName = "Test Vendor 65500";
+        ProdType = 43;
+        ProdTypeStr = "Generic Device";
+        ProdCode = 1;
+        MajRev = 1;
+        MinRev = 1;
+        ProdName = "Minimal Device";
+        Catalog = "TestDevice#1";
+
+[Device Classification]
+        Class1 = EtherNetIP;
+
+[Assembly]
+        Object_Name = "Assembly Object";
+        Object_Class_Code = 0x04;
+        Assem1 =
+                "Input Assembly",
+                ,
+                8,
+                0x0001,
+                ,;
+        Assem2 =
+                "Output Assembly",
+                ,
+                4,
+                0x0001,
+                ,;
+
+[Connection Manager]
+        Object_Name = "Connection Manager Object";
+        Object_Class_Code = 0x06;
+        Connection1 =
+                0x04010002,             $ 0-15    = supported transport classes
+                                        $ 16      = trigger: cyclic
+                                        $ 17      = trigger: change of state
+                                        $ 18      = trigger: application
+                                        $ 19-23   = trigger: reserved
+                                        $ 24      = application type: listen-only
+                                        $ 25      = application type: input-only
+                                        $ 26      = application type: exclusive-owner
+                                        $ 27      = application type: redundant-owner
+                                        $ 28-30   = reserved
+                                        $ 31      = Direction: Client = 0 / Server = 1
+                0x44640405,             $ 0       = O->T fixed size supported
+                                        $ 1       = O->T variable size supported
+                                        $ 2       = T->O fixed size supported
+                                        $ 3       = T->O variable size supported
+                                        $ 4-5     = O->T number of bytes per slot (obsolete)
+                                        $ 6-7     = T->O number of bytes per slot (obsolete)
+                                        $ 8-10    = O->T Real time transfer format
+                                        $ 11      = reserved
+                                        $ 12-14   = T->O Real time transfer format
+                                        $ 15      = reserved
+                                        $ 16      = O->T connection type: NULL
+                                        $ 17      = O->T connection type: MULTICAST
+                                        $ 18      = O->T connection type: POINT2POINT
+                                        $ 19      = O->T connection type: reserved
+                                        $ 20      = T->O connection type: NULL
+                                        $ 21      = T->O connection type: MULTICAST
+                                        $ 22      = T->O connection type: POINT2POINT
+                                        $ 23      = T->O connection type: reserved
+                                        $ 24      = O->T priority: LOW
+                                        $ 25      = O->T priority: HIGH
+                                        $ 26      = O->T priority: SCHEDULED
+                                        $ 27      = O->T priority: reserved
+                                        $ 28      = T->O priority: LOW
+                                        $ 29      = T->O priority: HIGH
+                                        $ 30      = T->O priority: SCHEDULED
+                                        $ 31      = T->O priority: reserved
+                ,,Assem2,               $ O->T RPI, size, format
+                ,,Assem1,               $ T->O RPI, size, format
+                ,,                      $ proxy config size, format
+                ,,                      $ target config size, format
+                "I/O Connection",       $ Connection Name
+                "",                     $ help string
+                "20 04 24 64 2C 65 2C 66";    $ Path
+

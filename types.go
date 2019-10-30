@@ -2,13 +2,15 @@ package plcconnector
 
 // Service
 const (
-	GetAttrAll   = 0x01
-	Reset        = 0x05
-	GetAttr      = 0x0E
-	ForwardOpen  = 0x54
-	ForwardClose = 0x4e
-	ReadTag      = 0x4c
-	WriteTag     = 0x4d
+	GetAttrAll      = 0x01
+	Reset           = 0x05
+	GetAttr         = 0x0E
+	ForwardOpen     = 0x54
+	ForwardClose    = 0x4E
+	ReadTag         = 0x4C
+	WriteTag        = 0x4D
+	InititateUpload = 0x4B
+	UploadTransfer  = 0x4F
 )
 
 // Data types
@@ -21,6 +23,7 @@ const (
 	TypeDWORD = 0xD3 // 4 bytes
 	TypeLINT  = 0xC5 // 8 bytes
 
+	TypeUSINT = 0xC6
 	TypeUINT  = 0xC7
 	TypeUDINT = 0xC8
 
@@ -162,6 +165,24 @@ type forwardCloseResponse struct {
 	OriginatorSerialNumber uint32
 	AppReplySize           uint8
 	_                      uint8
+}
+
+type initUploadResponse struct {
+	FileSize     uint32
+	TransferSize uint8
+}
+
+const (
+	tptFirst     = 0
+	tptMiddle    = 1
+	tptLast      = 2
+	tptAbort     = 3
+	tptFirstLast = 4
+)
+
+type uploadTransferResponse struct {
+	TransferNumber    uint8
+	TranferPacketType uint8
 }
 
 type readTagResponse struct {
