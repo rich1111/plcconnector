@@ -119,7 +119,7 @@ func (p *PLC) loadEDS(fn string) error {
 	}
 	// fmt.Println(p.eds)
 
-	p.Class[1] = defaultIdentityClass() // TODO parse eds
+	p.Class[1] = defaultIdentityClass()
 	i := p.Class[1].Inst[1]
 
 	majRev := uint16(1)
@@ -157,7 +157,6 @@ func (p *PLC) loadEDS(fn string) error {
 	in := NewInstance(11) // EDS.gz
 
 	chksum := uint(0)
-	// in.data = buf.Bytes()
 	in.data = f
 	for _, x := range in.data {
 		chksum += uint(x)

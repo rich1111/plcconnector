@@ -3,7 +3,6 @@ package plcconnector
 import (
 	"bytes"
 	"encoding/binary"
-	"strconv"
 )
 
 // Class .
@@ -90,7 +89,9 @@ func AttrStringI(v string, n string) *Attribute {
 func (in Instance) getAttrAll() ([]byte, int) {
 	var buf bytes.Buffer
 	for a := 1; a < len(in.Attr); a++ {
-		buf.Write(in.Attr[a].data)
+		if in.Attr[a] != nil {
+			buf.Write(in.Attr[a].data)
+		}
 	}
 	return buf.Bytes(), buf.Len()
 }
@@ -99,9 +100,6 @@ func (in Instance) getAttrAll() ([]byte, int) {
 func NewInstance(noattr int) *Instance {
 	var i Instance
 	i.Attr = make([]*Attribute, noattr+1)
-	for a := range i.Attr {
-		i.Attr[a] = AttrUINT(0, "attr_"+strconv.Itoa(a))
-	}
 	return &i
 }
 

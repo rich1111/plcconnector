@@ -459,7 +459,9 @@ loop:
 					in, iok = c.Inst[int(protdPath[3])]
 					if iok && int(protdPath[5]) < len(in.Attr) {
 						at = in.Attr[protdPath[5]]
-						aok = true
+						if at != nil {
+							aok = true
+						}
 					}
 				}
 				resp.Service = protd.Service + 128
