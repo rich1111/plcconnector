@@ -235,8 +235,10 @@ func (p *PLC) Close() {
 }
 
 type req struct {
-	connID   uint32
 	c        net.Conn
+	connID   uint32
+	rrdata   sendData
+	encHead  encapsulationHeader
 	p        *PLC
 	readBuf  *bufio.Reader
 	writeBuf *bytes.Buffer
@@ -291,18 +293,17 @@ loop:
 		}
 
 		p.debug()
-		var encHead encapsulationHeader
-		err = r.read(&encHead)
+		err = r.read(&r.encHead)
 		if err != nil {
 			break loop
 		}
 
 	command:
-		switch encHead.Command {
+		switch r.encHead.Command {
 		case nop:
 			p.debug("NOP")
 
-			data := make([]byte, encHead.Length)
+			data := make([]byte, r.encHead.Length)
 			err = r.read(&data)
 			if err != nil {
 				break loop
@@ -318,49 +319,47 @@ loop:
 				break loop
 			}
 
-			encHead.SessionHandle = rand.Uint32()
+			r.encHead.SessionHandle = rand.Uint32()
 
-			r.write(encHead)
+			r.write(r.encHead)
 			r.write(data)
 
 		case unregisterSession:
 			p.debug("UnregisterSession")
 			break loop
 
-		case listIdentity: // UDP!
-			p.debug("ListIdentity")
+		// case listIdentity: // UDP!
+		// 	p.debug("ListIdentity")
 
-			itemCount := uint16(1)
-			state := uint8(0)
-			productName := []byte{77, 111, 110, 103, 111, 108, 80, 76, 67}
-			var (
-				data listIdentityData
-				typ  itemType
-			)
+		// 	itemCount := uint16(1)
+		// 	state := uint8(0)
+		// 	productName := []byte{77, 111, 110, 103, 111, 108, 80, 76, 67}
+		// 	var (
+		// 		data listIdentityData
+		// 		typ  itemType
+		// 	)
 
-			data.ProtocolVersion = 1
-			data.SocketFamily = htons(2)
-			data.SocketPort = htons(p.port)
-			data.SocketAddr = getIP4()
-			data.VendorID = 1
-			data.DeviceType = 0x0C // communications adapter
-			data.ProductCode = 65001
-			data.Revision[0] = 1
-			data.Revision[1] = 0
-			data.Status = 0 // Owned
-			data.SerialNumber = 1
-			data.ProductNameLength = uint8(len(productName))
+		// 	data.ProtocolVersion = 1
+		// 	data.SocketFamily = htons(2)
+		// 	data.SocketPort = htons(p.port)
+		// 	data.SocketAddr = getIP4()
+		// 	data.VendorID = 1
+		// 	data.DeviceType = 0x0C // communications adapter
+		// 	data.ProductCode = 65001
+		// 	data.Revision[0] = 1
+		// 	data.Revision[1] = 0
+		// 	data.Status = 0 // Owned
+		// 	data.SerialNumber = 1
+		// 	data.ProductNameLength = uint8(len(productName))
 
-			typ.Type = 0x0C
-			typ.Length = uint16(binary.Size(data) + len(productName) + binary.Size(state))
+		// 	typ.Type = 0x0C
+		// 	typ.Length = uint16(binary.Size(data) + len(productName) + binary.Size(state))
 
-			encHead.Length = uint16(binary.Size(itemCount) + binary.Size(typ) + int(typ.Length))
-			r.write(encHead)
-			r.write(itemCount)
-			r.write(typ)
-			r.write(data)
-			r.write(productName)
-			r.write(state)
+		// 	r.write(itemCount)
+		// 	r.write(typ)
+		// 	r.write(data)
+		// 	r.write(productName)
+		// 	r.write(state)
 
 		case listServices:
 			p.debug("ListServices")
@@ -378,8 +377,6 @@ loop:
 			data.CapabilityFlags = capabilityFlagsCipTCP
 			data.NameOfService = [16]int8{67, 111, 109, 109, 117, 110, 105, 99, 97, 116, 105, 111, 110, 115, 0, 0} // Communications
 
-			encHead.Length = uint16(binary.Size(itemCount) + binary.Size(typ) + binary.Size(data))
-			r.write(encHead)
 			r.write(itemCount)
 			r.write(typ)
 			r.write(data)
@@ -389,15 +386,12 @@ loop:
 
 			itemCount := uint16(0)
 
-			encHead.Length = uint16(binary.Size(itemCount))
-			r.write(encHead)
 			r.write(itemCount)
 
 		case sendRRData, sendUnitData:
 			p.debug("SendRRData/SendUnitData")
 
 			var (
-				data         sendData
 				item         itemType
 				dataLen      uint16
 				addrLen      uint16
@@ -405,20 +399,18 @@ loop:
 				protSeqCount uint16
 				resp         response
 			)
-			err = r.read(&data)
+			err = r.read(&r.rrdata)
 			if err != nil {
 				break loop
 			}
 
-			data.Timeout = 0
+			r.rrdata.Timeout = 0
 			cidok := false
 			itemserror := false
 
-			if data.ItemCount != 2 {
+			if r.rrdata.ItemCount != 2 {
 				p.debug("itemCount != 2")
-				encHead.Length = 0
-				encHead.Status = 0x03 // Incorrect data
-				r.write(encHead)
+				r.encHead.Status = 0x03 // Incorrect data
 				break command
 			}
 
@@ -466,9 +458,7 @@ loop:
 			}
 
 			if itemserror {
-				encHead.Length = 0
-				encHead.Status = 0x03 // Incorrect data
-				r.write(encHead)
+				r.encHead.Status = 0x03 // Incorrect data
 				break command
 			}
 
@@ -504,9 +494,7 @@ loop:
 
 					attrdata, attrlen := in.getAttrAll()
 
-					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp) + attrlen)
-					r.write(encHead)
-					r.write(data)
+					r.write(r.rrdata)
 					r.write(itemType{Type: nullAddressItem, Length: 0})
 					r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + attrlen)})
 					r.write(resp)
@@ -516,9 +504,7 @@ loop:
 
 					resp.Status = 0x05 // Path destination unknown
 
-					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
-					r.write(encHead)
-					r.write(data)
+					r.write(r.rrdata)
 					r.write(itemType{Type: nullAddressItem, Length: 0})
 					r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
 					r.write(resp)
@@ -545,9 +531,7 @@ loop:
 
 				if cok && iok && aok {
 					p.debug(c.Name, protdPath[3], at.Name)
-					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp) + len(at.data))
-					r.write(encHead)
-					r.write(data)
+					r.write(r.rrdata)
 					r.write(itemType{Type: nullAddressItem, Length: 0})
 					r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + len(at.data))})
 					r.write(resp)
@@ -557,9 +541,7 @@ loop:
 
 					resp.Status = 0x05 // Path destination unknown
 
-					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
-					r.write(encHead)
-					r.write(data)
+					r.write(r.rrdata)
 					r.write(itemType{Type: nullAddressItem, Length: 0})
 					r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
 					r.write(resp)
@@ -592,9 +574,7 @@ loop:
 					in.argUint8[1] = 0       // TransferNumber
 					in.argUint8[2] = 0       // TransferNumber rollover
 
-					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp) + binary.Size(sr))
-					r.write(encHead)
-					r.write(data)
+					r.write(r.rrdata)
 					r.write(itemType{Type: nullAddressItem, Length: 0})
 					r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + binary.Size(sr))})
 					r.write(resp)
@@ -604,9 +584,7 @@ loop:
 
 					resp.Status = 0x05 // Path destination unknown
 
-					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
-					r.write(encHead)
-					r.write(data)
+					r.write(r.rrdata)
 					r.write(itemType{Type: nullAddressItem, Length: 0})
 					r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
 					r.write(resp)
@@ -669,9 +647,7 @@ loop:
 						p.debug(sr)
 						p.debug(len(dt), pos, posto)
 
-						encHead.Length = uint16(binary.Size(data)+2*binary.Size(itemType{})) + ln
-						r.write(encHead)
-						r.write(data)
+						r.write(r.rrdata)
 						r.write(itemType{Type: nullAddressItem, Length: 0})
 						r.write(itemType{Type: unconnDataItem, Length: ln})
 						r.write(resp)
@@ -688,9 +664,7 @@ loop:
 						sr.AddStatusSize = 1
 						sr.AddStatus = 0x06
 
-						encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp) + binary.Size(sr))
-						r.write(encHead)
-						r.write(data)
+						r.write(r.rrdata)
 						r.write(itemType{Type: nullAddressItem, Length: 0})
 						r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + binary.Size(sr))})
 						r.write(resp)
@@ -701,9 +675,7 @@ loop:
 
 					resp.Status = 0x05 // Path destination unknown
 
-					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
-					r.write(encHead)
-					r.write(data)
+					r.write(r.rrdata)
 					r.write(itemType{Type: nullAddressItem, Length: 0})
 					r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
 					r.write(resp)
@@ -737,9 +709,7 @@ loop:
 
 				r.connID = fodata.TOConnectionID
 
-				encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp) + binary.Size(sr))
-				r.write(encHead)
-				r.write(data)
+				r.write(r.rrdata)
 				r.write(itemType{Type: nullAddressItem, Length: 0})
 				r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + binary.Size(sr))})
 				r.write(resp)
@@ -769,9 +739,7 @@ loop:
 
 				r.connID = 0
 
-				encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp) + binary.Size(sr))
-				r.write(encHead)
-				r.write(data)
+				r.write(r.rrdata)
 				r.write(itemType{Type: nullAddressItem, Length: 0})
 				r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + binary.Size(sr))})
 				r.write(resp)
@@ -803,9 +771,7 @@ loop:
 						addrLen = uint16(binary.Size(r.connID))
 					}
 
-					encHead.Length = uint16(binary.Size(data)+2*binary.Size(itemType{})) + addrLen + dataLen
-					r.write(encHead)
-					r.write(data)
+					r.write(r.rrdata)
 					if cidok && r.connID != 0 {
 						r.write(itemType{Type: connAddressItem, Length: addrLen})
 						r.write(r.connID)
@@ -834,9 +800,7 @@ loop:
 						addrLen = uint16(binary.Size(r.connID))
 					}
 
-					encHead.Length = uint16(binary.Size(data)+2*binary.Size(itemType{})) + addrLen + dataLen
-					r.write(encHead)
-					r.write(data)
+					r.write(r.rrdata)
 					if cidok && r.connID != 0 {
 						r.write(itemType{Type: connAddressItem, Length: addrLen})
 						r.write(r.connID)
@@ -887,9 +851,7 @@ loop:
 						addrLen = uint16(binary.Size(r.connID))
 					}
 
-					encHead.Length = uint16(binary.Size(data)+2*binary.Size(itemType{})) + addrLen + dataLen
-					r.write(encHead)
-					r.write(data)
+					r.write(r.rrdata)
 					if cidok && r.connID != 0 {
 						r.write(itemType{Type: connAddressItem, Length: addrLen})
 						r.write(r.connID)
@@ -915,9 +877,7 @@ loop:
 						addrLen = uint16(binary.Size(r.connID))
 					}
 
-					encHead.Length = uint16(binary.Size(data)+2*binary.Size(itemType{})) + addrLen + dataLen
-					r.write(encHead)
-					r.write(data)
+					r.write(r.rrdata)
 					if cidok && r.connID != 0 {
 						r.write(itemType{Type: connAddressItem, Length: addrLen})
 						r.write(r.connID)
@@ -938,9 +898,7 @@ loop:
 					go p.callback(Reset, Success, nil)
 				}
 
-				encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
-				r.write(encHead)
-				r.write(data)
+				r.write(r.rrdata)
 				r.write(itemType{Type: nullAddressItem, Length: 0})
 				r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
 				r.write(resp)
@@ -950,25 +908,22 @@ loop:
 
 				resp.Status = 0x08 // Service not supported
 
-				encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
-				r.write(encHead)
-				r.write(data)
+				r.write(r.rrdata)
 				r.write(itemType{Type: nullAddressItem, Length: 0})
 				r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
 				r.write(resp)
 			}
 
 		default:
-			p.debug("unknown command:", encHead.Command)
+			p.debug("unknown command:", r.encHead.Command)
 
-			data := make([]uint8, encHead.Length)
+			data := make([]uint8, r.encHead.Length)
 			err = r.read(&data)
 			if err != nil {
 				break loop
 			}
-			encHead.Status = 0x01
+			r.encHead.Status = 0x01
 
-			r.write(encHead)
 			r.write(data)
 		}
 
@@ -978,7 +933,17 @@ loop:
 			break loop
 		}
 
-		_, err = conn.Write(r.writeBuf.Bytes())
+		r.encHead.Length = uint16(r.writeBuf.Len())
+		var buf bytes.Buffer
+
+		err = binary.Write(&buf, binary.LittleEndian, r.encHead)
+		if err != nil {
+			fmt.Println(err)
+			break loop
+		}
+		buf.Write(r.writeBuf.Bytes())
+
+		_, err = conn.Write(buf.Bytes())
 		if err != nil {
 			fmt.Println(err)
 			break loop
