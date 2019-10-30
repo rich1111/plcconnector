@@ -1,0 +1,5 @@
+https://old.reddit.com/r/PLC/comments/5c1o9t/using_ethernetip_to_obtain_a_tag_list_and_array/ When sending service 0x55 (GetInstanceAttributeList), request attribute 8 in addition to 1 and 2. The response will include the size of each of 3 dimensions (3 DINTs).
+https://github.com/kyle-github/libplctag
+https://github.com/dmroeder/pylogix
+https://www.eng-tips.com/viewthread.cfm?qid=432728
+http://www.hmisys.com/downloads/LogixTagRead.zip
