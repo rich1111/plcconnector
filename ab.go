@@ -11,7 +11,6 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"io"
 	"math/rand"
 	"net"
 	"sync"
@@ -91,24 +90,6 @@ func Init(eds string, testTags bool) (*PLC, error) {
 func (p *PLC) debug(args ...interface{}) {
 	if p.Verbose {
 		fmt.Println(args...)
-	}
-}
-
-func (p *PLC) readData(r io.Reader, data interface{}) error {
-	err := binary.Read(r, binary.LittleEndian, data)
-	if err != nil {
-		fmt.Println(err)
-	}
-	if p.DumpNetwork {
-		fmt.Printf("%#v\n", data)
-	}
-	return err
-}
-
-func (p *PLC) writeData(w io.Writer, data interface{}) {
-	err := binary.Write(w, binary.LittleEndian, data)
-	if err != nil {
-		fmt.Println(err)
 	}
 }
 
@@ -253,16 +234,48 @@ func (p *PLC) Close() {
 	p.closeWait.L.Unlock()
 }
 
-func (p *PLC) handleRequest(conn net.Conn) {
-	connID := uint32(0)
+type req struct {
+	connID   uint32
+	c        net.Conn
+	p        *PLC
+	readBuf  *bufio.Reader
+	writeBuf *bytes.Buffer
+}
 
-	readBuf := bufio.NewReader(conn)
-	writeBuf := new(bytes.Buffer)
+func (r *req) read(data interface{}) error {
+	err := binary.Read(r.readBuf, binary.LittleEndian, data)
+	if err != nil {
+		fmt.Println(err)
+	}
+	if r.p.DumpNetwork {
+		fmt.Printf("%#v\n", data)
+	}
+	return err
+}
+
+func (r *req) write(data interface{}) {
+	err := binary.Write(r.writeBuf, binary.LittleEndian, data)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func (r *req) reset() {
+	r.readBuf.Reset(r.c)
+	r.writeBuf.Reset()
+}
+
+func (p *PLC) handleRequest(conn net.Conn) {
+	r := req{}
+	r.connID = uint32(0)
+	r.c = conn
+	r.p = p
+	r.readBuf = bufio.NewReader(conn)
+	r.writeBuf = new(bytes.Buffer)
 
 loop:
 	for {
-		readBuf.Reset(conn)
-		writeBuf.Reset()
+		r.reset()
 
 		p.closeMut.RLock()
 		endP := p.closeI
@@ -279,7 +292,7 @@ loop:
 
 		p.debug()
 		var encHead encapsulationHeader
-		err = p.readData(readBuf, &encHead)
+		err = r.read(&encHead)
 		if err != nil {
 			break loop
 		}
@@ -290,7 +303,7 @@ loop:
 			p.debug("NOP")
 
 			data := make([]byte, encHead.Length)
-			err = p.readData(readBuf, &data)
+			err = r.read(&data)
 			if err != nil {
 				break loop
 			}
@@ -300,15 +313,15 @@ loop:
 			p.debug("RegisterSession")
 
 			var data registerSessionData
-			err = p.readData(readBuf, &data)
+			err = r.read(&data)
 			if err != nil {
 				break loop
 			}
 
 			encHead.SessionHandle = rand.Uint32()
 
-			p.writeData(writeBuf, encHead)
-			p.writeData(writeBuf, data)
+			r.write(encHead)
+			r.write(data)
 
 		case unregisterSession:
 			p.debug("UnregisterSession")
@@ -342,12 +355,12 @@ loop:
 			typ.Length = uint16(binary.Size(data) + len(productName) + binary.Size(state))
 
 			encHead.Length = uint16(binary.Size(itemCount) + binary.Size(typ) + int(typ.Length))
-			p.writeData(writeBuf, encHead)
-			p.writeData(writeBuf, itemCount)
-			p.writeData(writeBuf, typ)
-			p.writeData(writeBuf, data)
-			p.writeData(writeBuf, productName)
-			p.writeData(writeBuf, state)
+			r.write(encHead)
+			r.write(itemCount)
+			r.write(typ)
+			r.write(data)
+			r.write(productName)
+			r.write(state)
 
 		case listServices:
 			p.debug("ListServices")
@@ -366,10 +379,10 @@ loop:
 			data.NameOfService = [16]int8{67, 111, 109, 109, 117, 110, 105, 99, 97, 116, 105, 111, 110, 115, 0, 0} // Communications
 
 			encHead.Length = uint16(binary.Size(itemCount) + binary.Size(typ) + binary.Size(data))
-			p.writeData(writeBuf, encHead)
-			p.writeData(writeBuf, itemCount)
-			p.writeData(writeBuf, typ)
-			p.writeData(writeBuf, data)
+			r.write(encHead)
+			r.write(itemCount)
+			r.write(typ)
+			r.write(data)
 
 		case listInterfaces:
 			p.debug("ListInterfaces")
@@ -377,8 +390,8 @@ loop:
 			itemCount := uint16(0)
 
 			encHead.Length = uint16(binary.Size(itemCount))
-			p.writeData(writeBuf, encHead)
-			p.writeData(writeBuf, itemCount)
+			r.write(encHead)
+			r.write(itemCount)
 
 		case sendRRData, sendUnitData:
 			p.debug("SendRRData/SendUnitData")
@@ -392,7 +405,7 @@ loop:
 				protSeqCount uint16
 				resp         response
 			)
-			err = p.readData(readBuf, &data)
+			err = r.read(&data)
 			if err != nil {
 				break loop
 			}
@@ -405,18 +418,18 @@ loop:
 				p.debug("itemCount != 2")
 				encHead.Length = 0
 				encHead.Status = 0x03 // Incorrect data
-				p.writeData(writeBuf, encHead)
+				r.write(encHead)
 				break command
 			}
 
 			// address item
-			err = p.readData(readBuf, &item)
+			err = r.read(&item)
 			if err != nil {
 				break loop
 			}
 			if item.Type == connAddressItem { // TODO itemdata to connID
 				itemdata := make([]uint8, item.Length)
-				err = p.readData(readBuf, &itemdata)
+				err = r.read(&itemdata)
 				if err != nil {
 					break loop
 				}
@@ -425,19 +438,19 @@ loop:
 				p.debug("unkown address item:", item.Type)
 				itemserror = true
 				itemdata := make([]uint8, item.Length)
-				err = p.readData(readBuf, &itemdata)
+				err = r.read(&itemdata)
 				if err != nil {
 					break loop
 				}
 			}
 
 			// data item
-			err = p.readData(readBuf, &item)
+			err = r.read(&item)
 			if err != nil {
 				break loop
 			}
 			if item.Type == connDataItem {
-				err = p.readData(readBuf, &protSeqCount)
+				err = r.read(&protSeqCount)
 				if err != nil {
 					break loop
 				}
@@ -446,7 +459,7 @@ loop:
 				p.debug("unkown data item:", item.Type)
 				itemserror = true
 				itemdata := make([]uint8, item.Length)
-				err = p.readData(readBuf, &itemdata)
+				err = r.read(&itemdata)
 				if err != nil {
 					break loop
 				}
@@ -455,18 +468,18 @@ loop:
 			if itemserror {
 				encHead.Length = 0
 				encHead.Status = 0x03 // Incorrect data
-				p.writeData(writeBuf, encHead)
+				r.write(encHead)
 				break command
 			}
 
 			// CIP
-			err = p.readData(readBuf, &protd)
+			err = r.read(&protd)
 			if err != nil {
 				break loop
 			}
 
 			protdPath := make([]uint8, protd.PathSize*2)
-			err = p.readData(readBuf, &protdPath)
+			err = r.read(&protdPath)
 			if err != nil {
 				break loop
 			}
@@ -492,23 +505,23 @@ loop:
 					attrdata, attrlen := in.getAttrAll()
 
 					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp) + attrlen)
-					p.writeData(writeBuf, encHead)
-					p.writeData(writeBuf, data)
-					p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
-					p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + attrlen)})
-					p.writeData(writeBuf, resp)
-					p.writeData(writeBuf, attrdata)
+					r.write(encHead)
+					r.write(data)
+					r.write(itemType{Type: nullAddressItem, Length: 0})
+					r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + attrlen)})
+					r.write(resp)
+					r.write(attrdata)
 				} else {
 					p.debug("path unknown", protdPath)
 
 					resp.Status = 0x05 // Path destination unknown
 
 					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
-					p.writeData(writeBuf, encHead)
-					p.writeData(writeBuf, data)
-					p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
-					p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
-					p.writeData(writeBuf, resp)
+					r.write(encHead)
+					r.write(data)
+					r.write(itemType{Type: nullAddressItem, Length: 0})
+					r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
+					r.write(resp)
 				}
 
 			case GetAttr:
@@ -533,23 +546,23 @@ loop:
 				if cok && iok && aok {
 					p.debug(c.Name, protdPath[3], at.Name)
 					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp) + len(at.data))
-					p.writeData(writeBuf, encHead)
-					p.writeData(writeBuf, data)
-					p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
-					p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + len(at.data))})
-					p.writeData(writeBuf, resp)
-					p.writeData(writeBuf, at.data)
+					r.write(encHead)
+					r.write(data)
+					r.write(itemType{Type: nullAddressItem, Length: 0})
+					r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + len(at.data))})
+					r.write(resp)
+					r.write(at.data)
 				} else {
 					p.debug("path unknown", protdPath)
 
 					resp.Status = 0x05 // Path destination unknown
 
 					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
-					p.writeData(writeBuf, encHead)
-					p.writeData(writeBuf, data)
-					p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
-					p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
-					p.writeData(writeBuf, resp)
+					r.write(encHead)
+					r.write(data)
+					r.write(itemType{Type: nullAddressItem, Length: 0})
+					r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
+					r.write(resp)
 				}
 
 			case InititateUpload: // TODO only File class?
@@ -564,7 +577,7 @@ loop:
 					in, iok = c.Inst[int(protdPath[3])]
 				}
 
-				err = p.readData(readBuf, &maxSize)
+				err = r.read(&maxSize)
 				if err != nil {
 					break loop
 				}
@@ -580,23 +593,23 @@ loop:
 					in.argUint8[2] = 0       // TransferNumber rollover
 
 					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp) + binary.Size(sr))
-					p.writeData(writeBuf, encHead)
-					p.writeData(writeBuf, data)
-					p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
-					p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + binary.Size(sr))})
-					p.writeData(writeBuf, resp)
-					p.writeData(writeBuf, sr)
+					r.write(encHead)
+					r.write(data)
+					r.write(itemType{Type: nullAddressItem, Length: 0})
+					r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + binary.Size(sr))})
+					r.write(resp)
+					r.write(sr)
 				} else {
 					p.debug("path unknown", protdPath)
 
 					resp.Status = 0x05 // Path destination unknown
 
 					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
-					p.writeData(writeBuf, encHead)
-					p.writeData(writeBuf, data)
-					p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
-					p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
-					p.writeData(writeBuf, resp)
+					r.write(encHead)
+					r.write(data)
+					r.write(itemType{Type: nullAddressItem, Length: 0})
+					r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
+					r.write(resp)
 				}
 
 			case UploadTransfer: // TODO only File class?
@@ -611,7 +624,7 @@ loop:
 					in, iok = c.Inst[int(protdPath[3])]
 				}
 
-				err = p.readData(readBuf, &transferNo)
+				err = r.read(&transferNo)
 				if err != nil {
 					break loop
 				}
@@ -657,15 +670,15 @@ loop:
 						p.debug(len(dt), pos, posto)
 
 						encHead.Length = uint16(binary.Size(data)+2*binary.Size(itemType{})) + ln
-						p.writeData(writeBuf, encHead)
-						p.writeData(writeBuf, data)
-						p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
-						p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: ln})
-						p.writeData(writeBuf, resp)
-						p.writeData(writeBuf, sr)
-						p.writeData(writeBuf, dt)
+						r.write(encHead)
+						r.write(data)
+						r.write(itemType{Type: nullAddressItem, Length: 0})
+						r.write(itemType{Type: unconnDataItem, Length: ln})
+						r.write(resp)
+						r.write(sr)
+						r.write(dt)
 						if addcksum {
-							p.writeData(writeBuf, in.Attr[7].data)
+							r.write(in.Attr[7].data)
 						}
 					} else {
 						var sr addStatus
@@ -676,12 +689,12 @@ loop:
 						sr.AddStatus = 0x06
 
 						encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp) + binary.Size(sr))
-						p.writeData(writeBuf, encHead)
-						p.writeData(writeBuf, data)
-						p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
-						p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + binary.Size(sr))})
-						p.writeData(writeBuf, resp)
-						p.writeData(writeBuf, sr)
+						r.write(encHead)
+						r.write(data)
+						r.write(itemType{Type: nullAddressItem, Length: 0})
+						r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + binary.Size(sr))})
+						r.write(resp)
+						r.write(sr)
 					}
 				} else {
 					p.debug("path unknown", protdPath)
@@ -689,11 +702,11 @@ loop:
 					resp.Status = 0x05 // Path destination unknown
 
 					encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
-					p.writeData(writeBuf, encHead)
-					p.writeData(writeBuf, data)
-					p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
-					p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
-					p.writeData(writeBuf, resp)
+					r.write(encHead)
+					r.write(data)
+					r.write(itemType{Type: nullAddressItem, Length: 0})
+					r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
+					r.write(resp)
 				}
 
 			case ForwardOpen:
@@ -703,12 +716,12 @@ loop:
 					fodata forwardOpenData
 					sr     forwardOpenResponse
 				)
-				err = p.readData(readBuf, &fodata)
+				err = r.read(&fodata)
 				if err != nil {
 					break loop
 				}
 				connPath := make([]uint8, fodata.ConnPathSize*2)
-				err = p.readData(readBuf, &connPath)
+				err = r.read(&connPath)
 				if err != nil {
 					break loop
 				}
@@ -722,15 +735,15 @@ loop:
 				sr.TOAPI = fodata.TORPI
 				sr.AppReplySize = 0
 
-				connID = fodata.TOConnectionID
+				r.connID = fodata.TOConnectionID
 
 				encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp) + binary.Size(sr))
-				p.writeData(writeBuf, encHead)
-				p.writeData(writeBuf, data)
-				p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
-				p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + binary.Size(sr))})
-				p.writeData(writeBuf, resp)
-				p.writeData(writeBuf, sr)
+				r.write(encHead)
+				r.write(data)
+				r.write(itemType{Type: nullAddressItem, Length: 0})
+				r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + binary.Size(sr))})
+				r.write(resp)
+				r.write(sr)
 
 			case ForwardClose:
 				p.debug("ForwardClose")
@@ -739,12 +752,12 @@ loop:
 					fcdata forwardCloseData
 					sr     forwardCloseResponse
 				)
-				err = p.readData(readBuf, &fcdata)
+				err = r.read(&fcdata)
 				if err != nil {
 					break loop
 				}
 				connPath := make([]uint8, fcdata.ConnPathSize*2)
-				err = p.readData(readBuf, &connPath)
+				err = r.read(&connPath)
 				if err != nil {
 					break loop
 				}
@@ -754,15 +767,15 @@ loop:
 				sr.OriginatorSerialNumber = fcdata.OriginatorSerialNumber
 				sr.AppReplySize = 0
 
-				connID = 0
+				r.connID = 0
 
 				encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp) + binary.Size(sr))
-				p.writeData(writeBuf, encHead)
-				p.writeData(writeBuf, data)
-				p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
-				p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + binary.Size(sr))})
-				p.writeData(writeBuf, resp)
-				p.writeData(writeBuf, sr)
+				r.write(encHead)
+				r.write(data)
+				r.write(itemType{Type: nullAddressItem, Length: 0})
+				r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp) + binary.Size(sr))})
+				r.write(resp)
+				r.write(sr)
 
 			case ReadTag:
 				p.debug("ReadTag")
@@ -775,7 +788,7 @@ loop:
 				if protd.PathSize > 0 && protdPath[0] == ansiExtended {
 					tagName = string(protdPath[2 : protdPath[1]+2])
 				}
-				err = p.readData(readBuf, &tagCount)
+				err = r.read(&tagCount)
 				if err != nil {
 					break loop
 				}
@@ -785,26 +798,26 @@ loop:
 					dataLen = uint16(binary.Size(resp)+binary.Size(tagType)) + typeLen(tagType)*tagCount
 					addrLen = 0
 
-					if cidok && connID != 0 {
+					if cidok && r.connID != 0 {
 						dataLen += uint16(binary.Size(protSeqCount))
-						addrLen = uint16(binary.Size(connID))
+						addrLen = uint16(binary.Size(r.connID))
 					}
 
 					encHead.Length = uint16(binary.Size(data)+2*binary.Size(itemType{})) + addrLen + dataLen
-					p.writeData(writeBuf, encHead)
-					p.writeData(writeBuf, data)
-					if cidok && connID != 0 {
-						p.writeData(writeBuf, itemType{Type: connAddressItem, Length: addrLen})
-						p.writeData(writeBuf, connID)
-						p.writeData(writeBuf, itemType{Type: connDataItem, Length: dataLen})
-						p.writeData(writeBuf, protSeqCount)
+					r.write(encHead)
+					r.write(data)
+					if cidok && r.connID != 0 {
+						r.write(itemType{Type: connAddressItem, Length: addrLen})
+						r.write(r.connID)
+						r.write(itemType{Type: connDataItem, Length: dataLen})
+						r.write(protSeqCount)
 					} else {
-						p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: addrLen})
-						p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: dataLen})
+						r.write(itemType{Type: nullAddressItem, Length: addrLen})
+						r.write(itemType{Type: unconnDataItem, Length: dataLen})
 					}
-					p.writeData(writeBuf, resp)
-					p.writeData(writeBuf, tagType)
-					p.writeData(writeBuf, rtData)
+					r.write(resp)
+					r.write(tagType)
+					r.write(rtData)
 
 				} else {
 					var sr addStatus
@@ -816,25 +829,25 @@ loop:
 					dataLen = uint16(binary.Size(resp) + binary.Size(sr))
 					addrLen = 0
 
-					if cidok && connID != 0 {
+					if cidok && r.connID != 0 {
 						dataLen += uint16(binary.Size(protSeqCount))
-						addrLen = uint16(binary.Size(connID))
+						addrLen = uint16(binary.Size(r.connID))
 					}
 
 					encHead.Length = uint16(binary.Size(data)+2*binary.Size(itemType{})) + addrLen + dataLen
-					p.writeData(writeBuf, encHead)
-					p.writeData(writeBuf, data)
-					if cidok && connID != 0 {
-						p.writeData(writeBuf, itemType{Type: connAddressItem, Length: addrLen})
-						p.writeData(writeBuf, connID)
-						p.writeData(writeBuf, itemType{Type: connDataItem, Length: dataLen})
-						p.writeData(writeBuf, protSeqCount)
+					r.write(encHead)
+					r.write(data)
+					if cidok && r.connID != 0 {
+						r.write(itemType{Type: connAddressItem, Length: addrLen})
+						r.write(r.connID)
+						r.write(itemType{Type: connDataItem, Length: dataLen})
+						r.write(protSeqCount)
 					} else {
-						p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: addrLen})
-						p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: dataLen})
+						r.write(itemType{Type: nullAddressItem, Length: addrLen})
+						r.write(itemType{Type: unconnDataItem, Length: dataLen})
 					}
-					p.writeData(writeBuf, resp)
-					p.writeData(writeBuf, sr)
+					r.write(resp)
+					r.write(sr)
 				}
 
 			case WriteTag:
@@ -849,18 +862,18 @@ loop:
 				if protd.PathSize > 0 && protdPath[0] == ansiExtended {
 					tagName = string(protdPath[2 : protdPath[1]+2])
 				}
-				err = p.readData(readBuf, &tagType)
+				err = r.read(&tagType)
 				if err != nil {
 					break loop
 				}
-				err = p.readData(readBuf, &tagCount)
+				err = r.read(&tagCount)
 				if err != nil {
 					break loop
 				}
 				p.debug(tagName, tagType, tagCount)
 
 				wrData := make([]uint8, typeLen(tagType)*tagCount)
-				err = p.readData(readBuf, wrData)
+				err = r.read(wrData)
 				if err != nil {
 					break loop
 				}
@@ -869,24 +882,24 @@ loop:
 					dataLen = uint16(binary.Size(resp))
 					addrLen = 0
 
-					if cidok && connID != 0 {
+					if cidok && r.connID != 0 {
 						dataLen += uint16(binary.Size(protSeqCount))
-						addrLen = uint16(binary.Size(connID))
+						addrLen = uint16(binary.Size(r.connID))
 					}
 
 					encHead.Length = uint16(binary.Size(data)+2*binary.Size(itemType{})) + addrLen + dataLen
-					p.writeData(writeBuf, encHead)
-					p.writeData(writeBuf, data)
-					if cidok && connID != 0 {
-						p.writeData(writeBuf, itemType{Type: connAddressItem, Length: addrLen})
-						p.writeData(writeBuf, connID)
-						p.writeData(writeBuf, itemType{Type: connDataItem, Length: dataLen})
-						p.writeData(writeBuf, protSeqCount)
+					r.write(encHead)
+					r.write(data)
+					if cidok && r.connID != 0 {
+						r.write(itemType{Type: connAddressItem, Length: addrLen})
+						r.write(r.connID)
+						r.write(itemType{Type: connDataItem, Length: dataLen})
+						r.write(protSeqCount)
 					} else {
-						p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: addrLen})
-						p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: dataLen})
+						r.write(itemType{Type: nullAddressItem, Length: addrLen})
+						r.write(itemType{Type: unconnDataItem, Length: dataLen})
 					}
-					p.writeData(writeBuf, resp)
+					r.write(resp)
 				} else {
 					var sr addStatus
 
@@ -897,25 +910,25 @@ loop:
 					dataLen = uint16(binary.Size(resp) + binary.Size(sr))
 					addrLen = 0
 
-					if cidok && connID != 0 {
+					if cidok && r.connID != 0 {
 						dataLen += uint16(binary.Size(protSeqCount))
-						addrLen = uint16(binary.Size(connID))
+						addrLen = uint16(binary.Size(r.connID))
 					}
 
 					encHead.Length = uint16(binary.Size(data)+2*binary.Size(itemType{})) + addrLen + dataLen
-					p.writeData(writeBuf, encHead)
-					p.writeData(writeBuf, data)
-					if cidok && connID != 0 {
-						p.writeData(writeBuf, itemType{Type: connAddressItem, Length: addrLen})
-						p.writeData(writeBuf, connID)
-						p.writeData(writeBuf, itemType{Type: connDataItem, Length: dataLen})
-						p.writeData(writeBuf, protSeqCount)
+					r.write(encHead)
+					r.write(data)
+					if cidok && r.connID != 0 {
+						r.write(itemType{Type: connAddressItem, Length: addrLen})
+						r.write(r.connID)
+						r.write(itemType{Type: connDataItem, Length: dataLen})
+						r.write(protSeqCount)
 					} else {
-						p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: addrLen})
-						p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: dataLen})
+						r.write(itemType{Type: nullAddressItem, Length: addrLen})
+						r.write(itemType{Type: unconnDataItem, Length: dataLen})
 					}
-					p.writeData(writeBuf, resp)
-					p.writeData(writeBuf, sr)
+					r.write(resp)
+					r.write(sr)
 				}
 
 			case Reset:
@@ -926,11 +939,11 @@ loop:
 				}
 
 				encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
-				p.writeData(writeBuf, encHead)
-				p.writeData(writeBuf, data)
-				p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
-				p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
-				p.writeData(writeBuf, resp)
+				r.write(encHead)
+				r.write(data)
+				r.write(itemType{Type: nullAddressItem, Length: 0})
+				r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
+				r.write(resp)
 
 			default:
 				p.debug("unknown service:", protd.Service)
@@ -938,25 +951,25 @@ loop:
 				resp.Status = 0x08 // Service not supported
 
 				encHead.Length = uint16(binary.Size(data) + 2*binary.Size(itemType{}) + binary.Size(resp))
-				p.writeData(writeBuf, encHead)
-				p.writeData(writeBuf, data)
-				p.writeData(writeBuf, itemType{Type: nullAddressItem, Length: 0})
-				p.writeData(writeBuf, itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
-				p.writeData(writeBuf, resp)
+				r.write(encHead)
+				r.write(data)
+				r.write(itemType{Type: nullAddressItem, Length: 0})
+				r.write(itemType{Type: unconnDataItem, Length: uint16(binary.Size(resp))})
+				r.write(resp)
 			}
 
 		default:
 			p.debug("unknown command:", encHead.Command)
 
 			data := make([]uint8, encHead.Length)
-			err = p.readData(readBuf, &data)
+			err = r.read(&data)
 			if err != nil {
 				break loop
 			}
 			encHead.Status = 0x01
 
-			p.writeData(writeBuf, encHead)
-			p.writeData(writeBuf, data)
+			r.write(encHead)
+			r.write(data)
 		}
 
 		err = conn.SetWriteDeadline(time.Now().Add(p.Timeout))
@@ -965,7 +978,7 @@ loop:
 			break loop
 		}
 
-		_, err = conn.Write(writeBuf.Bytes())
+		_, err = conn.Write(r.writeBuf.Bytes())
 		if err != nil {
 			fmt.Println(err)
 			break loop
