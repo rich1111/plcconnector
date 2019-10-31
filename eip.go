@@ -26,8 +26,12 @@ const (
 func (r *req) parsePath(path []uint8) {
 	for i := 0; i < len(path); i++ {
 		if path[i] == ansiExtended {
-			ansi := string(path[i+2 : i+int(path[i+1])+2])
-			i = i + int(path[i+1]) + 2
+			ln := path[i+1]
+			ansi := string(path[i+2 : i+int(ln)+2])
+			i += int(ln) + 1
+			if ln&1 == 1 {
+				i++
+			}
 			r.p.debug("ansi", ansi)
 		} else if (path[i] & pathType) == pathLogical {
 			typ := path[i] & pathSegType
@@ -63,13 +67,16 @@ func (r *req) parsePath(path []uint8) {
 			}
 			r.p.debug(name, el)
 		} else {
-			r.p.debug("path type error")
+			r.p.debug("path type error", path[i])
 		}
 	}
 	r.p.debug()
 }
 
-func (r *req) parsePathT() {
+// ParsePathT .
+func ParsePathT() {
+	var r req
+	r.p = &PLC{Verbose: true}
 	r.parsePath([]uint8{0x91, 0x05, 0x70, 0x61, 0x72, 0x74, 0x73, 0x00})
 	r.parsePath([]uint8{0x20, 0x6B, 0x25, 0x00, 0x82, 0x25})
 	r.parsePath([]uint8{0x91, 0x09, 0x73, 0x65, 0x74, 0x70, 0x6F, 0x69, 0x6E, 0x74, 0x73, 0x00, 0x28, 0x05})

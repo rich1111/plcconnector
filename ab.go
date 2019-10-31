@@ -284,9 +284,6 @@ func (p *PLC) handleRequest(conn net.Conn) {
 	r.writeBuf = new(bytes.Buffer)
 	r.wrCIPBuf = new(bytes.Buffer)
 
-	// r.parsePathT()
-	// return
-
 loop:
 	for {
 		r.reset()

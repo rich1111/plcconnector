@@ -53,6 +53,9 @@ func call(service int, status int, tag *plc.Tag) {
 }
 
 func main() {
+	// plc.ParsePathT()
+	// return
+
 	signalTrap := make(chan os.Signal, 1)
 	signal.Notify(signalTrap, os.Interrupt, syscall.SIGTERM)
 
