@@ -188,7 +188,7 @@ func (p *PLC) loadEDS(fn string) error {
 	in.data = f
 	for _, x := range in.data {
 		chksum += uint(x)
-		chksum |= 0xFFFF
+		chksum &= 0xFFFF
 	}
 	chksum = 0x10000 - chksum
 
@@ -205,6 +205,15 @@ func (p *PLC) loadEDS(fn string) error {
 	in.Attr[11] = AttrUSINT(0, "FileEncodingFormat") // uncompressed
 
 	p.Class[0x37].Inst[0xC8] = in
+
+	p.Class[0xAC] = NewClass("AC", 0) // unknown class, values from 1756-pm020_-en-p.pdf p. 57
+	in = NewInstance(10)
+	in.Attr[1] = AttrINT(5, "Attr1")
+	in.Attr[2] = AttrINT(1, "Attr2")
+	in.Attr[3] = &Attribute{Name: "Attr3", data: []uint8{0x03, 0xB2, 0x80, 0xC5}}   // DINT
+	in.Attr[4] = &Attribute{Name: "Attr4", data: []uint8{0x03, 0xB2, 0x80, 0xC5}}   // DINT
+	in.Attr[10] = &Attribute{Name: "Attr10", data: []uint8{0xF8, 0xDE, 0x47, 0xB8}} // DINT
+	p.Class[0xAC].Inst[1] = in
 
 	p.Class[0x6B] = NewClass("Symbol", 1)
 
