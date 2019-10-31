@@ -114,15 +114,27 @@ func NewInstance(noattr int) *Instance {
 }
 
 // NewClass .
-func NewClass(n string, attrs int) Class {
+func NewClass(n string, attrs int) *Class {
 	var c Class
 	c.Name = n
 	c.Inst = make(map[int]*Instance)
 	c.Inst[0] = NewInstance(attrs)
-	return c
+	return &c
 }
 
-func defaultIdentityClass() Class {
+// GetClassInstance .
+func (p *PLC) GetClassInstance(class int, instance int) (*Class, *Instance) {
+	c, cok := p.Class[class]
+	if cok {
+		in, iok := c.Inst[instance]
+		if iok {
+			return c, in
+		}
+	}
+	return nil, nil
+}
+
+func defaultIdentityClass() *Class {
 	var (
 		c Class
 		i Instance
@@ -140,5 +152,5 @@ func defaultIdentityClass() Class {
 	c.Inst = make(map[int]*Instance)
 	c.Inst[1] = &i
 
-	return c
+	return &c
 }

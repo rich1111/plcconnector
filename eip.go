@@ -2,6 +2,7 @@ package plcconnector
 
 import (
 	"encoding/binary"
+	"errors"
 	"math/rand"
 )
 
@@ -23,7 +24,20 @@ const (
 	path32   = 0x02
 )
 
-func (r *req) parsePath(path []uint8) {
+var errPath = errors.New("path error")
+
+type pathEl struct {
+	typ int
+	val int
+	txt string
+}
+
+func (r *req) parsePath(path []uint8) (int, int, int, []pathEl, error) {
+	class := -1
+	insta := -1
+	attri := -1
+	pth := []pathEl{}
+	x := 0
 	for i := 0; i < len(path); i++ {
 		if path[i] == ansiExtended {
 			ln := path[i+1]
@@ -32,11 +46,10 @@ func (r *req) parsePath(path []uint8) {
 			if ln&1 == 1 {
 				i++
 			}
-			r.p.debug("ansi", ansi)
+			pth = append(pth, pathEl{typ: ansiExtended, txt: ansi})
 		} else if (path[i] & pathType) == pathLogical {
 			typ := path[i] & pathSegType
 			size := path[i] & pathSize
-			name := ""
 			el := 0
 			switch size {
 			case path8:
@@ -50,27 +63,39 @@ func (r *req) parsePath(path []uint8) {
 				i += 5
 			default:
 				r.p.debug("path size error")
-				return
+				return 0, 0, 0, nil, errPath
 			}
 			switch typ {
 			case pathClass:
-				name = "class"
+				if class == -1 && x == 0 {
+					class = el
+				}
+				pth = append(pth, pathEl{typ: pathClass, val: el})
 			case pathInstance:
-				name = "instance"
+				if insta == -1 && x == 1 {
+					insta = el
+				}
+				pth = append(pth, pathEl{typ: pathInstance, val: el})
 			case pathAttribute:
-				name = "attribute"
+				if attri == -1 && x == 2 {
+					attri = el
+				}
+				pth = append(pth, pathEl{typ: pathAttribute, val: el})
 			case pathElement:
-				name = "element"
+				if attri == -1 && x == 2 {
+					attri = el
+				}
+				pth = append(pth, pathEl{typ: pathElement, val: el})
 			default:
 				r.p.debug("path segment type error")
-				return
+				return 0, 0, 0, nil, errPath
 			}
-			r.p.debug(name, el)
 		} else {
 			r.p.debug("path type error", path[i])
 		}
+		x++
 	}
-	r.p.debug()
+	return class, insta, attri, pth, nil
 }
 
 // ParsePathT .
@@ -118,8 +143,6 @@ func (r *req) eipRegisterSession() error {
 func (r *req) eipListIdentity() error {
 	r.p.debug("ListIdentity")
 
-	itemCount := uint16(1)
-	state := uint8(0)
 	productName := []byte{77, 111, 110, 103, 111, 108, 80, 76, 67}
 	var (
 		data listIdentityData
@@ -140,20 +163,19 @@ func (r *req) eipListIdentity() error {
 	data.ProductNameLength = uint8(len(productName))
 
 	typ.Type = 0x0C
-	typ.Length = uint16(binary.Size(data) + len(productName) + binary.Size(state))
+	typ.Length = uint16(binary.Size(data) + len(productName) + 1)
 
-	r.write(itemCount)
+	r.write(uint16(1)) // ItemCount
 	r.write(typ)
 	r.write(data)
 	r.write(productName)
-	r.write(state)
+	r.write(uint8(0)) // State
 	return nil
 }
 
 func (r *req) eipListServices() error {
 	r.p.debug("ListServices")
 
-	itemCount := uint16(1)
 	var (
 		data listServicesData
 		typ  itemType
@@ -166,7 +188,7 @@ func (r *req) eipListServices() error {
 	data.CapabilityFlags = capabilityFlagsCipTCP
 	data.NameOfService = [16]int8{67, 111, 109, 109, 117, 110, 105, 99, 97, 116, 105, 111, 110, 115, 0, 0} // Communications
 
-	r.write(itemCount)
+	r.write(uint16(1)) // ItemCount
 	r.write(typ)
 	r.write(data)
 	return nil

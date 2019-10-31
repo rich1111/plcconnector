@@ -29,7 +29,7 @@ type PLC struct {
 	tMut      sync.RWMutex
 	tags      map[string]*Tag
 
-	Class       map[int]Class
+	Class       map[int]*Class
 	DumpNetwork bool // enables dumping network packets
 	Verbose     bool // enables debugging output
 	Timeout     time.Duration
@@ -38,7 +38,7 @@ type PLC struct {
 // Init initialize library. Must be called first.
 func Init(eds string, testTags bool) (*PLC, error) {
 	var p PLC
-	p.Class = make(map[int]Class)
+	p.Class = make(map[int]*Class)
 	p.tags = make(map[string]*Tag)
 	p.Timeout = 60 * time.Second
 
@@ -336,9 +336,7 @@ loop:
 
 		case listInterfaces:
 			p.debug("ListInterfaces")
-
-			itemCount := uint16(0)
-			r.write(itemCount)
+			r.write(uint16(0)) // ItemCount
 
 		case sendRRData, sendUnitData:
 			p.debug("SendRRData/SendUnitData")
@@ -419,38 +417,38 @@ loop:
 				break loop
 			}
 
-			protdPath := make([]uint8, protd.PathSize*2)
-			err = r.read(&protdPath)
+			resp.Service = protd.Service + 128
+			resp.Status = Success
+
+			ePath := make([]uint8, protd.PathSize*2)
+			err = r.read(&ePath)
 			if err != nil {
 				break loop
 			}
 
-			// r.parsePath(protdPath)
+			class, instance, attr, path, err := r.parsePath(ePath)
+			p.debug("class", class, "instance", instance, "attr", attr, "path", path)
+			// if err != nil {
+			// 	resp.Status = PathSegmentError
+			// 	resp.AddStatusSize = 1
 
-			resp.Service = protd.Service + 128
-			resp.Status = Success
+			// 	r.write(resp)
+			// 	r.write(uint16(0))
+			// 	break command // FIXME
+			// }
 
 			switch protd.Service {
 			case GetAttrAll:
 				p.debug("GetAttributesAll")
 				mayCon = true
-				var (
-					iok bool
-					in  *Instance
-				)
-				c, cok := p.Class[int(protdPath[1])]
-				if cok {
-					in, iok = c.Inst[int(protdPath[3])]
-				}
 
-				if cok && iok {
-					p.debug(c.Name, protdPath[3])
-
+				c, in := p.GetClassInstance(class, instance)
+				if c != nil {
+					p.debug(c.Name, instance)
 					r.write(resp)
 					r.write(in.getAttrAll())
 				} else {
-					p.debug("path unknown", protdPath)
-
+					p.debug("path unknown", path)
 					resp.Status = PathUnknown
 					r.write(resp)
 				}
@@ -459,16 +457,10 @@ loop:
 				p.debug("GetAttributesList")
 				mayCon = true
 				var (
-					iok   bool
-					in    *Instance
 					count uint16
 					buf   bytes.Buffer
 					st    uint16
 				)
-				c, cok := p.Class[int(protdPath[1])]
-				if cok {
-					in, iok = c.Inst[int(protdPath[3])]
-				}
 
 				err = r.read(&count)
 				if err != nil {
@@ -480,7 +472,8 @@ loop:
 					break loop
 				}
 
-				if cok && iok {
+				c, in := p.GetClassInstance(class, instance)
+				if c != nil {
 					ln := len(in.Attr)
 					for _, i := range attr {
 						bwrite(&buf, i)
@@ -500,8 +493,7 @@ loop:
 					r.write(count)
 					r.write(buf.Bytes())
 				} else {
-					p.debug("path unknown", protdPath)
-
+					p.debug("path unknown", path)
 					resp.Status = PathUnknown
 					r.write(resp)
 				}
@@ -511,31 +503,24 @@ loop:
 				mayCon = true
 
 				var (
-					iok bool
-					in  *Instance
 					aok bool
 					at  *Attribute
 				)
-				c, cok := p.Class[int(protdPath[1])]
-				if cok {
-					in, iok = c.Inst[int(protdPath[3])]
-					if iok && int(protdPath[5]) < len(in.Attr) {
-						at = in.Attr[protdPath[5]]
-						if at != nil {
-							aok = true
-						}
+				c, in := p.GetClassInstance(class, instance)
+				if c != nil && attr < len(in.Attr) {
+					at = in.Attr[attr]
+					if at != nil {
+						aok = true
 					}
 				}
 				resp.Service = protd.Service + 128
 
-				if cok && iok && aok {
-					p.debug(c.Name, protdPath[3], at.Name)
-
+				if c != nil && aok {
+					p.debug(c.Name, instance, at.Name)
 					r.write(resp)
 					r.write(at.data)
 				} else {
-					p.debug("path unknown", protdPath)
-
+					p.debug("path unknown", path)
 					resp.Status = PathUnknown
 					r.write(resp)
 				}
@@ -543,23 +528,16 @@ loop:
 			case InititateUpload: // TODO only File class?
 				p.debug("InititateUpload")
 				mayCon = true
-				var (
-					iok     bool
-					in      *Instance
-					maxSize uint8
-				)
-				c, cok := p.Class[int(protdPath[1])]
-				if cok {
-					in, iok = c.Inst[int(protdPath[3])]
-				}
+				var maxSize uint8
 
 				err = r.read(&maxSize)
 				if err != nil {
 					break loop
 				}
 
-				if cok && iok {
-					p.debug(c.Name, protdPath[3], maxSize)
+				c, in := p.GetClassInstance(class, instance)
+				if c != nil {
+					p.debug(c.Name, instance, maxSize)
 
 					var sr initUploadResponse
 					sr.FileSize = uint32(len(in.data))
@@ -571,8 +549,7 @@ loop:
 					r.write(resp)
 					r.write(sr)
 				} else {
-					p.debug("path unknown", protdPath)
-
+					p.debug("path unknown", path)
 					resp.Status = PathUnknown
 					r.write(resp)
 				}
@@ -580,24 +557,17 @@ loop:
 			case UploadTransfer: // TODO only File class?
 				p.debug("UploadTransfer")
 				mayCon = true
-				var (
-					iok        bool
-					in         *Instance
-					transferNo uint8
-				)
-				c, cok := p.Class[int(protdPath[1])]
-				if cok {
-					in, iok = c.Inst[int(protdPath[3])]
-				}
+				var transferNo uint8
 
 				err = r.read(&transferNo)
 				if err != nil {
 					break loop
 				}
 
-				if cok && iok {
+				c, in := p.GetClassInstance(class, instance)
+				if c != nil {
 					if transferNo == in.argUint8[1] || transferNo == in.argUint8[1]+1 || (transferNo == 0 && in.argUint8[1] == 255) {
-						p.debug(c.Name, protdPath[3], transferNo)
+						p.debug(c.Name, instance, transferNo)
 
 						if transferNo == 0 && in.argUint8[1] == 255 { // rollover
 							p.debug("rollover")
@@ -646,13 +616,12 @@ loop:
 
 						resp.Status = InvalidPar
 						resp.AddStatusSize = 1
-						addStatus := uint16(0x06)
 
 						r.write(resp)
-						r.write(addStatus)
+						r.write(uint16(0))
 					}
 				} else {
-					p.debug("path unknown", protdPath)
+					p.debug("path unknown", path)
 
 					resp.Status = PathUnknown
 					r.write(resp)
@@ -725,8 +694,8 @@ loop:
 					tagCount uint16
 				)
 
-				if protd.PathSize > 0 && protdPath[0] == ansiExtended {
-					tagName = string(protdPath[2 : protdPath[1]+2])
+				if len(path) > 0 && path[0].typ == ansiExtended {
+					tagName = path[0].txt
 				}
 				err = r.read(&tagCount)
 				if err != nil {
@@ -741,10 +710,9 @@ loop:
 				} else {
 					resp.Status = PathSegmentError
 					resp.AddStatusSize = 1
-					addStatus := uint16(0)
 
 					r.write(resp)
-					r.write(addStatus)
+					r.write(uint16(0))
 				}
 
 			case WriteTag:
@@ -757,8 +725,8 @@ loop:
 					tagCount uint16
 				)
 
-				if protd.PathSize > 0 && protdPath[0] == ansiExtended {
-					tagName = string(protdPath[2 : protdPath[1]+2])
+				if len(path) > 0 && path[0].typ == ansiExtended {
+					tagName = path[0].txt
 				}
 				err = r.read(&tagType)
 				if err != nil {
@@ -781,10 +749,9 @@ loop:
 				} else {
 					resp.Status = PathSegmentError
 					resp.AddStatusSize = 1
-					addStatus := uint16(0)
 
 					r.write(resp)
-					r.write(addStatus)
+					r.write(uint16(0))
 				}
 
 			case Reset:
