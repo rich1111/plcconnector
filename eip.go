@@ -5,6 +5,79 @@ import (
 	"math/rand"
 )
 
+const (
+	ansiExtended = 0x91
+
+	pathType    = 0xE0
+	pathLogical = 0x20
+
+	pathSegType   = 0x1C
+	pathClass     = 0x00
+	pathInstance  = 0x04
+	pathElement   = 0x08
+	pathAttribute = 0x10
+
+	pathSize = 0x03
+	path8    = 0x00
+	path16   = 0x01
+	path32   = 0x02
+)
+
+func (r *req) parsePath(path []uint8) {
+	for i := 0; i < len(path); i++ {
+		if path[i] == ansiExtended {
+			ansi := string(path[i+2 : i+int(path[i+1])+2])
+			i = i + int(path[i+1]) + 2
+			r.p.debug("ansi", ansi)
+		} else if (path[i] & pathType) == pathLogical {
+			typ := path[i] & pathSegType
+			size := path[i] & pathSize
+			name := ""
+			el := 0
+			switch size {
+			case path8:
+				el = int(path[i+1])
+				i++
+			case path16:
+				el = int(path[i+2]) + (int(path[i+3]) << 8)
+				i += 3
+			case path32:
+				el = int(path[i+2]) + (int(path[i+3]) << 8) + (int(path[i+4]) << 16) + (int(path[i+5]) << 24)
+				i += 5
+			default:
+				r.p.debug("path size error")
+				return
+			}
+			switch typ {
+			case pathClass:
+				name = "class"
+			case pathInstance:
+				name = "instance"
+			case pathAttribute:
+				name = "attribute"
+			case pathElement:
+				name = "element"
+			default:
+				r.p.debug("path segment type error")
+				return
+			}
+			r.p.debug(name, el)
+		} else {
+			r.p.debug("path type error")
+		}
+	}
+	r.p.debug()
+}
+
+func (r *req) parsePathT() {
+	r.parsePath([]uint8{0x91, 0x05, 0x70, 0x61, 0x72, 0x74, 0x73, 0x00})
+	r.parsePath([]uint8{0x20, 0x6B, 0x25, 0x00, 0x82, 0x25})
+	r.parsePath([]uint8{0x91, 0x09, 0x73, 0x65, 0x74, 0x70, 0x6F, 0x69, 0x6E, 0x74, 0x73, 0x00, 0x28, 0x05})
+	r.parsePath([]uint8{0x91, 0x07, 0x70, 0x72, 0x6f, 0x66, 0x69, 0x6c, 0x65, 0x00, 0x28, 0x00, 0x28, 0x01, 0x29, 0x00, 0x01, 0x01})
+	r.parsePath([]uint8{0x20, 0x6B, 0x25, 0x00, 0x97, 0x8A, 0x28, 0x00, 0x28, 0x01, 0x29, 0x00, 0x01, 0x01})
+	r.parsePath([]uint8{0x91, 0x06, 0x64, 0x77, 0x65, 0x6C, 0x6C, 0x33, 0x91, 0x03, 0x61, 0x63, 0x63, 0x00}) // FIXME
+}
+
 func (r *req) eipNOP() error {
 	r.p.debug("NOP")
 

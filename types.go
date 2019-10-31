@@ -59,16 +59,10 @@ const (
 	connAddressItem = 0xa1
 	connDataItem    = 0xb1
 
-	ansiExtended = 0x91
-
 	capabilityFlagsCipTCP          = 32
 	capabilityFlagsCipUDPClass0or1 = 256
 
 	cipItemIDListServiceResponse = 0x100
-
-	pathClass = 0x20
-	pathInst  = 0x24
-	pathAttr  = 0x28
 )
 
 type encapsulationHeader struct {
