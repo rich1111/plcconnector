@@ -58,51 +58,74 @@ func (p *PLC) loadEDS(fn string) error {
 	value := false
 	valueName := ""
 	itemName := ""
+	valueString := false
 	for _, ch := range f {
 		switch ch {
 		case '$':
 			if !str {
 				comment = true
+			} else {
+				valueName += string(ch)
 			}
 		case 0xD, 0xA:
 			comment = false
 			section = false
 		case '[':
-			if !str && !comment {
-				section = true
-				sectionName = ""
+			if !comment {
+				if !str {
+					section = true
+					sectionName = ""
+				} else {
+					valueName += string(ch)
+				}
 			}
 		case ']':
-			if !str && !comment {
-				section = false
-				// fmt.Println("section", sectionName)
-				p.eds[sectionName] = make(map[string]string)
-				item = true
-				itemName = ""
+			if !comment {
+				if !str {
+					section = false
+					// fmt.Println("section", sectionName)
+					p.eds[sectionName] = make(map[string]string)
+					item = true
+					itemName = ""
+				} else {
+					valueName += string(ch)
+				}
 			}
 		case '=':
-			if !str && !comment {
-				value = true
-				valueName = ""
-				item = false
-				itemName = strings.TrimSpace(itemName)
-				// fmt.Println("item", itemName)
+			if !comment {
+				if !str {
+					value = true
+					valueName = ""
+					item = false
+					itemName = strings.TrimSpace(itemName)
+					// fmt.Println("item", itemName)
+				} else {
+					valueName += string(ch)
+				}
 			}
 		case ';':
-			if !str && !comment {
-				valueName = strings.TrimSpace(valueName)
-				// fmt.Println("value", valueName)
-				s, ok := p.eds[sectionName]
-				if ok {
-					s[itemName] = valueName
+			if !comment {
+				if !str {
+					valueName = strings.TrimSpace(valueName)
+					// fmt.Println("value", valueName)
+					s, ok := p.eds[sectionName]
+					if ok {
+						s[itemName] = valueName
+					}
+					item = true
+					itemName = ""
+					value = false
+					valueString = false
+				} else {
+					valueName += string(ch)
 				}
-				item = true
-				itemName = ""
-				value = false
 			}
 		case '"':
-			if !comment { // TODO /" ?, sklejanie stringow
+			if !comment { // TODO \" \n Vol1 7-3.5.4
 				str = !str
+				if str {
+					valueString = true
+				}
 			}
 		// case ',': TODO
 		default:
@@ -112,12 +135,17 @@ func (p *PLC) loadEDS(fn string) error {
 				} else if item {
 					itemName += string(ch)
 				} else if value {
+					if valueString && !str {
+						break
+					}
 					valueName += string(ch)
+
 				}
 			}
 		}
 	}
-	// fmt.Println(p.eds)
+	// fmt.Println(p.eds["Device"]["IconContents"])
+	// fmt.Println(p.eds["Port"]["Port1"])
 
 	p.Class[1] = defaultIdentityClass()
 	i := p.Class[1].Inst[1]
