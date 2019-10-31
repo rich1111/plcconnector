@@ -177,5 +177,47 @@ func (p *PLC) loadEDS(fn string) error {
 	in.Attr[11] = AttrUSINT(0, "FileEncodingFormat") // uncompressed
 
 	p.Class[0x37].Inst[0xC8] = in
+
+	p.Class[0x6B] = NewClass("Symbol", 1)
+
+	p.Class[0x6C] = NewClass("Template", 1)
+	p.Class[0x6C].Inst[0].Attr[1] = AttrUINT(1, "Revision")
+
+	p.Class[0xF4] = NewClass("Port", 9)
+	p.Class[0xF4].Inst[0].Attr[8] = AttrUINT(1, "EntryPort")
+	p.Class[0xF4].Inst[0].Attr[9] = &Attribute{Name: "PortInstanceInfo", data: []uint8{0, 0, 0, 0, 4, 0, 1, 0}} // uint 4 - Ethernet/IP , uint 1 - CIP port number
+	in = NewInstance(4)
+	in.Attr[1] = AttrUINT(4, "PortType")
+	in.Attr[2] = AttrUINT(1, "PortNumber")
+	in.Attr[3] = &Attribute{Name: "LinkObject", data: []uint8{0x02, 0x00, 0x20, 0xF5, 0x24, 0x01}}
+	in.Attr[4] = AttrShortString("EtherNet/IP port", "PortName")
+	p.Class[0xF4].Inst[1] = in
+
+	p.Class[0xF5] = NewClass("TCP Interface", 0)
+	in = NewInstance(6)
+	in.Attr[1] = AttrUDINT(1, "Status")
+	in.Attr[2] = AttrUDINT(0b1_1_0, "ConfigurationCapabality")
+	in.Attr[3] = AttrUDINT(0b1_0010, "ConfigurationControl")
+	in.Attr[4] = &Attribute{Name: "PhysicalLinkObject", data: []uint8{0x02, 0x00, 0x20, 0xF6, 0x24, 0x01}}
+	ip := getIP4()
+	in.Attr[5] = &Attribute{Name: "InterfaceConfiguration", data: []uint8{ // TODO
+		uint8(ip >> 24), uint8(ip >> 16), uint8(ip >> 8), uint8(ip), // IP address
+		0xFF, 0, 0, 0, // network mask
+		0xA, 0xA, 0, 1, // gateway address
+		8, 8, 8, 8, // name server
+		1, 1, 1, 1, // name server 2
+		0, 0, // string domain name
+	}}
+	in.Attr[6] = AttrString("", "HostName") // TODO
+	p.Class[0xF5].Inst[1] = in
+
+	p.Class[0xF6] = NewClass("Ethernet Link", 1)
+	p.Class[0xF6].Inst[0].Attr[1] = AttrUINT(3, "Revision")
+	in = NewInstance(3)
+	in.Attr[1] = AttrUDINT(1000, "InterfaceSpeed")
+	in.Attr[2] = AttrUDINT(0b0_1_011_1_1, "InterfaceFlags")
+	in.Attr[3] = &Attribute{Name: "PhysicalAddress", data: []uint8{0x02, 0x00, 0x20, 0xF5, 0x24, 0x01}} // TODO MAC
+	p.Class[0xF6].Inst[1] = in
+
 	return nil
 }

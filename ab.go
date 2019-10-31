@@ -268,6 +268,13 @@ func (r *req) reset() {
 	r.wrCIPBuf.Reset()
 }
 
+func bwrite(buf *bytes.Buffer, data interface{}) {
+	err := binary.Write(buf, binary.LittleEndian, data)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
 func (p *PLC) handleRequest(conn net.Conn) {
 	r := req{}
 	r.connID = uint32(0)
@@ -437,14 +444,63 @@ loop:
 				if cok && iok {
 					p.debug(c.Name, protdPath[3])
 
-					attrdata := in.getAttrAll()
-
 					r.write(resp)
-					r.write(attrdata)
+					r.write(in.getAttrAll())
 				} else {
 					p.debug("path unknown", protdPath)
 
-					resp.Status = 0x05 // Path destination unknown
+					resp.Status = PathUnknown
+					r.write(resp)
+				}
+
+			case GetAttrList:
+				p.debug("GetAttributesList")
+				mayCon = true
+				var (
+					iok   bool
+					in    *Instance
+					count uint16
+					buf   bytes.Buffer
+					st    uint16
+				)
+				c, cok := p.Class[int(protdPath[1])]
+				if cok {
+					in, iok = c.Inst[int(protdPath[3])]
+				}
+
+				err = r.read(&count)
+				if err != nil {
+					break loop
+				}
+				attr := make([]uint16, count)
+				err = r.read(&attr)
+				if err != nil {
+					break loop
+				}
+
+				if cok && iok {
+					ln := len(in.Attr)
+					for _, i := range attr {
+						bwrite(&buf, i)
+						if int(i) < ln && in.Attr[i] != nil {
+							p.debug(in.Attr[i].Name)
+							st = Success
+							bwrite(&buf, st)
+							bwrite(&buf, in.Attr[i].data)
+						} else {
+							resp.Status = AttrListError
+							st = AttrNotSup
+							bwrite(&buf, st)
+						}
+					}
+
+					r.write(resp)
+					r.write(count)
+					r.write(buf.Bytes())
+				} else {
+					p.debug("path unknown", protdPath)
+
+					resp.Status = PathUnknown
 					r.write(resp)
 				}
 
@@ -478,7 +534,7 @@ loop:
 				} else {
 					p.debug("path unknown", protdPath)
 
-					resp.Status = 0x05 // Path destination unknown
+					resp.Status = PathUnknown
 					r.write(resp)
 				}
 
@@ -515,7 +571,7 @@ loop:
 				} else {
 					p.debug("path unknown", protdPath)
 
-					resp.Status = 0x05 // Path destination unknown
+					resp.Status = PathUnknown
 					r.write(resp)
 				}
 
@@ -586,7 +642,7 @@ loop:
 					} else {
 						p.debug("transfer number error", transferNo)
 
-						resp.Status = 0x20 // Invalid Parameter
+						resp.Status = InvalidPar
 						resp.AddStatusSize = 1
 						addStatus := uint16(0x06)
 
@@ -596,7 +652,7 @@ loop:
 				} else {
 					p.debug("path unknown", protdPath)
 
-					resp.Status = 0x05 // Path destination unknown
+					resp.Status = PathUnknown
 					r.write(resp)
 				}
 
@@ -740,7 +796,7 @@ loop:
 			default:
 				p.debug("unknown service:", protd.Service)
 
-				resp.Status = 0x08 // Service not supported
+				resp.Status = ServNotSup
 				r.write(resp)
 			}
 

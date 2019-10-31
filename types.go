@@ -3,6 +3,7 @@ package plcconnector
 // Service
 const (
 	GetAttrAll      = 0x01
+	GetAttrList     = 0x03
 	Reset           = 0x05
 	GetAttr         = 0x0E
 	ForwardOpen     = 0x54
@@ -27,6 +28,7 @@ const (
 	TypeUINT  = 0xC7
 	TypeUDINT = 0xC8
 
+	TypeString      = 0xD0
 	TypeShortString = 0xDA
 	TypeStringI     = 0x04
 )
@@ -35,6 +37,11 @@ const (
 const (
 	Success          = 0x00
 	PathSegmentError = 0x04
+	PathUnknown      = 0x05
+	ServNotSup       = 0x08
+	AttrListError    = 0x0A
+	AttrNotSup       = 0x14
+	InvalidPar       = 0x20
 )
 
 const (

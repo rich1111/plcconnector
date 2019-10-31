@@ -66,6 +66,16 @@ func AttrINT(v int16, n string) *Attribute {
 	return &a
 }
 
+// AttrString .
+func AttrString(v string, n string) *Attribute {
+	var a Attribute
+	a.Name = n
+	a.Type = TypeString
+	a.data = []byte{byte(len(v)), byte(len(v) >> 8)}
+	a.data = append(a.data, []byte(v)...)
+	return &a
+}
+
 // AttrShortString .
 func AttrShortString(v string, n string) *Attribute {
 	var a Attribute
