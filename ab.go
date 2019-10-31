@@ -26,6 +26,7 @@ type PLC struct {
 	closeWait *sync.Cond
 	eds       map[string]map[string]string
 	port      uint16
+	symbols   *Class
 	tMut      sync.RWMutex
 	tags      map[string]*Tag
 
@@ -42,46 +43,42 @@ func Init(eds string, testTags bool) (*PLC, error) {
 	p.tags = make(map[string]*Tag)
 	p.Timeout = 60 * time.Second
 
-	if eds == "" {
-		p.Class[1] = defaultIdentityClass()
-	} else {
-		err := p.loadEDS(eds)
-		if err != nil {
-			return nil, err
-		}
+	err := p.loadEDS(eds)
+	if err != nil {
+		return nil, err
 	}
 
 	if testTags {
-		p.tags["testBOOL"] = &Tag{Name: "testBOOL", Typ: TypeBOOL, Count: 4, data: []uint8{
-			0x00, 0x01, 0xFF, 0x55}}
+		p.AddTag(Tag{Name: "testBOOL", Typ: TypeBOOL, Count: 4, data: []uint8{
+			0x00, 0x01, 0xFF, 0x55}})
 
-		p.tags["testSINT"] = &Tag{Name: "testSINT", Typ: TypeSINT, Count: 4, data: []uint8{
-			0xFF, 0xFE, 0x00, 0x01}}
+		p.AddTag(Tag{Name: "testSINT", Typ: TypeSINT, Count: 4, data: []uint8{
+			0xFF, 0xFE, 0x00, 0x01}})
 
-		p.tags["testINT"] = &Tag{Name: "testINT", Typ: TypeINT, Count: 10, data: []uint8{
-			0xFF, 0xFF, 0x00, 0x01, 0xFE, 0x00, 0xFC, 0x00, 0xCA, 0x00, 0xBD, 0x00, 0xB1, 0x00, 0xFF, 0x00, 127, 0x00, 128, 0x00}}
+		p.AddTag(Tag{Name: "testINT", Typ: TypeINT, Count: 10, data: []uint8{
+			0xFF, 0xFF, 0x00, 0x01, 0xFE, 0x00, 0xFC, 0x00, 0xCA, 0x00, 0xBD, 0x00, 0xB1, 0x00, 0xFF, 0x00, 127, 0x00, 128, 0x00}})
 
-		p.tags["testDINT"] = &Tag{Name: "testDINT", Typ: TypeDINT, Count: 2, data: []uint8{
+		p.AddTag(Tag{Name: "testDINT", Typ: TypeDINT, Count: 2, data: []uint8{
 			0xFF, 0xFF, 0xFF, 0xFF,
-			0x01, 0x00, 0x00, 0x00}}
+			0x01, 0x00, 0x00, 0x00}})
 
-		p.tags["testREAL"] = &Tag{Name: "testREAL", Typ: TypeREAL, Count: 2, data: []uint8{
+		p.AddTag(Tag{Name: "testREAL", Typ: TypeREAL, Count: 2, data: []uint8{
 			0xa4, 0x70, 0x9d, 0x3f,
-			0xcd, 0xcc, 0x44, 0xc1}}
+			0xcd, 0xcc, 0x44, 0xc1}})
 
-		p.tags["testDWORD"] = &Tag{Name: "testDWORD", Typ: TypeDWORD, Count: 2, data: []uint8{
+		p.AddTag(Tag{Name: "testDWORD", Typ: TypeDWORD, Count: 2, data: []uint8{
 			0xFF, 0xFF, 0xFF, 0xFF,
-			0x01, 0x00, 0x00, 0x00}}
+			0x01, 0x00, 0x00, 0x00}})
 
-		p.tags["testLINT"] = &Tag{Name: "testLINT", Typ: TypeLINT, Count: 2, data: []uint8{
+		p.AddTag(Tag{Name: "testLINT", Typ: TypeLINT, Count: 2, data: []uint8{
 			0xFF, 0xFF, 0xFF, 0xFF,
 			0xFF, 0xFF, 0xFF, 0xFF,
 			0x01, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x00, 0x00}}
+			0x00, 0x00, 0x00, 0x00}})
 
-		p.tags["testASCII"] = &Tag{Name: "testASCII", Typ: TypeSINT, Count: 17, data: []uint8{
+		p.AddTag(Tag{Name: "testASCII", Typ: TypeSINT, Count: 17, data: []uint8{
 			'H', 'e', 'l', 'l',
-			'o', '!', 0x00, 0x01, 0x7F, 0xFE, 0xFC, 0xCA, 0xBD, 0xB1, 0xFF, 127, 128}}
+			'o', '!', 0x00, 0x01, 0x7F, 0xFE, 0xFC, 0xCA, 0xBD, 0xB1, 0xFF, 127, 128}})
 	}
 
 	return &p, nil
@@ -140,9 +137,20 @@ func (p *PLC) saveTag(tag string, typ, count uint16, data []uint8) bool {
 
 // AddTag adds tag.
 func (p *PLC) AddTag(t Tag) {
-	size := typeLen(uint16(t.Typ)) * uint16(t.Count)
-	t.data = make([]uint8, size)
+	if t.data == nil {
+		size := typeLen(uint16(t.Typ)) * uint16(t.Count)
+		t.data = make([]uint8, size)
+	}
+	in := NewInstance(8)
+	in.Attr[1] = AttrString(t.Name, "SymbolName")
+	typ := uint16(t.Typ)
+	if t.Count > 1 {
+		typ |= 0x2000 // 1D Array
+	}
+	in.Attr[2] = AttrUINT(typ, "SymbolType")
+	in.Attr[8] = &Attribute{Name: "Dimensions", data: []uint8{uint8(t.Count), uint8(t.Count >> 8), uint8(t.Count >> 16), uint8(t.Count >> 24), 0, 0, 0, 0, 0, 0, 0, 0}}
 	p.tMut.Lock()
+	p.symbols.SetInstance(p.symbols.lastInst+1, in)
 	p.tags[t.Name] = &t
 	p.tMut.Unlock()
 }

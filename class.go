@@ -9,6 +9,8 @@ import (
 type Class struct {
 	Name string
 	Inst map[int]*Instance
+
+	lastInst int
 }
 
 // Instance .
@@ -118,7 +120,7 @@ func NewClass(n string, attrs int) *Class {
 	var c Class
 	c.Name = n
 	c.Inst = make(map[int]*Instance)
-	c.Inst[0] = NewInstance(attrs)
+	c.SetInstance(0, NewInstance(attrs))
 	return &c
 }
 
@@ -134,12 +136,17 @@ func (p *PLC) GetClassInstance(class int, instance int) (*Class, *Instance) {
 	return nil, nil
 }
 
+// SetInstance .
+func (c *Class) SetInstance(no int, in *Instance) {
+	c.Inst[no] = in
+	if no > c.lastInst {
+		c.lastInst = no
+	}
+}
+
 func defaultIdentityClass() *Class {
-	var (
-		c Class
-		i Instance
-	)
-	i.Attr = make([]*Attribute, 8)
+	c := NewClass("Identity", 0)
+	i := NewInstance(7)
 	i.Attr[1] = AttrUINT(1, "VendorID")
 	i.Attr[2] = AttrUINT(0x0C, "DeviceType") // communications adapter
 	i.Attr[3] = AttrUINT(65001, "ProductCode")
@@ -149,8 +156,7 @@ func defaultIdentityClass() *Class {
 	i.Attr[7] = AttrShortString("MongolPLC", "ProductName")
 
 	c.Name = "Identity"
-	c.Inst = make(map[int]*Instance)
-	c.Inst[1] = &i
+	c.SetInstance(1, i)
 
-	return &c
+	return c
 }

@@ -204,7 +204,7 @@ func (p *PLC) loadEDS(fn string) error {
 	in.Attr[10] = AttrUSINT(1, "FileType")           // read only
 	in.Attr[11] = AttrUSINT(0, "FileEncodingFormat") // uncompressed
 
-	p.Class[0x37].Inst[0xC8] = in
+	p.Class[0x37].SetInstance(0xC8, in)
 
 	p.Class[0xAC] = NewClass("AC", 0) // unknown class, values from 1756-pm020_-en-p.pdf p. 57
 	in = NewInstance(10)
@@ -213,9 +213,10 @@ func (p *PLC) loadEDS(fn string) error {
 	in.Attr[3] = &Attribute{Name: "Attr3", data: []uint8{0x03, 0xB2, 0x80, 0xC5}}   // DINT
 	in.Attr[4] = &Attribute{Name: "Attr4", data: []uint8{0x03, 0xB2, 0x80, 0xC5}}   // DINT
 	in.Attr[10] = &Attribute{Name: "Attr10", data: []uint8{0xF8, 0xDE, 0x47, 0xB8}} // DINT
-	p.Class[0xAC].Inst[1] = in
+	p.Class[0xAC].SetInstance(1, in)
 
 	p.Class[0x6B] = NewClass("Symbol", 1)
+	p.symbols = p.Class[0x6B]
 
 	p.Class[0x6C] = NewClass("Template", 1)
 	p.Class[0x6C].Inst[0].Attr[1] = AttrUINT(1, "Revision")
@@ -228,7 +229,7 @@ func (p *PLC) loadEDS(fn string) error {
 	in.Attr[2] = AttrUINT(1, "PortNumber")
 	in.Attr[3] = &Attribute{Name: "LinkObject", data: []uint8{0x02, 0x00, 0x20, 0xF5, 0x24, 0x01}}
 	in.Attr[4] = AttrShortString("EtherNet/IP port", "PortName")
-	p.Class[0xF4].Inst[1] = in
+	p.Class[0xF4].SetInstance(1, in)
 
 	p.Class[0xF5] = NewClass("TCP Interface", 0)
 	in = NewInstance(6)
@@ -246,7 +247,7 @@ func (p *PLC) loadEDS(fn string) error {
 		0, 0, // string domain name
 	}}
 	in.Attr[6] = AttrString("", "HostName") // TODO
-	p.Class[0xF5].Inst[1] = in
+	p.Class[0xF5].SetInstance(1, in)
 
 	p.Class[0xF6] = NewClass("Ethernet Link", 1)
 	p.Class[0xF6].Inst[0].Attr[1] = AttrUINT(3, "Revision")
@@ -254,7 +255,7 @@ func (p *PLC) loadEDS(fn string) error {
 	in.Attr[1] = AttrUDINT(1000, "InterfaceSpeed")
 	in.Attr[2] = AttrUDINT(0b0_1_011_1_1, "InterfaceFlags")
 	in.Attr[3] = &Attribute{Name: "PhysicalAddress", data: []uint8{0x02, 0x00, 0x20, 0xF5, 0x24, 0x01}} // TODO MAC
-	p.Class[0xF6].Inst[1] = in
+	p.Class[0xF6].SetInstance(1, in)
 
 	return nil
 }
