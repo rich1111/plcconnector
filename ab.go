@@ -148,6 +148,7 @@ func (p *PLC) AddTag(t Tag) {
 		typ |= 0x2000 // 1D Array
 	}
 	in.Attr[2] = AttrUINT(typ, "SymbolType")
+	in.Attr[7] = AttrUINT(uint16(t.Count)*typeLen(uint16(t.Typ)), "UnkownAttr7")
 	in.Attr[8] = &Attribute{Name: "Dimensions", data: []uint8{uint8(t.Count), uint8(t.Count >> 8), uint8(t.Count >> 16), uint8(t.Count >> 24), 0, 0, 0, 0, 0, 0, 0, 0}}
 	p.tMut.Lock()
 	p.symbols.SetInstance(p.symbols.lastInst+1, in)
@@ -499,6 +500,47 @@ loop:
 
 					r.write(resp)
 					r.write(count)
+					r.write(buf.Bytes())
+				} else {
+					p.debug("path unknown", path)
+					resp.Status = PathUnknown
+					r.write(resp)
+				}
+
+			case GetInstAttrList: // TODO status 6 too much data (511)
+				p.debug("GetInstanceAttributesList")
+				mayCon = true
+				var (
+					count uint16
+					buf   bytes.Buffer
+				)
+
+				err = r.read(&count)
+				if err != nil {
+					break loop
+				}
+				attr := make([]uint16, count)
+				err = r.read(&attr)
+				if err != nil {
+					break loop
+				}
+
+				c, li := p.GetClassInstancesList(class, instance)
+				if c != nil {
+					for _, x := range li {
+						in := c.Inst[x]
+						ln := len(in.Attr)
+						bwrite(&buf, uint32(x))
+						for _, i := range attr {
+							if int(i) < ln && in.Attr[i] != nil {
+								bwrite(&buf, in.Attr[i].data)
+							} else { // FIXME break
+								resp.Status = AttrListError
+							}
+						}
+					}
+
+					r.write(resp)
 					r.write(buf.Bytes())
 				} else {
 					p.debug("path unknown", path)

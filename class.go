@@ -3,6 +3,7 @@ package plcconnector
 import (
 	"bytes"
 	"encoding/binary"
+	"sort"
 )
 
 // Class .
@@ -122,6 +123,24 @@ func NewClass(n string, attrs int) *Class {
 	c.Inst = make(map[int]*Instance)
 	c.SetInstance(0, NewInstance(attrs))
 	return &c
+}
+
+// GetClassInstancesList . TODO instanceFrom
+func (p *PLC) GetClassInstancesList(class int, instanceFrom int) (*Class, []int) {
+	c, cok := p.Class[class]
+	if cok {
+		ret := make([]int, len(c.Inst)-1) // FIXME instance 0
+		i := 0
+		for in := range c.Inst {
+			if in != 0 { // FIXME instance 0
+				ret[i] = in
+				i++
+			}
+		}
+		sort.Ints(ret)
+		return c, ret
+	}
+	return nil, nil
 }
 
 // GetClassInstance .

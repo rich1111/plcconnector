@@ -12,6 +12,7 @@ const (
 	WriteTag        = 0x4D
 	InititateUpload = 0x4B
 	UploadTransfer  = 0x4F
+	GetInstAttrList = 0x55
 )
 
 // Data types
