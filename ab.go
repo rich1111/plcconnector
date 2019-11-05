@@ -148,7 +148,7 @@ func (p *PLC) AddTag(t Tag) {
 		typ |= 0x2000 // 1D Array
 	}
 	in.Attr[2] = AttrUINT(typ, "SymbolType")
-	in.Attr[7] = AttrUINT(uint16(t.Count)*typeLen(uint16(t.Typ)), "UnkownAttr7")
+	in.Attr[7] = AttrUINT(typeLen(uint16(t.Typ)), "BaseTypeSize")
 	in.Attr[8] = &Attribute{Name: "Dimensions", data: []uint8{uint8(t.Count), uint8(t.Count >> 8), uint8(t.Count >> 16), uint8(t.Count >> 24), 0, 0, 0, 0, 0, 0, 0, 0}}
 	p.tMut.Lock()
 	p.symbols.SetInstance(p.symbols.lastInst+1, in)
