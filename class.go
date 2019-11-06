@@ -135,7 +135,7 @@ func (p *PLC) GetClassInstancesList(class int, instanceFrom int) (*Class, []int)
 		ret := make([]int, 0, len(c.Inst)-instanceFrom)
 		i := 0
 		for in := range c.Inst {
-			if in > instanceFrom {
+			if in >= instanceFrom {
 				ret = append(ret, in)
 				i++
 			}
