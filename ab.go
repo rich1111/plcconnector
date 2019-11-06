@@ -304,7 +304,8 @@ loop:
 			break loop
 		}
 
-		err := conn.SetReadDeadline(time.Now().Add(p.Timeout))
+		timeout := time.Now().Add(p.Timeout)
+		err := conn.SetReadDeadline(timeout)
 		if err != nil {
 			fmt.Println(err)
 			break loop
@@ -318,36 +319,36 @@ loop:
 
 	command:
 		switch r.encHead.Command {
-		case nop:
+		case ecNOP:
 			if r.eipNOP() != nil {
 				break loop
 			}
 			continue loop
 
-		case registerSession:
+		case ecRegisterSession:
 			if r.eipRegisterSession() != nil {
 				break loop
 			}
 
-		case unregisterSession:
+		case ecUnRegisterSession:
 			p.debug("UnregisterSession")
 			break loop
 
-		case listIdentity: // UDP!
+		case ecListIdentity: // TODO: UDP
 			if r.eipListIdentity() != nil {
 				break loop
 			}
 
-		case listServices:
+		case ecListServices: // TODO: UDP
 			if r.eipListServices() != nil {
 				break loop
 			}
 
-		case listInterfaces:
+		case ecListInterfaces: // TODO: UDP
 			p.debug("ListInterfaces")
 			r.write(uint16(0)) // ItemCount
 
-		case sendRRData, sendUnitData:
+		case ecSendRRData, ecSendUnitData:
 			p.debug("SendRRData/SendUnitData")
 
 			var (
@@ -361,6 +362,15 @@ loop:
 				break loop
 			}
 
+			if r.rrdata.Timeout != 0 && r.encHead.Command == ecSendRRData {
+				timeout = time.Now().Add(time.Duration(r.rrdata.Timeout) * time.Second)
+				err = conn.SetReadDeadline(timeout)
+				if err != nil {
+					fmt.Println(err)
+					break loop
+				}
+			}
+
 			r.rrdata.Timeout = 0
 			cidok := false
 			mayCon := false
@@ -368,7 +378,7 @@ loop:
 
 			if r.rrdata.ItemCount != 2 {
 				p.debug("itemCount != 2")
-				r.encHead.Status = 0x03 // Incorrect data
+				r.encHead.Status = eipIncorrectData
 				break command
 			}
 
@@ -377,14 +387,14 @@ loop:
 			if err != nil {
 				break loop
 			}
-			if item.Type == connAddressItem { // TODO itemdata to connID
+			if item.Type == itConnAddress { // TODO itemdata to connID
 				itemdata := make([]uint8, item.Length)
 				err = r.read(&itemdata)
 				if err != nil {
 					break loop
 				}
 				cidok = true
-			} else if item.Type != nullAddressItem {
+			} else if item.Type != itNullAddress {
 				p.debug("unkown address item:", item.Type)
 				itemserror = true
 				itemdata := make([]uint8, item.Length)
@@ -399,13 +409,13 @@ loop:
 			if err != nil {
 				break loop
 			}
-			if item.Type == connDataItem {
+			if item.Type == itConnData {
 				err = r.read(&protSeqCount)
 				if err != nil {
 					break loop
 				}
 				cidok = true
-			} else if item.Type != unconnDataItem {
+			} else if item.Type != itUnconnData {
 				p.debug("unkown data item:", item.Type)
 				itemserror = true
 				itemdata := make([]uint8, item.Length)
@@ -416,7 +426,7 @@ loop:
 			}
 
 			if itemserror {
-				r.encHead.Status = 0x03 // Incorrect data
+				r.encHead.Status = eipIncorrectData
 				break command
 			}
 
@@ -507,7 +517,7 @@ loop:
 					r.write(resp)
 				}
 
-			case GetInstAttrList: // TODO status 6 too much data (511)
+			case GetInstAttrList: // TODO status 6 too much data (504 unconnected)
 				p.debug("GetInstanceAttributesList")
 				mayCon = true
 				var (
@@ -829,13 +839,13 @@ loop:
 
 			r.writeCIP(r.rrdata)
 			if mayCon && cidok && r.connID != 0 {
-				r.writeCIP(itemType{Type: connAddressItem, Length: uint16(binary.Size(r.connID))})
+				r.writeCIP(itemType{Type: itConnAddress, Length: uint16(binary.Size(r.connID))})
 				r.writeCIP(r.connID)
-				r.writeCIP(itemType{Type: connDataItem, Length: uint16(binary.Size(protSeqCount) + r.writeBuf.Len())})
+				r.writeCIP(itemType{Type: itConnData, Length: uint16(binary.Size(protSeqCount) + r.writeBuf.Len())})
 				r.writeCIP(protSeqCount)
 			} else {
-				r.writeCIP(itemType{Type: nullAddressItem, Length: 0})
-				r.writeCIP(itemType{Type: unconnDataItem, Length: uint16(r.writeBuf.Len())})
+				r.writeCIP(itemType{Type: itNullAddress, Length: 0})
+				r.writeCIP(itemType{Type: itUnconnData, Length: uint16(r.writeBuf.Len())})
 			}
 
 		default:
@@ -846,12 +856,12 @@ loop:
 			if err != nil {
 				break loop
 			}
-			r.encHead.Status = 0x01
+			r.encHead.Status = eipInvalid
 
 			r.write(data)
 		}
 
-		err = conn.SetWriteDeadline(time.Now().Add(p.Timeout))
+		err = conn.SetWriteDeadline(timeout)
 		if err != nil {
 			fmt.Println(err)
 			break loop

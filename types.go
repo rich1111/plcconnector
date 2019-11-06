@@ -45,25 +45,46 @@ const (
 	InvalidPar       = 0x20
 )
 
+// EIP Error Codes
 const (
-	nop               = 0x00
-	listServices      = 0x04
-	listIdentity      = 0x63
-	listInterfaces    = 0x64
-	registerSession   = 0x65
-	sendRRData        = 0x6f
-	sendUnitData      = 0x70
-	unregisterSession = 0x66
+	eipSuccess                = 0x00
+	eipInvalid                = 0x01
+	eipNoMemory               = 0x02
+	eipIncorrectData          = 0x03
+	eipInvalidSessionHandle   = 0x64
+	eipInvalidLength          = 0x65
+	eipInvalidProtocolVersion = 0x69
+)
 
-	nullAddressItem = 0x00
-	unconnDataItem  = 0xb2
-	connAddressItem = 0xa1
-	connDataItem    = 0xb1
+// EIP Encapsulationn Commands
+const (
+	ecNOP               = 0x00
+	ecListServices      = 0x04
+	ecListIdentity      = 0x63
+	ecListInterfaces    = 0x64
+	ecRegisterSession   = 0x65
+	ecUnRegisterSession = 0x66
+	ecSendRRData        = 0x6f
+	ecSendUnitData      = 0x70
+	ecIndicateStatus    = 0x72
+	ecCancel            = 0x73
+)
 
-	capabilityFlagsCipTCP          = 32
-	capabilityFlagsCipUDPClass0or1 = 256
+// Item Type Codes
+const (
+	itNullAddress = 0x00
+	itUnconnData  = 0xb2
+	itConnAddress = 0xa1
+	itConnData    = 0xb1
 
-	cipItemIDListServiceResponse = 0x100
+	itListIdentity = 0x0C
+	itListService  = 0x100
+)
+
+// ListService Communications Capability Flags
+const (
+	lscfTCP = 32
+	lscfUDP = 256
 )
 
 type encapsulationHeader struct {
@@ -87,18 +108,11 @@ type listServicesData struct {
 }
 
 type listIdentityData struct {
-	ProtocolVersion   uint16
-	SocketFamily      uint16
-	SocketPort        uint16
-	SocketAddr        uint32
-	SocketZero        [8]uint8
-	VendorID          uint16
-	DeviceType        uint16
-	ProductCode       uint16
-	Revision          [2]uint8
-	Status            uint16
-	SerialNumber      uint32
-	ProductNameLength uint8
+	ProtocolVersion uint16
+	SocketFamily    uint16
+	SocketPort      uint16
+	SocketAddr      uint32
+	SocketZero      [8]uint8
 }
 
 type sendData struct {
