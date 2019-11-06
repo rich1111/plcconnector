@@ -72,13 +72,15 @@ const (
 
 // Item Type Codes
 const (
-	itNullAddress = 0x00
-	itUnconnData  = 0xb2
-	itConnAddress = 0xa1
-	itConnData    = 0xb1
-
-	itListIdentity = 0x0C
-	itListService  = 0x100
+	itNullAddress  = 0x0000
+	itListIdentity = 0x000C
+	itConnAddress  = 0x00A1
+	itConnData     = 0x00B1
+	itUnconnData   = 0x00B2
+	itListService  = 0x0100
+	itSockAddrOT   = 0x8000
+	itSockAddrTO   = 0x8001
+	itSeqAddress   = 0x8002
 )
 
 // ListService Communications Capability Flags
