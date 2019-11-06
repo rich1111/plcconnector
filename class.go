@@ -125,15 +125,15 @@ func NewClass(n string, attrs int) *Class {
 	return &c
 }
 
-// GetClassInstancesList . TODO instanceFrom
+// GetClassInstancesList .
 func (p *PLC) GetClassInstancesList(class int, instanceFrom int) (*Class, []int) {
 	c, cok := p.Class[class]
 	if cok {
-		ret := make([]int, len(c.Inst)-1) // FIXME instance 0
+		ret := make([]int, 0, len(c.Inst)-instanceFrom-1) // without instance 0
 		i := 0
 		for in := range c.Inst {
-			if in != 0 { // FIXME instance 0
-				ret[i] = in
+			if in > instanceFrom {
+				ret = append(ret, in)
 				i++
 			}
 		}
