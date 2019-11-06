@@ -202,6 +202,7 @@ func (p *PLC) Serve(host string) error {
 	}
 	p.port = getPort(host)
 	serv := serv2.(*net.TCPListener)
+	go p.serveUDP(host)
 	for {
 		serv.SetDeadline(time.Now().Add(time.Second))
 		conn, err := serv.AcceptTCP()

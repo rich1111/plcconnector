@@ -8,11 +8,11 @@ import (
 )
 
 func htons(v uint16) uint16 {
-	return binary.BigEndian.Uint16([]byte{byte(v >> 8), byte(v)})
+	return binary.LittleEndian.Uint16([]byte{byte(v >> 8), byte(v)})
 }
 
 func htonl(v uint32) uint32 {
-	return binary.BigEndian.Uint32([]byte{byte(v >> 24), byte(v >> 16), byte(v >> 8), byte(v)})
+	return binary.LittleEndian.Uint32([]byte{byte(v >> 24), byte(v >> 16), byte(v >> 8), byte(v)})
 }
 
 func getIP4() uint32 {
@@ -32,7 +32,7 @@ func getIP4() uint32 {
 					if !ip.IsLoopback() {
 						ipstr := ip.String()
 						if !strings.Contains(ipstr, ":") {
-							return (uint32(ip[0]) << 24) | (uint32(ip[1]) << 16) | (uint32(ip[2]) << 8) | uint32(ip[3])
+							return binary.LittleEndian.Uint32(ip.To4())
 						}
 					}
 				}

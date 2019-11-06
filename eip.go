@@ -146,8 +146,6 @@ func (r *req) eipRegisterSession() error {
 }
 
 func (r *req) eipListIdentity() error {
-	r.p.debug("ListIdentity")
-
 	var (
 		data listIdentityData
 		typ  itemType
@@ -172,8 +170,6 @@ func (r *req) eipListIdentity() error {
 }
 
 func (r *req) eipListServices() error {
-	r.p.debug("ListServices")
-
 	var (
 		data listServicesData
 		typ  itemType
