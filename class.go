@@ -129,7 +129,10 @@ func NewClass(n string, attrs int) *Class {
 func (p *PLC) GetClassInstancesList(class int, instanceFrom int) (*Class, []int) {
 	c, cok := p.Class[class]
 	if cok {
-		ret := make([]int, 0, len(c.Inst)-instanceFrom-1) // without instance 0
+		if instanceFrom <= 0 {
+			instanceFrom = 1
+		}
+		ret := make([]int, 0, len(c.Inst)-instanceFrom)
 		i := 0
 		for in := range c.Inst {
 			if in > instanceFrom {
