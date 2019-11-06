@@ -2,16 +2,18 @@ package plcconnector
 
 // Service
 const (
-	GetAttrAll      = 0x01
-	GetAttrList     = 0x03
-	Reset           = 0x05
-	GetAttr         = 0x0E
-	ForwardOpen     = 0x54
-	ForwardClose    = 0x4E
+	// Common
+	GetAttrAll  = 0x01
+	GetAttrList = 0x03
+	Reset       = 0x05
+	GetAttr     = 0x0E
+	// Class Specific
+	InititateUpload = 0x4B
 	ReadTag         = 0x4C
 	WriteTag        = 0x4D
-	InititateUpload = 0x4B
+	ForwardClose    = 0x4E
 	UploadTransfer  = 0x4F
+	ForwardOpen     = 0x54
 	GetInstAttrList = 0x55
 )
 

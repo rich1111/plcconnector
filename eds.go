@@ -222,13 +222,17 @@ func (p *PLC) loadEDS(fn string) error {
 	p.Class[0x6C].Inst[0].Attr[1] = AttrUINT(1, "Revision")
 
 	p.Class[0xF4] = NewClass("Port", 9)
+	p.Class[0xF4].Inst[0].Attr[1] = AttrUINT(1, "Revision")
+	p.Class[0xF4].Inst[0].Attr[2] = AttrUINT(1, "MaxInstance")
+	p.Class[0xF4].Inst[0].Attr[3] = AttrUINT(1, "NumInstances")
 	p.Class[0xF4].Inst[0].Attr[8] = AttrUINT(1, "EntryPort")
 	p.Class[0xF4].Inst[0].Attr[9] = &Attribute{Name: "PortInstanceInfo", data: []uint8{0, 0, 0, 0, 4, 0, 1, 0}} // uint 4 - Ethernet/IP , uint 1 - CIP port number
-	in = NewInstance(4)
+	in = NewInstance(7)
 	in.Attr[1] = AttrUINT(4, "PortType")
 	in.Attr[2] = AttrUINT(1, "PortNumber")
 	in.Attr[3] = &Attribute{Name: "LinkObject", data: []uint8{0x02, 0x00, 0x20, 0xF5, 0x24, 0x01}}
 	in.Attr[4] = AttrShortString("EtherNet/IP port", "PortName")
+	in.Attr[7] = &Attribute{Name: "NodeAddress", data: []uint8{0x01, 0x00, 0x10, 0x01}}
 	p.Class[0xF4].SetInstance(1, in)
 
 	p.Class[0xF5] = NewClass("TCP Interface", 0)
