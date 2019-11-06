@@ -79,7 +79,7 @@ func main() {
 	c.DumpNetwork = false
 
 	// callback
-	c.Callback(call)
+	// c.Callback(call)
 
 	// strona WWW
 	go c.ServeHTTP("0.0.0.0:28080")

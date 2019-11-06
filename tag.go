@@ -6,6 +6,7 @@ import "math"
 type Tag struct {
 	Name  string
 	Typ   int
+	Index int
 	Count int
 
 	data []uint8

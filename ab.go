@@ -90,7 +90,7 @@ func (p *PLC) debug(args ...interface{}) {
 	}
 }
 
-func (p *PLC) readTag(tag string, count uint16) ([]uint8, uint16, bool) {
+func (p *PLC) readTag(tag string, index int, count uint16) ([]uint8, uint16, bool) {
 	p.tMut.RLock()
 	tg, ok := p.tags[tag]
 	var (
@@ -98,19 +98,19 @@ func (p *PLC) readTag(tag string, count uint16) ([]uint8, uint16, bool) {
 		tgdata []uint8
 	)
 	if ok {
-		p.debug(tag+":", tg)
 		tgtyp = uint16(tg.Typ)
-		tgdata = make([]uint8, count*typeLen(tgtyp))
-		if count > uint16(tg.Count) {
+		tl := typeLen(tgtyp)
+		tgdata = make([]uint8, count*tl)
+		if index+int(count) > tg.Count {
 			ok = false
 		} else {
-			copy(tgdata, tg.data)
+			copy(tgdata, tg.data[index*int(tl):])
 		}
 	}
 	p.tMut.RUnlock()
 	if ok {
 		if p.callback != nil {
-			go p.callback(ReadTag, Success, &Tag{Name: tag, Typ: int(tgtyp), Count: int(count), data: tgdata})
+			go p.callback(ReadTag, Success, &Tag{Name: tag, Typ: int(tgtyp), Index: index, Count: int(count), data: tgdata})
 		}
 		return tgdata, tgtyp, true
 	}
@@ -120,17 +120,17 @@ func (p *PLC) readTag(tag string, count uint16) ([]uint8, uint16, bool) {
 	return nil, 0, false
 }
 
-func (p *PLC) saveTag(tag string, typ, count uint16, data []uint8) bool {
+func (p *PLC) saveTag(tag string, typ uint16, index int, count uint16, data []uint8) bool {
 	p.tMut.Lock()
 	tg, ok := p.tags[tag]
-	if ok && tg.Typ == int(typ) && tg.Count >= int(count) {
-		copy(tg.data, data)
+	if ok && tg.Typ == int(typ) && tg.Count >= index+int(count) {
+		copy(tg.data[index*int(typeLen(typ)):], data)
 	} else {
-		p.tags[tag] = &Tag{Name: tag, Typ: int(typ), Count: int(count), data: data}
+		p.tags[tag] = &Tag{Name: tag, Typ: int(typ), Count: int(count), data: data} // FIXME Symbols
 	}
 	p.tMut.Unlock()
 	if p.callback != nil {
-		go p.callback(WriteTag, Success, &Tag{Name: tag, Typ: int(typ), Count: int(count), data: data})
+		go p.callback(WriteTag, Success, &Tag{Name: tag, Typ: int(typ), Index: index, Count: int(count), data: data})
 	}
 	return true
 }
@@ -741,19 +741,23 @@ loop:
 
 				var (
 					tagName  string
+					tagIndex int
 					tagCount uint16
 				)
 
 				if len(path) > 0 && path[0].typ == ansiExtended {
 					tagName = path[0].txt
+					if len(path) > 1 && path[1].typ == pathElement {
+						tagIndex = path[1].val
+					}
 				}
 				err = r.read(&tagCount)
 				if err != nil {
 					break loop
 				}
-				p.debug(tagName, tagCount)
+				p.debug(tagName, tagIndex, tagCount)
 
-				if rtData, tagType, ok := p.readTag(tagName, tagCount); ok {
+				if rtData, tagType, ok := p.readTag(tagName, tagIndex, tagCount); ok {
 					r.write(resp)
 					r.write(tagType)
 					r.write(rtData)
@@ -772,11 +776,15 @@ loop:
 				var (
 					tagName  string
 					tagType  uint16
+					tagIndex int
 					tagCount uint16
 				)
 
 				if len(path) > 0 && path[0].typ == ansiExtended {
 					tagName = path[0].txt
+					if len(path) > 1 && path[1].typ == pathElement {
+						tagIndex = path[1].val
+					}
 				}
 				err = r.read(&tagType)
 				if err != nil {
@@ -786,7 +794,7 @@ loop:
 				if err != nil {
 					break loop
 				}
-				p.debug(tagName, tagType, tagCount)
+				p.debug(tagName, tagType, tagIndex, tagCount)
 
 				wrData := make([]uint8, typeLen(tagType)*tagCount)
 				err = r.read(wrData)
@@ -794,7 +802,7 @@ loop:
 					break loop
 				}
 
-				if p.saveTag(tagName, tagType, tagCount, wrData) {
+				if p.saveTag(tagName, tagType, tagIndex, tagCount, wrData) {
 					r.write(resp)
 				} else {
 					resp.Status = PathSegmentError
