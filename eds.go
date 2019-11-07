@@ -178,6 +178,7 @@ func (p *PLC) loadEDS(fn string) error {
 	vs, err := p.getEDS("Device", "ProdName")
 	if err == nil {
 		i.attr[7] = AttrShortString(vs, "ProductName")
+		i.attr[13] = AttrStringI(vs, "InternationalProductName")
 	}
 
 	p.Class[0x37] = NewClass("File", 32)

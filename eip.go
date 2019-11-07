@@ -156,7 +156,7 @@ func (r *req) eipListIdentity() error {
 	data.SocketPort = htons(r.p.port)
 	data.SocketAddr = getIP4()
 
-	attrs := r.p.Class[0x01].inst[0x01].getAttrAll()
+	attrs := r.p.Class[0x01].inst[0x01].getAttrList([]int{1, 2, 3, 4, 5, 6, 7, 8})
 
 	typ.Type = itListIdentity
 	typ.Length = uint16(binary.Size(data) + len(attrs) + 1)
@@ -165,7 +165,6 @@ func (r *req) eipListIdentity() error {
 	r.write(typ)
 	r.write(data)
 	r.write(attrs)
-	r.write(uint8(0)) // State
 	return nil
 }
 

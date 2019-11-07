@@ -18,9 +18,10 @@ type Class struct {
 
 // Instance .
 type Instance struct {
-	attr []*Attribute
-	data []uint8
-	m    sync.RWMutex
+	attr   []*Attribute
+	getall []int
+	data   []uint8
+	m      sync.RWMutex
 }
 
 // Attribute .
@@ -129,7 +130,27 @@ func (in *Instance) getAttrData(no int) []byte {
 func (in *Instance) getAttrAll() []byte {
 	var buf bytes.Buffer
 	in.m.RLock()
-	for a := 1; a < len(in.attr); a++ {
+	if in.getall != nil {
+		for _, a := range in.getall {
+			if in.attr[a] != nil {
+				buf.Write(in.attr[a].data)
+			}
+		}
+	} else {
+		for a := 1; a < len(in.attr); a++ {
+			if in.attr[a] != nil {
+				buf.Write(in.attr[a].data)
+			}
+		}
+	}
+	in.m.RUnlock()
+	return buf.Bytes()
+}
+
+func (in *Instance) getAttrList(list []int) []byte {
+	var buf bytes.Buffer
+	in.m.RLock()
+	for _, a := range list {
 		if in.attr[a] != nil {
 			buf.Write(in.attr[a].data)
 		}
@@ -157,6 +178,10 @@ func NewClass(n string, attrs int) *Class {
 	in.attr[1] = AttrUINT(1, "Revision")
 	in.attr[2] = AttrUINT(0, "MaxInstance")
 	in.attr[3] = AttrUINT(0, "NumInstances")
+	in.attr[4] = &Attribute{Name: "OptAttrList", data: []uint8{0x00, 0x00}}
+	in.attr[5] = &Attribute{Name: "OptServiceList", data: []uint8{0x00, 0x00}}
+	in.attr[6] = AttrUINT(uint16(attrs), "MaxClassAttr")
+	in.attr[7] = AttrUINT(0, "MaxInstAttr")
 	c.inst[0] = in
 	return &c
 }
@@ -217,7 +242,8 @@ func (c *Class) SetInstance(no int, in *Instance) {
 
 func defaultIdentityClass() *Class {
 	c := NewClass("Identity", 0)
-	i := NewInstance(7)
+	c.inst[0].getall = []int{1, 2, 6, 7}
+	i := NewInstance(8)
 	i.attr[1] = AttrUINT(1, "VendorID")
 	i.attr[2] = AttrUINT(0x0C, "DeviceType") // communications adapter
 	i.attr[3] = AttrUINT(65001, "ProductCode")
@@ -225,6 +251,12 @@ func defaultIdentityClass() *Class {
 	i.attr[5] = AttrUINT(0, "Status")
 	i.attr[6] = AttrUDINT(1234, "SerialNumber")
 	i.attr[7] = AttrShortString("MongolPLC", "ProductName")
+	i.attr[8] = AttrUSINT(3, "State")               // operational
+	i.attr[9] = AttrUINT(0, "ConfConsistencyValue") // or USINT?
+	i.attr[10] = AttrUSINT(0, "HeartbeatInterval")
+	i.attr[11] = &Attribute{Name: "ActiveLanguage", data: []byte{'e', 'n', 'g'}}
+	i.attr[12] = &Attribute{Name: "SuppLangList", data: []byte{'e', 'n', 'g'}}
+	i.attr[13] = AttrStringI("", "InternationalProductName")
 
 	c.Name = "Identity"
 	c.SetInstance(1, i)

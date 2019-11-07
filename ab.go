@@ -337,17 +337,17 @@ loop:
 			p.debug("UnregisterSession")
 			break loop
 
-		case ecListIdentity: // TODO: UDP
+		case ecListIdentity:
 			if r.eipListIdentity() != nil {
 				break loop
 			}
 
-		case ecListServices: // TODO: UDP
+		case ecListServices:
 			if r.eipListServices() != nil {
 				break loop
 			}
 
-		case ecListInterfaces: // TODO: UDP
+		case ecListInterfaces:
 			p.debug("ListInterfaces")
 			r.write(uint16(0)) // ItemCount
 
