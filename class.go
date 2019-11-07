@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"sort"
+	"sync"
 )
 
 // Class .
@@ -16,10 +17,9 @@ type Class struct {
 
 // Instance .
 type Instance struct {
-	Attr []*Attribute
-
-	data     []uint8
-	argUint8 [10]uint8
+	attr []*Attribute
+	data []uint8
+	m    sync.RWMutex
 }
 
 // Attribute .
@@ -99,20 +99,41 @@ func AttrStringI(v string, n string) *Attribute {
 	return &a
 }
 
-func (in Instance) getAttrAll() []byte {
+// SetAttr .
+func (in *Instance) SetAttr(no int, a *Attribute) {
+	in.m.Lock()
+	in.attr[no] = a
+	in.m.Unlock()
+}
+
+func (in *Instance) setAttrData(no int, data []byte) {
+	in.m.Lock()
+	in.attr[no].data = data
+	in.m.Unlock()
+}
+
+func (in *Instance) getAttrData(no int) []byte {
+	in.m.RLock()
+	defer in.m.RUnlock()
+	return in.attr[no].data
+}
+
+func (in *Instance) getAttrAll() []byte {
 	var buf bytes.Buffer
-	for a := 1; a < len(in.Attr); a++ {
-		if in.Attr[a] != nil {
-			buf.Write(in.Attr[a].data)
+	in.m.RLock()
+	for a := 1; a < len(in.attr); a++ {
+		if in.attr[a] != nil {
+			buf.Write(in.attr[a].data)
 		}
 	}
+	in.m.RUnlock()
 	return buf.Bytes()
 }
 
 // NewInstance .
 func NewInstance(noattr int) *Instance {
 	var i Instance
-	i.Attr = make([]*Attribute, noattr+1)
+	i.attr = make([]*Attribute, noattr+1)
 	return &i
 }
 
@@ -169,13 +190,13 @@ func (c *Class) SetInstance(no int, in *Instance) {
 func defaultIdentityClass() *Class {
 	c := NewClass("Identity", 0)
 	i := NewInstance(7)
-	i.Attr[1] = AttrUINT(1, "VendorID")
-	i.Attr[2] = AttrUINT(0x0C, "DeviceType") // communications adapter
-	i.Attr[3] = AttrUINT(65001, "ProductCode")
-	i.Attr[4] = AttrUINT(1+2<<8, "Revision")
-	i.Attr[5] = AttrUINT(0, "Status")
-	i.Attr[6] = AttrUDINT(1234, "SerialNumber")
-	i.Attr[7] = AttrShortString("MongolPLC", "ProductName")
+	i.attr[1] = AttrUINT(1, "VendorID")
+	i.attr[2] = AttrUINT(0x0C, "DeviceType") // communications adapter
+	i.attr[3] = AttrUINT(65001, "ProductCode")
+	i.attr[4] = AttrUINT(1+2<<8, "Revision")
+	i.attr[5] = AttrUINT(0, "Status")
+	i.attr[6] = AttrUDINT(1234, "SerialNumber")
+	i.attr[7] = AttrShortString("MongolPLC", "ProductName")
 
 	c.Name = "Identity"
 	c.SetInstance(1, i)
