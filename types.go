@@ -19,21 +19,36 @@ const (
 
 // Data types
 const (
-	TypeBOOL  = 0xC1 // 1 byte
-	TypeSINT  = 0xC2 // 1 byte
-	TypeINT   = 0xC3 // 2 bytes
-	TypeDINT  = 0xC4 // 4 bytes
-	TypeREAL  = 0xCA // 4 bytes
-	TypeDWORD = 0xD3 // 4 bytes
-	TypeLINT  = 0xC5 // 8 bytes
-
-	TypeUSINT = 0xC6
-	TypeUINT  = 0xC7
-	TypeUDINT = 0xC8
-
-	TypeString      = 0xD0
+	TypeBOOL        = 0xC1 // 1
+	TypeSINT        = 0xC2 // 1
+	TypeINT         = 0xC3 // 2
+	TypeDINT        = 0xC4 // 4
+	TypeLINT        = 0xC5 // 8
+	TypeUSINT       = 0xC6 // 1
+	TypeUINT        = 0xC7 // 2
+	TypeUDINT       = 0xC8 // 4
+	TypeULINT       = 0xC9 // 8
+	TypeREAL        = 0xCA // 4
+	TypeLREAL       = 0xCB // 8
+	TypeSTIME       = 0xCC // synchronous time
+	TypeDate        = 0x0CD
+	TypeTimeOfDay   = 0xCE
+	TypeDateTime    = 0xCF
+	TypeString      = 0xD0 // 1
+	TypeBYTE        = 0xD1 // 1
+	TypeWORD        = 0xD2 // 2
+	TypeDWORD       = 0xD3 // 4
+	TypeLWORD       = 0xD4 // 8
+	TypeString2     = 0xD5 // 2
+	TypeFTIME       = 0xD6 // duration high resolution
+	TypeLTIME       = 0xD7 // duration long
+	TypeITIME       = 0xD8 // duration short
+	TypeStringN     = 0xD9 // n
 	TypeShortString = 0xDA
-	TypeStringI     = 0x04
+	TypeTIME        = 0xDB // duration miliseconds
+	TypeEPATH       = 0xDC
+	TypeENGUNIT     = 0xDD // engineering units
+	TypeStringI     = 0xDE
 )
 
 // Status codes

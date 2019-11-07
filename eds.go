@@ -211,9 +211,9 @@ func (p *PLC) loadEDS(fn string) error {
 	in = NewInstance(10)
 	in.attr[1] = AttrINT(5, "Attr1")
 	in.attr[2] = AttrINT(1, "Attr2")
-	in.attr[3] = &Attribute{Name: "Attr3", data: []uint8{0x03, 0xB2, 0x80, 0xC5}}   // DINT
-	in.attr[4] = &Attribute{Name: "Attr4", data: []uint8{0x03, 0xB2, 0x80, 0xC5}}   // DINT
-	in.attr[10] = &Attribute{Name: "Attr10", data: []uint8{0xF8, 0xDE, 0x47, 0xB8}} // DINT
+	in.attr[3] = &Attribute{Name: "Attr3", Type: TypeDINT, data: []uint8{0x03, 0xB2, 0x80, 0xC5}}
+	in.attr[4] = &Attribute{Name: "Attr4", Type: TypeDINT, data: []uint8{0x03, 0xB2, 0x80, 0xC5}}
+	in.attr[10] = &Attribute{Name: "Attr10", Type: TypeDINT, data: []uint8{0xF8, 0xDE, 0x47, 0xB8}}
 	p.Class[0xAC].SetInstance(1, in)
 
 	p.Class[0x6B] = NewClass("Symbol", 0)
@@ -227,9 +227,9 @@ func (p *PLC) loadEDS(fn string) error {
 	in = NewInstance(7)
 	in.attr[1] = AttrUINT(4, "PortType")
 	in.attr[2] = AttrUINT(1, "PortNumber")
-	in.attr[3] = &Attribute{Name: "LinkObject", data: []uint8{0x02, 0x00, 0x20, 0xF5, 0x24, 0x01}}
+	in.attr[3] = &Attribute{Name: "LinkObject", Type: TypeEPATH, data: []uint8{0x02, 0x00, 0x20, 0xF5, 0x24, 0x01}}
 	in.attr[4] = AttrShortString("EtherNet/IP port", "PortName")
-	in.attr[7] = &Attribute{Name: "NodeAddress", data: []uint8{0x01, 0x00, 0x10, 0x01}}
+	in.attr[7] = &Attribute{Name: "NodeAddress", Type: TypeEPATH, data: []uint8{0x01, 0x00, 0x10, 0x01}}
 	p.Class[0xF4].SetInstance(1, in)
 
 	p.Class[0xF5] = NewClass("TCP Interface", 0)
@@ -237,7 +237,7 @@ func (p *PLC) loadEDS(fn string) error {
 	in.attr[1] = AttrUDINT(1, "Status")
 	in.attr[2] = AttrUDINT(0b1_1_0, "ConfigurationCapabality")
 	in.attr[3] = AttrUDINT(0b1_0010, "ConfigurationControl")
-	in.attr[4] = &Attribute{Name: "PhysicalLinkObject", data: []uint8{0x02, 0x00, 0x20, 0xF6, 0x24, 0x01}}
+	in.attr[4] = &Attribute{Name: "PhysicalLinkObject", Type: TypeEPATH, data: []uint8{0x02, 0x00, 0x20, 0xF6, 0x24, 0x01}}
 	ip := getIP4()
 	in.attr[5] = &Attribute{Name: "InterfaceConfiguration", data: []uint8{ // TODO
 		uint8(ip >> 24), uint8(ip >> 16), uint8(ip >> 8), uint8(ip), // IP address
