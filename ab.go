@@ -126,7 +126,7 @@ func (p *PLC) saveTag(tag string, typ uint16, index int, count uint16, data []ui
 	if ok && tg.Typ == int(typ) && tg.Count >= index+int(count) {
 		copy(tg.data[index*int(typeLen(typ)):], data)
 	} else {
-		p.tags[tag] = &Tag{Name: tag, Typ: int(typ), Count: int(count), data: data} // FIXME Symbols
+		p.AddTag(Tag{Name: tag, Typ: int(typ), Count: int(count), data: data})
 	}
 	p.tMut.Unlock()
 	if p.callback != nil {
