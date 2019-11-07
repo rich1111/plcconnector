@@ -18,8 +18,7 @@ type Class struct {
 type Instance struct {
 	Attr []*Attribute
 
-	data     []uint8
-	argUint8 [10]uint8
+	data []uint8
 }
 
 // Attribute .
