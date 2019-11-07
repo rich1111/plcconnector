@@ -164,17 +164,17 @@ func (p *PLC) loadEDS(fn string) error {
 
 	v, err = p.getEDSInt("Device", "VendCode")
 	if err == nil {
-		i.attr[1] = AttrUINT(uint16(v), "VendorID")
+		i.SetAttrUINT(1, uint16(v))
 	}
 	v, err = p.getEDSInt("Device", "ProdType")
 	if err == nil {
-		i.attr[2] = AttrUINT(uint16(v), "DeviceType")
+		i.SetAttrUINT(2, uint16(v))
 	}
 	v, err = p.getEDSInt("Device", "ProdCode")
 	if err == nil {
-		i.attr[3] = AttrUINT(uint16(v), "ProductCode")
+		i.SetAttrUINT(3, uint16(v))
 	}
-	i.attr[4] = AttrUINT(majRev+minRev<<8, "Revision")
+	i.SetAttrUINT(4, majRev+minRev<<8)
 	vs, err := p.getEDS("Device", "ProdName")
 	if err == nil {
 		i.attr[7] = AttrShortString(vs, "ProductName")
@@ -215,16 +215,12 @@ func (p *PLC) loadEDS(fn string) error {
 	in.attr[10] = &Attribute{Name: "Attr10", data: []uint8{0xF8, 0xDE, 0x47, 0xB8}} // DINT
 	p.Class[0xAC].SetInstance(1, in)
 
-	p.Class[0x6B] = NewClass("Symbol", 1)
+	p.Class[0x6B] = NewClass("Symbol", 0)
 	p.symbols = p.Class[0x6B]
 
-	p.Class[0x6C] = NewClass("Template", 1)
-	p.Class[0x6C].inst[0].attr[1] = AttrUINT(1, "Revision")
+	p.Class[0x6C] = NewClass("Template", 0)
 
 	p.Class[0xF4] = NewClass("Port", 9)
-	p.Class[0xF4].inst[0].attr[1] = AttrUINT(1, "Revision")
-	p.Class[0xF4].inst[0].attr[2] = AttrUINT(1, "MaxInstance")
-	p.Class[0xF4].inst[0].attr[3] = AttrUINT(1, "NumInstances")
 	p.Class[0xF4].inst[0].attr[8] = AttrUINT(1, "EntryPort")
 	p.Class[0xF4].inst[0].attr[9] = &Attribute{Name: "PortInstanceInfo", data: []uint8{0, 0, 0, 0, 4, 0, 1, 0}} // uint 4 - Ethernet/IP , uint 1 - CIP port number
 	in = NewInstance(7)
@@ -253,8 +249,8 @@ func (p *PLC) loadEDS(fn string) error {
 	in.attr[6] = AttrString("", "HostName") // TODO
 	p.Class[0xF5].SetInstance(1, in)
 
-	p.Class[0xF6] = NewClass("Ethernet Link", 1)
-	p.Class[0xF6].inst[0].attr[1] = AttrUINT(3, "Revision")
+	p.Class[0xF6] = NewClass("Ethernet Link", 0)
+	p.Class[0xF6].inst[0].SetAttrUINT(1, 3)
 	in = NewInstance(3)
 	in.attr[1] = AttrUDINT(1000, "InterfaceSpeed")
 	in.attr[2] = AttrUDINT(0b0_1_011_1_1, "InterfaceFlags")

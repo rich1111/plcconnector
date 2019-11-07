@@ -113,6 +113,13 @@ func (in *Instance) setAttrData(no int, data []byte) {
 	in.m.Unlock()
 }
 
+// SetAttrUINT .
+func (in *Instance) SetAttrUINT(no int, v uint16) {
+	in.m.Lock()
+	binary.LittleEndian.PutUint16(in.attr[no].data, v)
+	in.m.Unlock()
+}
+
 func (in *Instance) getAttrData(no int) []byte {
 	in.m.RLock()
 	defer in.m.RUnlock()
@@ -143,7 +150,14 @@ func NewClass(n string, attrs int) *Class {
 	var c Class
 	c.Name = n
 	c.inst = make(map[int]*Instance)
-	c.SetInstance(0, NewInstance(attrs))
+	if attrs < 7 {
+		attrs = 7
+	}
+	in := NewInstance(attrs)
+	in.attr[1] = AttrUINT(1, "Revision")
+	in.attr[2] = AttrUINT(0, "MaxInstance")
+	in.attr[3] = AttrUINT(0, "NumInstances")
+	c.inst[0] = in
 	return &c
 }
 
@@ -196,6 +210,8 @@ func (c *Class) SetInstance(no int, in *Instance) {
 	if no > c.lastInst {
 		c.lastInst = no
 	}
+	c.inst[0].SetAttrUINT(2, uint16(c.lastInst))
+	c.inst[0].SetAttrUINT(3, uint16(len(c.inst)))
 	c.m.Unlock()
 }
 
