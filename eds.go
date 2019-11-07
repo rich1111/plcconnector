@@ -148,7 +148,7 @@ func (p *PLC) loadEDS(fn string) error {
 	// fmt.Println(p.eds["Port"]["Port1"])
 
 	p.Class[1] = defaultIdentityClass()
-	i := p.Class[1].Inst[1]
+	i := p.Class[1].inst[1]
 
 	majRev := uint16(1)
 	minRev := uint16(1)
@@ -219,14 +219,14 @@ func (p *PLC) loadEDS(fn string) error {
 	p.symbols = p.Class[0x6B]
 
 	p.Class[0x6C] = NewClass("Template", 1)
-	p.Class[0x6C].Inst[0].attr[1] = AttrUINT(1, "Revision")
+	p.Class[0x6C].inst[0].attr[1] = AttrUINT(1, "Revision")
 
 	p.Class[0xF4] = NewClass("Port", 9)
-	p.Class[0xF4].Inst[0].attr[1] = AttrUINT(1, "Revision")
-	p.Class[0xF4].Inst[0].attr[2] = AttrUINT(1, "MaxInstance")
-	p.Class[0xF4].Inst[0].attr[3] = AttrUINT(1, "NumInstances")
-	p.Class[0xF4].Inst[0].attr[8] = AttrUINT(1, "EntryPort")
-	p.Class[0xF4].Inst[0].attr[9] = &Attribute{Name: "PortInstanceInfo", data: []uint8{0, 0, 0, 0, 4, 0, 1, 0}} // uint 4 - Ethernet/IP , uint 1 - CIP port number
+	p.Class[0xF4].inst[0].attr[1] = AttrUINT(1, "Revision")
+	p.Class[0xF4].inst[0].attr[2] = AttrUINT(1, "MaxInstance")
+	p.Class[0xF4].inst[0].attr[3] = AttrUINT(1, "NumInstances")
+	p.Class[0xF4].inst[0].attr[8] = AttrUINT(1, "EntryPort")
+	p.Class[0xF4].inst[0].attr[9] = &Attribute{Name: "PortInstanceInfo", data: []uint8{0, 0, 0, 0, 4, 0, 1, 0}} // uint 4 - Ethernet/IP , uint 1 - CIP port number
 	in = NewInstance(7)
 	in.attr[1] = AttrUINT(4, "PortType")
 	in.attr[2] = AttrUINT(1, "PortNumber")
@@ -254,7 +254,7 @@ func (p *PLC) loadEDS(fn string) error {
 	p.Class[0xF5].SetInstance(1, in)
 
 	p.Class[0xF6] = NewClass("Ethernet Link", 1)
-	p.Class[0xF6].Inst[0].attr[1] = AttrUINT(3, "Revision")
+	p.Class[0xF6].inst[0].attr[1] = AttrUINT(3, "Revision")
 	in = NewInstance(3)
 	in.attr[1] = AttrUDINT(1000, "InterfaceSpeed")
 	in.attr[2] = AttrUDINT(0b0_1_011_1_1, "InterfaceFlags")

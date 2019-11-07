@@ -10,9 +10,10 @@ import (
 // Class .
 type Class struct {
 	Name string
-	Inst map[int]*Instance
 
+	inst     map[int]*Instance
 	lastInst int
+	m        sync.RWMutex
 }
 
 // Instance .
@@ -141,50 +142,61 @@ func NewInstance(noattr int) *Instance {
 func NewClass(n string, attrs int) *Class {
 	var c Class
 	c.Name = n
-	c.Inst = make(map[int]*Instance)
+	c.inst = make(map[int]*Instance)
 	c.SetInstance(0, NewInstance(attrs))
 	return &c
 }
 
 // GetClassInstancesList .
-func (p *PLC) GetClassInstancesList(class int, instanceFrom int) (*Class, []int) {
+func (p *PLC) GetClassInstancesList(class int, instanceFrom int) ([]int, []*Instance) {
 	c, cok := p.Class[class]
 	if cok {
 		if instanceFrom <= 0 {
 			instanceFrom = 1
 		}
-		ret := make([]int, 0, len(c.Inst)-instanceFrom)
+		c.m.RLock()
+		ret := make([]int, 0, len(c.inst)-instanceFrom)
 		i := 0
-		for in := range c.Inst {
+		for in := range c.inst {
 			if in >= instanceFrom {
 				ret = append(ret, in)
 				i++
 			}
 		}
 		sort.Ints(ret)
-		return c, ret
+		ret2 := make([]*Instance, len(ret))
+		for a, b := range ret {
+			ret2[a] = c.inst[b]
+		}
+		c.m.RUnlock()
+		return ret, ret2
 	}
 	return nil, nil
 }
 
 // GetClassInstance .
-func (p *PLC) GetClassInstance(class int, instance int) (*Class, *Instance) {
+func (p *PLC) GetClassInstance(class int, instance int) *Instance {
 	c, cok := p.Class[class]
 	if cok {
-		in, iok := c.Inst[instance]
+		c.m.RLock()
+		defer c.m.RUnlock()
+		in, iok := c.inst[instance]
 		if iok {
-			return c, in
+			p.debug(c.Name, instance)
+			return in
 		}
 	}
-	return nil, nil
+	return nil
 }
 
 // SetInstance .
 func (c *Class) SetInstance(no int, in *Instance) {
-	c.Inst[no] = in
+	c.m.Lock()
+	c.inst[no] = in
 	if no > c.lastInst {
 		c.lastInst = no
 	}
+	c.m.Unlock()
 }
 
 func defaultIdentityClass() *Class {

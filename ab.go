@@ -464,9 +464,8 @@ loop:
 				p.debug("GetAttributesAll")
 				mayCon = true
 
-				c, in := p.GetClassInstance(class, instance)
-				if c != nil {
-					p.debug(c.Name, instance)
+				in := p.GetClassInstance(class, instance)
+				if in != nil {
 					r.write(resp)
 					r.write(in.getAttrAll())
 				} else {
@@ -494,8 +493,8 @@ loop:
 					break loop
 				}
 
-				c, in := p.GetClassInstance(class, instance)
-				if c != nil {
+				in := p.GetClassInstance(class, instance)
+				if in != nil {
 					in.m.RLock()
 					ln := len(in.attr)
 					for _, i := range attr {
@@ -540,11 +539,11 @@ loop:
 					break loop
 				}
 
-				c, li := p.GetClassInstancesList(class, instance)
-				if c != nil {
-					for _, x := range li {
+				li, ins := p.GetClassInstancesList(class, instance)
+				if li != nil {
+					for a, x := range li {
 						bwrite(&buf, uint32(x))
-						in := c.Inst[x]
+						in := ins[a]
 						in.m.RLock()
 						ln := len(in.attr)
 						for _, i := range attr {
@@ -573,8 +572,8 @@ loop:
 					aok bool
 					at  *Attribute
 				)
-				c, in := p.GetClassInstance(class, instance)
-				if c != nil {
+				in := p.GetClassInstance(class, instance)
+				if in != nil {
 					in.m.RLock()
 					if attr < len(in.attr) {
 						at = in.attr[attr]
@@ -586,8 +585,8 @@ loop:
 				}
 				resp.Service = protd.Service + 128
 
-				if c != nil && aok {
-					p.debug(c.Name, instance, at.Name)
+				if in != nil && aok {
+					p.debug(at.Name)
 					r.write(resp)
 					r.write(at.data)
 				} else {
@@ -606,10 +605,8 @@ loop:
 					break loop
 				}
 
-				c, in := p.GetClassInstance(class, instance)
-				if c != nil {
-					p.debug(c.Name, instance, maxSize)
-
+				in := p.GetClassInstance(class, instance)
+				if in != nil {
 					var sr initUploadResponse
 					sr.FileSize = uint32(len(in.data))
 					sr.TransferSize = maxSize
@@ -632,12 +629,10 @@ loop:
 					break loop
 				}
 
-				c, in := p.GetClassInstance(class, instance)
+				in := p.GetClassInstance(class, instance)
 				f, fok := r.file[instance]
-				if c != nil && fok {
+				if in != nil && fok {
 					if transferNo == f[1] || transferNo == f[1]+1 || (transferNo == 0 && f[1] == 255) {
-						p.debug(c.Name, instance, transferNo)
-
 						if transferNo == 0 && f[1] == 255 { // rollover
 							p.debug("rollover")
 							f[2]++ // FIXME retry!
