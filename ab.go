@@ -449,7 +449,9 @@ loop:
 			}
 
 			class, instance, attr, path, err := r.parsePath(ePath)
-			p.debug("class", class, "instance", instance, "attr", attr, "path", path)
+			if p.Verbose {
+				fmt.Printf("Class %X Instance %X Attr %X %v\n", class, instance, attr, path)
+			}
 			// if err != nil {
 			// 	resp.Status = PathSegmentError
 			// 	resp.AddStatusSize = 1
@@ -666,8 +668,7 @@ loop:
 							ln += uint16(binary.Size(in.getAttrData(7)))
 						}
 
-						p.debug(sr)
-						p.debug(len(dt), pos, posto)
+						p.debug(pos, ":", posto)
 
 						r.write(resp)
 						r.write(sr)

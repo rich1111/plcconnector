@@ -39,7 +39,7 @@ func (p *PLC) handleUDPRequest(conn *net.UDPConn, dt []byte, n int, addr *net.UD
 		r.write(uint16(0)) // ItemCount
 
 	default:
-		p.debug("unknown command:", r.encHead.Command)
+		p.debug("UDP unknown command:", r.encHead.Command)
 
 		data := make([]uint8, r.encHead.Length)
 		err = r.read(&data)
