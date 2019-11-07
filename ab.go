@@ -142,14 +142,14 @@ func (p *PLC) AddTag(t Tag) {
 		t.data = make([]uint8, size)
 	}
 	in := NewInstance(8)
-	in.attr[1] = AttrString(t.Name, "SymbolName")
+	in.Attr[1] = AttrString(t.Name, "SymbolName")
 	typ := uint16(t.Typ)
 	if t.Count > 1 {
 		typ |= 0x2000 // 1D Array
 	}
-	in.attr[2] = AttrUINT(typ, "SymbolType")
-	in.attr[7] = AttrUINT(typeLen(uint16(t.Typ)), "BaseTypeSize")
-	in.attr[8] = &Attribute{Name: "Dimensions", data: []uint8{uint8(t.Count), uint8(t.Count >> 8), uint8(t.Count >> 16), uint8(t.Count >> 24), 0, 0, 0, 0, 0, 0, 0, 0}}
+	in.Attr[2] = AttrUINT(typ, "SymbolType")
+	in.Attr[7] = AttrUINT(typeLen(uint16(t.Typ)), "BaseTypeSize")
+	in.Attr[8] = &Attribute{Name: "Dimensions", data: []uint8{uint8(t.Count), uint8(t.Count >> 8), uint8(t.Count >> 16), uint8(t.Count >> 24), 0, 0, 0, 0, 0, 0, 0, 0}}
 	p.tMut.Lock()
 	p.symbols.SetInstance(p.symbols.lastInst+1, in)
 	p.tags[t.Name] = &t
@@ -239,7 +239,6 @@ func (p *PLC) Close() {
 type req struct {
 	c        net.Conn
 	connID   uint32
-	file     map[int]*[3]uint8
 	rrdata   sendData
 	encHead  encapsulationHeader
 	p        *PLC
@@ -290,7 +289,6 @@ func (p *PLC) handleRequest(conn net.Conn) {
 	r := req{}
 	r.connID = uint32(0)
 	r.c = conn
-	r.file = make(map[int]*[3]uint8)
 	r.p = p
 	r.readBuf = bufio.NewReader(conn)
 	r.writeBuf = new(bytes.Buffer)
@@ -496,22 +494,20 @@ loop:
 
 				c, in := p.GetClassInstance(class, instance)
 				if c != nil {
-					in.m.RLock()
-					ln := len(in.attr)
+					ln := len(in.Attr)
 					for _, i := range attr {
 						bwrite(&buf, i)
-						if int(i) < ln && in.attr[i] != nil {
-							p.debug(in.attr[i].Name)
+						if int(i) < ln && in.Attr[i] != nil {
+							p.debug(in.Attr[i].Name)
 							st = Success
 							bwrite(&buf, st)
-							bwrite(&buf, in.attr[i].data)
+							bwrite(&buf, in.Attr[i].data)
 						} else {
 							resp.Status = AttrListError
 							st = AttrNotSup
 							bwrite(&buf, st)
 						}
 					}
-					in.m.RUnlock()
 
 					r.write(resp)
 					r.write(count)
@@ -543,18 +539,16 @@ loop:
 				c, li := p.GetClassInstancesList(class, instance)
 				if c != nil {
 					for _, x := range li {
-						bwrite(&buf, uint32(x))
 						in := c.Inst[x]
-						in.m.RLock()
-						ln := len(in.attr)
+						ln := len(in.Attr)
+						bwrite(&buf, uint32(x))
 						for _, i := range attr {
-							if int(i) < ln && in.attr[i] != nil {
-								bwrite(&buf, in.attr[i].data)
+							if int(i) < ln && in.Attr[i] != nil {
+								bwrite(&buf, in.Attr[i].data)
 							} else { // FIXME break
 								resp.Status = AttrListError
 							}
 						}
-						in.m.RUnlock()
 					}
 
 					r.write(resp)
@@ -574,15 +568,11 @@ loop:
 					at  *Attribute
 				)
 				c, in := p.GetClassInstance(class, instance)
-				if c != nil {
-					in.m.RLock()
-					if attr < len(in.attr) {
-						at = in.attr[attr]
-						if at != nil {
-							aok = true
-						}
+				if c != nil && attr < len(in.Attr) {
+					at = in.Attr[attr]
+					if at != nil {
+						aok = true
 					}
-					in.m.RUnlock()
 				}
 				resp.Service = protd.Service + 128
 
@@ -613,7 +603,10 @@ loop:
 					var sr initUploadResponse
 					sr.FileSize = uint32(len(in.data))
 					sr.TransferSize = maxSize
-					r.file[instance] = &[3]uint8{maxSize, 0, 0} // TransferSize, TransferNumber, TransferNumber rollover
+					in.argUint8[0] = maxSize // TransferSize
+					in.argUint8[1] = 0       // TransferNumber
+					in.argUint8[2] = 0       // TransferNumber rollover
+
 					r.write(resp)
 					r.write(sr)
 				} else {
@@ -633,42 +626,41 @@ loop:
 				}
 
 				c, in := p.GetClassInstance(class, instance)
-				f, fok := r.file[instance]
-				if c != nil && fok {
-					if transferNo == f[1] || transferNo == f[1]+1 || (transferNo == 0 && f[1] == 255) {
+				if c != nil {
+					if transferNo == in.argUint8[1] || transferNo == in.argUint8[1]+1 || (transferNo == 0 && in.argUint8[1] == 255) {
 						p.debug(c.Name, instance, transferNo)
 
-						if transferNo == 0 && f[1] == 255 { // rollover
+						if transferNo == 0 && in.argUint8[1] == 255 { // rollover
 							p.debug("rollover")
-							f[2]++ // FIXME retry!
+							in.argUint8[2]++ // FIXME retry!
 						}
 
 						var sr uploadTransferResponse
 						addcksum := false
 						dtlen := len(in.data)
-						pos := (int(f[2]) + 1) * int(transferNo) * int(f[0])
-						posto := pos + int(f[0])
+						pos := (int(in.argUint8[2]) + 1) * int(transferNo) * int(in.argUint8[0])
+						posto := pos + int(in.argUint8[0])
 						if posto > dtlen {
 							posto = dtlen
 						}
 						dt := in.data[pos:posto]
 						sr.TransferNumber = transferNo
-						if transferNo == 0 && dtlen <= int(f[0]) {
+						if transferNo == 0 && dtlen <= int(in.argUint8[0]) {
 							sr.TranferPacketType = tptFirstLast
 							addcksum = true
-						} else if transferNo == 0 && f[2] == 0 {
+						} else if transferNo == 0 && in.argUint8[2] == 0 {
 							sr.TranferPacketType = tptFirst
-						} else if pos+int(f[0]) >= dtlen {
+						} else if pos+int(in.argUint8[0]) >= dtlen {
 							sr.TranferPacketType = tptLast
 							addcksum = true
 						} else {
 							sr.TranferPacketType = tptMiddle
 						}
-						f[1] = transferNo
+						in.argUint8[1] = transferNo
 
 						ln := uint16(binary.Size(resp) + binary.Size(sr) + len(dt))
 						if addcksum {
-							ln += uint16(binary.Size(in.getAttrData(7)))
+							ln += uint16(binary.Size(in.Attr[7].data))
 						}
 
 						p.debug(sr)
@@ -678,7 +670,7 @@ loop:
 						r.write(sr)
 						r.write(dt)
 						if addcksum {
-							r.write(in.getAttrData(7))
+							r.write(in.Attr[7].data)
 						}
 					} else {
 						p.debug("transfer number error", transferNo)
