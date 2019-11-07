@@ -293,7 +293,6 @@ func (p *PLC) handleRequest(conn net.Conn) {
 	r.readBuf = bufio.NewReader(conn)
 	r.writeBuf = new(bytes.Buffer)
 	r.wrCIPBuf = new(bytes.Buffer)
-	file := make(map[int]*[3]uint8)
 
 loop:
 	for {
@@ -604,7 +603,10 @@ loop:
 					var sr initUploadResponse
 					sr.FileSize = uint32(len(in.data))
 					sr.TransferSize = maxSize
-					file[instance] = &[3]uint8{maxSize, 0, 0} // TransferSize, TransferNumber, TransferNumber rollover
+					in.argUint8[0] = maxSize // TransferSize
+					in.argUint8[1] = 0       // TransferNumber
+					in.argUint8[2] = 0       // TransferNumber rollover
+
 					r.write(resp)
 					r.write(sr)
 				} else {
@@ -624,38 +626,37 @@ loop:
 				}
 
 				c, in := p.GetClassInstance(class, instance)
-				f, fok := file[instance]
-				if c != nil && fok {
-					if transferNo == f[1] || transferNo == f[1]+1 || (transferNo == 0 && f[1] == 255) {
+				if c != nil {
+					if transferNo == in.argUint8[1] || transferNo == in.argUint8[1]+1 || (transferNo == 0 && in.argUint8[1] == 255) {
 						p.debug(c.Name, instance, transferNo)
 
-						if transferNo == 0 && f[1] == 255 { // rollover
+						if transferNo == 0 && in.argUint8[1] == 255 { // rollover
 							p.debug("rollover")
-							f[2]++ // FIXME retry!
+							in.argUint8[2]++ // FIXME retry!
 						}
 
 						var sr uploadTransferResponse
 						addcksum := false
 						dtlen := len(in.data)
-						pos := (int(f[2]) + 1) * int(transferNo) * int(f[0])
-						posto := pos + int(f[0])
+						pos := (int(in.argUint8[2]) + 1) * int(transferNo) * int(in.argUint8[0])
+						posto := pos + int(in.argUint8[0])
 						if posto > dtlen {
 							posto = dtlen
 						}
 						dt := in.data[pos:posto]
 						sr.TransferNumber = transferNo
-						if transferNo == 0 && dtlen <= int(f[0]) {
+						if transferNo == 0 && dtlen <= int(in.argUint8[0]) {
 							sr.TranferPacketType = tptFirstLast
 							addcksum = true
-						} else if transferNo == 0 && f[2] == 0 {
+						} else if transferNo == 0 && in.argUint8[2] == 0 {
 							sr.TranferPacketType = tptFirst
-						} else if pos+int(f[0]) >= dtlen {
+						} else if pos+int(in.argUint8[0]) >= dtlen {
 							sr.TranferPacketType = tptLast
 							addcksum = true
 						} else {
 							sr.TranferPacketType = tptMiddle
 						}
-						f[1] = transferNo
+						in.argUint8[1] = transferNo
 
 						ln := uint16(binary.Size(resp) + binary.Size(sr) + len(dt))
 						if addcksum {
