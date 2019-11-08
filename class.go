@@ -243,7 +243,7 @@ func (c *Class) SetInstance(no int, in *Instance) {
 func defaultIdentityClass() *Class {
 	c := NewClass("Identity", 0)
 	c.inst[0].getall = []int{1, 2, 6, 7}
-	i := NewInstance(8)
+	i := NewInstance(13)
 	i.attr[1] = AttrUINT(1, "VendorID")
 	i.attr[2] = AttrUINT(0x0C, "DeviceType") // communications adapter
 	i.attr[3] = AttrUINT(65001, "ProductCode")
