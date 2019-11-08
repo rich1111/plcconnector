@@ -159,7 +159,7 @@ func (r *req) eipListIdentity() error {
 	attrs := r.p.Class[0x01].inst[0x01].getAttrList([]int{1, 2, 3, 4, 5, 6, 7, 8})
 
 	typ.Type = itListIdentity
-	typ.Length = uint16(binary.Size(data) + len(attrs) + 1)
+	typ.Length = uint16(binary.Size(data) + len(attrs))
 
 	r.write(uint16(1)) // ItemCount
 	r.write(typ)
