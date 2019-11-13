@@ -46,7 +46,7 @@ func (p *PLC) tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 	for _, n := range arr {
 		toSend.WriteString("<tr><td><a href=\"/" + n + "\">" + n + "</a></td><td>" + strconv.Itoa(p.tags[n].Count) + "</td><td>" + typeToString(p.tags[n].Type) + "</td><td>")
 		var ascii strings.Builder
-		if p.tags[n].Type != TypeREAL && p.tags[n].Type != TypeBOOL {
+		if p.tags[n].Type != TypeREAL && p.tags[n].Type != TypeLREAL && p.tags[n].Type != TypeBOOL {
 			ascii.Grow(p.tags[n].Count)
 			ln := int(typeLen(uint16(p.tags[n].Type)))
 			for i := 0; i < len(p.tags[n].data); i += ln {
@@ -129,10 +129,12 @@ func tagToJSON(t *Tag) string {
 		}
 		if t.Type == TypeREAL {
 			tj.Data = append(tj.Data, float64(math.Float32frombits(uint32(tmp))))
+		} else if t.Type == TypeLREAL {
+			tj.Data = append(tj.Data, math.Float64frombits(uint64(tmp)))
 		} else {
 			tj.Data = append(tj.Data, float64(tmp))
 		}
-		if t.Type != TypeREAL && t.Type != TypeBOOL {
+		if t.Type != TypeREAL && t.Type != TypeLREAL && t.Type != TypeBOOL {
 			if tmp <= 256 && ((t.Type == TypeSINT && tmp >= -128) || (t.Type != TypeSINT && tmp >= 0)) {
 				tj.ASCII = append(tj.ASCII, asciiCode(uint8(tmp)))
 			} else {
@@ -168,11 +170,18 @@ func hexTr(ln int) string {
 	return r.String()
 }
 
-func floatToString(f uint32) string {
+func float32ToString(f uint32) string {
 	s := f >> 31
 	e := (f & 0x7f800000) >> 23
 	m := f & 0x007fffff
-	return fmt.Sprintf("<td>%v</td><td>%v</td><td>%.8b</td><td>%.23b</td></tr>\n", math.Float32frombits(f), s, e, m)
+	return fmt.Sprintf("<td>%v</td><td>%v</td><td>%08b</td><td>%023b</td></tr>\n", math.Float32frombits(f), s, e, m)
+}
+
+func float64ToString(f uint64) string {
+	s := f >> 63
+	e := (f & 0x7FF0000000000000) >> 52
+	m := f & 0xFFFFFFFFFFFFF
+	return fmt.Sprintf("<td>%v</td><td>%v</td><td>%011b</td><td>%052b</td></tr>\n", math.Float64frombits(f), s, e, m)
 }
 
 func tagToHTML(t *Tag) string {
@@ -184,7 +193,7 @@ func tagToHTML(t *Tag) string {
 	toSend.WriteString("<table " + tableStyle + "><tr><th>N</th><th>" + typeToString(t.Type) + "</th>")
 	if t.Type == TypeBOOL {
 		toSend.WriteString("</tr>\n")
-	} else if t.Type == TypeREAL {
+	} else if t.Type == TypeREAL || t.Type == TypeLREAL {
 		toSend.WriteString("<th>SIGN</th><th>EXPONENT</th><th>MANTISSA</th></tr>\n")
 	} else {
 		toSend.WriteString("<th>HEX</th><th>ASCII</th><th>BIN</th></tr>\n")
@@ -232,7 +241,7 @@ func tagToHTML(t *Tag) string {
 		case TypeULINT:
 			err = binary.Write(buf, binary.BigEndian, uint64(tmp))
 		}
-		if t.Type != TypeREAL && t.Type != TypeBOOL {
+		if t.Type != TypeREAL && t.Type != TypeLREAL && t.Type != TypeBOOL {
 			ascii := ""
 			if err == nil {
 				hx = hex.EncodeToString(buf.Bytes())
@@ -244,8 +253,10 @@ func tagToHTML(t *Tag) string {
 			toSend.WriteString(fmt.Sprintf("<td>%d</td><td>%v</td><td>%v</td><td>%v</td><td>%v</td></tr>\n", n, tmp, hx, ascii, bin))
 		} else if t.Type == TypeBOOL {
 			toSend.WriteString(fmt.Sprintf("<td>%d</td><td>%v</td></tr>\n", n, tmp))
-		} else {
-			toSend.WriteString(fmt.Sprintf("<td>%d</td>%s</tr>\n", n, floatToString(uint32(tmp))))
+		} else if t.Type == TypeREAL {
+			toSend.WriteString(fmt.Sprintf("<td>%d</td>%s</tr>\n", n, float32ToString(uint32(tmp))))
+		} else if t.Type == TypeLREAL {
+			toSend.WriteString(fmt.Sprintf("<td>%d</td>%s</tr>\n", n, float64ToString(uint64(tmp))))
 		}
 		n++
 	}
