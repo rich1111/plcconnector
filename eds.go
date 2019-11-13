@@ -177,8 +177,8 @@ func (p *PLC) loadEDS(fn string) error {
 	i.SetAttrUINT(4, majRev+minRev<<8)
 	vs, err := p.getEDS("Device", "ProdName")
 	if err == nil {
-		i.attr[7] = AttrShortString(vs, "ProductName")
-		i.attr[13] = AttrStringI(vs, "InternationalProductName")
+		i.attr[7] = TagShortString(vs, "ProductName")
+		i.attr[13] = TagStringI(vs, "InternationalProductName")
 	}
 
 	p.Class[0x37] = NewClass("File", 32)
@@ -193,27 +193,27 @@ func (p *PLC) loadEDS(fn string) error {
 	}
 	chksum = 0x10000 - chksum
 
-	in.attr[1] = AttrUSINT(stateLoaded, "State")
-	in.attr[2] = AttrStringI("EDS and Icon Files", "InstanceName")
-	in.attr[3] = AttrUINT(1, "InstanceFormatVersion")
-	in.attr[4] = AttrStringI("EDS.txt", "FileName")
-	in.attr[5] = AttrUINT(majRev+minRev<<8, "FileRevision")
-	in.attr[6] = AttrUDINT(uint32(len(f)), "FileSize")
-	in.attr[7] = AttrINT(int16(chksum), "FileChecksum")
-	in.attr[8] = AttrUSINT(255, "InvocationMethod")  // not aplicable
-	in.attr[9] = AttrUSINT(1, "FileSaveParameters")  // BYTE
-	in.attr[10] = AttrUSINT(1, "FileType")           // read only
-	in.attr[11] = AttrUSINT(0, "FileEncodingFormat") // uncompressed
+	in.attr[1] = TagUSINT(stateLoaded, "State")
+	in.attr[2] = TagStringI("EDS and Icon Files", "InstanceName")
+	in.attr[3] = TagUINT(1, "InstanceFormatVersion")
+	in.attr[4] = TagStringI("EDS.txt", "FileName")
+	in.attr[5] = TagUINT(majRev+minRev<<8, "FileRevision")
+	in.attr[6] = TagUDINT(uint32(len(f)), "FileSize")
+	in.attr[7] = TagINT(int16(chksum), "FileChecksum")
+	in.attr[8] = TagUSINT(255, "InvocationMethod")  // not aplicable
+	in.attr[9] = TagUSINT(1, "FileSaveParameters")  // BYTE
+	in.attr[10] = TagUSINT(1, "FileType")           // read only
+	in.attr[11] = TagUSINT(0, "FileEncodingFormat") // uncompressed
 
 	p.Class[0x37].SetInstance(0xC8, in)
 
 	p.Class[0xAC] = NewClass("AC", 0) // unknown class, values from 1756-pm020_-en-p.pdf p. 57
 	in = NewInstance(10)
-	in.attr[1] = AttrINT(5, "Attr1")
-	in.attr[2] = AttrINT(1, "Attr2")
-	in.attr[3] = &Attribute{Name: "Attr3", Type: TypeDINT, data: []uint8{0x03, 0xB2, 0x80, 0xC5}}
-	in.attr[4] = &Attribute{Name: "Attr4", Type: TypeDINT, data: []uint8{0x03, 0xB2, 0x80, 0xC5}}
-	in.attr[10] = &Attribute{Name: "Attr10", Type: TypeDINT, data: []uint8{0xF8, 0xDE, 0x47, 0xB8}}
+	in.attr[1] = TagINT(5, "Attr1")
+	in.attr[2] = TagINT(1, "Attr2")
+	in.attr[3] = &Tag{Name: "Attr3", Type: TypeDINT, data: []uint8{0x03, 0xB2, 0x80, 0xC5}}
+	in.attr[4] = &Tag{Name: "Attr4", Type: TypeDINT, data: []uint8{0x03, 0xB2, 0x80, 0xC5}}
+	in.attr[10] = &Tag{Name: "Attr10", Type: TypeDINT, data: []uint8{0xF8, 0xDE, 0x47, 0xB8}}
 	p.Class[0xAC].SetInstance(1, in)
 
 	p.Class[0x6B] = NewClass("Symbol", 0)
@@ -222,24 +222,24 @@ func (p *PLC) loadEDS(fn string) error {
 	p.Class[0x6C] = NewClass("Template", 0)
 
 	p.Class[0xF4] = NewClass("Port", 9)
-	p.Class[0xF4].inst[0].attr[8] = AttrUINT(1, "EntryPort")
-	p.Class[0xF4].inst[0].attr[9] = &Attribute{Name: "PortInstanceInfo", data: []uint8{0, 0, 0, 0, 4, 0, 1, 0}} // uint 4 - Ethernet/IP , uint 1 - CIP port number
+	p.Class[0xF4].inst[0].attr[8] = TagUINT(1, "EntryPort")
+	p.Class[0xF4].inst[0].attr[9] = &Tag{Name: "PortInstanceInfo", data: []uint8{0, 0, 0, 0, 4, 0, 1, 0}} // uint 4 - Ethernet/IP , uint 1 - CIP port number
 	in = NewInstance(7)
-	in.attr[1] = AttrUINT(4, "PortType")
-	in.attr[2] = AttrUINT(1, "PortNumber")
-	in.attr[3] = &Attribute{Name: "LinkObject", Type: TypeEPATH, data: []uint8{0x02, 0x00, 0x20, 0xF5, 0x24, 0x01}}
-	in.attr[4] = AttrShortString("EtherNet/IP port", "PortName")
-	in.attr[7] = &Attribute{Name: "NodeAddress", Type: TypeEPATH, data: []uint8{0x01, 0x00, 0x10, 0x01}}
+	in.attr[1] = TagUINT(4, "PortType")
+	in.attr[2] = TagUINT(1, "PortNumber")
+	in.attr[3] = &Tag{Name: "LinkObject", Type: TypeEPATH, data: []uint8{0x02, 0x00, 0x20, 0xF5, 0x24, 0x01}}
+	in.attr[4] = TagShortString("EtherNet/IP port", "PortName")
+	in.attr[7] = &Tag{Name: "NodeAddress", Type: TypeEPATH, data: []uint8{0x01, 0x00, 0x10, 0x01}}
 	p.Class[0xF4].SetInstance(1, in)
 
 	p.Class[0xF5] = NewClass("TCP Interface", 0)
 	in = NewInstance(6)
-	in.attr[1] = AttrUDINT(1, "Status")
-	in.attr[2] = AttrUDINT(0b1_1_0, "ConfigurationCapabality")
-	in.attr[3] = AttrUDINT(0b1_0010, "ConfigurationControl")
-	in.attr[4] = &Attribute{Name: "PhysicalLinkObject", Type: TypeEPATH, data: []uint8{0x02, 0x00, 0x20, 0xF6, 0x24, 0x01}}
+	in.attr[1] = TagUDINT(1, "Status")
+	in.attr[2] = TagUDINT(0b1_1_0, "ConfigurationCapabality")
+	in.attr[3] = TagUDINT(0b1_0010, "ConfigurationControl")
+	in.attr[4] = &Tag{Name: "PhysicalLinkObject", Type: TypeEPATH, data: []uint8{0x02, 0x00, 0x20, 0xF6, 0x24, 0x01}}
 	ip := getIP4()
-	in.attr[5] = &Attribute{Name: "InterfaceConfiguration", data: []uint8{ // TODO
+	in.attr[5] = &Tag{Name: "InterfaceConfiguration", data: []uint8{ // TODO
 		uint8(ip >> 24), uint8(ip >> 16), uint8(ip >> 8), uint8(ip), // IP address
 		0xFF, 0, 0, 0, // network mask
 		0xA, 0xA, 0, 1, // gateway address
@@ -247,15 +247,15 @@ func (p *PLC) loadEDS(fn string) error {
 		1, 1, 1, 1, // name server 2
 		0, 0, // string domain name
 	}}
-	in.attr[6] = AttrString("", "HostName") // TODO
+	in.attr[6] = TagString("", "HostName") // TODO
 	p.Class[0xF5].SetInstance(1, in)
 
 	p.Class[0xF6] = NewClass("Ethernet Link", 0)
 	p.Class[0xF6].inst[0].SetAttrUINT(1, 3)
 	in = NewInstance(3)
-	in.attr[1] = AttrUDINT(1000, "InterfaceSpeed")
-	in.attr[2] = AttrUDINT(0b0_1_011_1_1, "InterfaceFlags")
-	in.attr[3] = &Attribute{Name: "PhysicalAddress", data: []uint8{0x02, 0x00, 0x20, 0xF5, 0x24, 0x01}} // TODO MAC
+	in.attr[1] = TagUDINT(1000, "InterfaceSpeed")
+	in.attr[2] = TagUDINT(0b0_1_011_1_1, "InterfaceFlags")
+	in.attr[3] = &Tag{Name: "PhysicalAddress", data: []uint8{0x02, 0x00, 0x20, 0xF5, 0x24, 0x01}} // TODO MAC
 	p.Class[0xF6].SetInstance(1, in)
 
 	return nil

@@ -44,17 +44,17 @@ func (p *PLC) tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 	sort.Strings(arr)
 
 	for _, n := range arr {
-		toSend.WriteString("<tr><td><a href=\"/" + n + "\">" + n + "</a></td><td>" + strconv.Itoa(p.tags[n].Count) + "</td><td>" + typeToString(p.tags[n].Typ) + "</td><td>")
+		toSend.WriteString("<tr><td><a href=\"/" + n + "\">" + n + "</a></td><td>" + strconv.Itoa(p.tags[n].Count) + "</td><td>" + typeToString(p.tags[n].Type) + "</td><td>")
 		var ascii strings.Builder
-		if p.tags[n].Typ != TypeREAL && p.tags[n].Typ != TypeBOOL {
+		if p.tags[n].Type != TypeREAL && p.tags[n].Type != TypeBOOL {
 			ascii.Grow(p.tags[n].Count)
-			ln := int(typeLen(uint16(p.tags[n].Typ)))
+			ln := int(typeLen(uint16(p.tags[n].Type)))
 			for i := 0; i < len(p.tags[n].data); i += ln {
 				tmp := int64(p.tags[n].data[i])
 				for j := 1; j < ln; j++ {
 					tmp += int64(p.tags[n].data[i+j]) << uint(8*j)
 				}
-				switch p.tags[n].Typ {
+				switch p.tags[n].Type {
 				case TypeSINT:
 					tmp = int64(int8(tmp))
 				case TypeINT:
@@ -93,13 +93,13 @@ type tagJSON struct {
 func tagToJSON(t *Tag) string {
 	var tj tagJSON
 	tj.Count = int(t.Count)
-	ln := int(typeLen(uint16(t.Typ)))
+	ln := int(typeLen(uint16(t.Type)))
 	for i := 0; i < len(t.data); i += ln {
 		tmp := int64(t.data[i])
 		for j := 1; j < ln; j++ {
 			tmp += int64(t.data[i+j]) << uint(8*j)
 		}
-		switch t.Typ {
+		switch t.Type {
 		case TypeBOOL:
 			if tmp != 0 {
 				tmp = 1
@@ -113,20 +113,20 @@ func tagToJSON(t *Tag) string {
 		case TypeDWORD:
 			tmp = int64(int32(tmp))
 		}
-		if t.Typ == TypeREAL {
+		if t.Type == TypeREAL {
 			tj.Data = append(tj.Data, float64(math.Float32frombits(uint32(tmp))))
 		} else {
 			tj.Data = append(tj.Data, float64(tmp))
 		}
-		if t.Typ != TypeREAL && t.Typ != TypeBOOL {
-			if tmp <= 256 && ((t.Typ == TypeSINT && tmp >= -128) || (t.Typ != TypeSINT && tmp >= 0)) {
+		if t.Type != TypeREAL && t.Type != TypeBOOL {
+			if tmp <= 256 && ((t.Type == TypeSINT && tmp >= -128) || (t.Type != TypeSINT && tmp >= 0)) {
 				tj.ASCII = append(tj.ASCII, asciiCode(uint8(tmp)))
 			} else {
 				tj.ASCII = append(tj.ASCII, "")
 			}
 		}
 	}
-	tj.Typ = typeToString(t.Typ)
+	tj.Typ = typeToString(t.Type)
 
 	b, err := json.Marshal(tj)
 	if err != nil {
@@ -164,13 +164,13 @@ func floatToString(f uint32) string {
 func tagToHTML(t *Tag) string {
 	var toSend strings.Builder
 
-	ln := int(typeLen(uint16(t.Typ)))
+	ln := int(typeLen(uint16(t.Type)))
 
 	toSend.WriteString("<!DOCTYPE html>\n<html><title>" + t.Name + "</title><h3>" + t.Name + "</h3>")
-	toSend.WriteString("<table " + tableStyle + "><tr><th>N</th><th>" + typeToString(t.Typ) + "</th>")
-	if t.Typ == TypeBOOL {
+	toSend.WriteString("<table " + tableStyle + "><tr><th>N</th><th>" + typeToString(t.Type) + "</th>")
+	if t.Type == TypeBOOL {
 		toSend.WriteString("</tr>\n")
-	} else if t.Typ == TypeREAL {
+	} else if t.Type == TypeREAL {
 		toSend.WriteString("<th>SIGN</th><th>EXPONENT</th><th>MANTISSA</th></tr>\n")
 	} else {
 		toSend.WriteString("<th>HEX</th><th>ASCII</th><th>BIN</th></tr>\n")
@@ -187,7 +187,7 @@ func tagToHTML(t *Tag) string {
 		var err error
 		buf := new(bytes.Buffer)
 
-		switch t.Typ {
+		switch t.Type {
 		case TypeBOOL:
 			if tmp != 0 {
 				tmp = 1
@@ -207,17 +207,17 @@ func tagToHTML(t *Tag) string {
 		case TypeLINT:
 			err = binary.Write(buf, binary.BigEndian, tmp)
 		}
-		if t.Typ != TypeREAL && t.Typ != TypeBOOL {
+		if t.Type != TypeREAL && t.Type != TypeBOOL {
 			ascii := ""
 			if err == nil {
 				hx = hex.EncodeToString(buf.Bytes())
 			}
 			bin := bytesToBinString(buf.Bytes())
-			if tmp <= 256 && ((t.Typ == TypeSINT && tmp >= -128) || (t.Typ != TypeSINT && tmp >= 0)) {
+			if tmp <= 256 && ((t.Type == TypeSINT && tmp >= -128) || (t.Type != TypeSINT && tmp >= 0)) {
 				ascii = asciiCode(uint8(tmp))
 			}
 			toSend.WriteString(fmt.Sprintf("<td>%d</td><td>%v</td><td>%v</td><td>%v</td><td>%v</td></tr>\n", n, tmp, hx, ascii, bin))
-		} else if t.Typ == TypeBOOL {
+		} else if t.Type == TypeBOOL {
 			toSend.WriteString(fmt.Sprintf("<td>%d</td><td>%v</td></tr>\n", n, tmp))
 		} else {
 			toSend.WriteString(fmt.Sprintf("<td>%d</td>%s</tr>\n", n, floatToString(uint32(tmp))))

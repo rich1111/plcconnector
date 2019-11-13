@@ -1,15 +1,87 @@
 package plcconnector
 
-import "math"
+import (
+	"encoding/binary"
+	"math"
+)
 
 // Tag .
 type Tag struct {
 	Name  string
-	Typ   int
+	Type  int
 	Index int
 	Count int
 
 	data []uint8
+}
+
+// TagUSINT .
+func TagUSINT(v uint8, n string) *Tag {
+	var a Tag
+	a.Name = n
+	a.Type = TypeUSINT
+	a.data = []byte{v}
+	return &a
+}
+
+// TagUINT .
+func TagUINT(v uint16, n string) *Tag {
+	var a Tag
+	a.Name = n
+	a.Type = TypeUINT
+	a.data = make([]byte, 2)
+	binary.LittleEndian.PutUint16(a.data, v)
+	return &a
+}
+
+// TagUDINT .
+func TagUDINT(v uint32, n string) *Tag {
+	var a Tag
+	a.Name = n
+	a.Type = TypeUDINT
+	a.data = make([]byte, 4)
+	binary.LittleEndian.PutUint32(a.data, v)
+	return &a
+}
+
+// TagINT .
+func TagINT(v int16, n string) *Tag {
+	var a Tag
+	a.Name = n
+	a.Type = TypeINT
+	a.data = make([]byte, 2)
+	binary.LittleEndian.PutUint16(a.data, uint16(v))
+	return &a
+}
+
+// TagString .
+func TagString(v string, n string) *Tag {
+	var a Tag
+	a.Name = n
+	a.Type = TypeString
+	a.data = []byte{byte(len(v)), byte(len(v) >> 8)}
+	a.data = append(a.data, []byte(v)...)
+	return &a
+}
+
+// TagShortString .
+func TagShortString(v string, n string) *Tag {
+	var a Tag
+	a.Name = n
+	a.Type = TypeShortString
+	a.data = []byte{byte(len(v))}
+	a.data = append(a.data, []byte(v)...)
+	return &a
+}
+
+// TagStringI . TODO len>255
+func TagStringI(v string, n string) *Tag {
+	var a Tag
+	a.Name = n
+	a.Type = TypeStringI
+	a.data = []byte{1, 'e', 'n', 'g', 0xDA, 4, 0, byte(len(v))}
+	a.data = append(a.data, []byte(v)...)
+	return &a
 }
 
 // DataBytes returns array of bytes.

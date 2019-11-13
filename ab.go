@@ -49,34 +49,34 @@ func Init(eds string, testTags bool) (*PLC, error) {
 	}
 
 	if testTags {
-		p.AddTag(Tag{Name: "testBOOL", Typ: TypeBOOL, Count: 4, data: []uint8{
+		p.AddTag(Tag{Name: "testBOOL", Type: TypeBOOL, Count: 4, data: []uint8{
 			0x00, 0x01, 0xFF, 0x55}})
 
-		p.AddTag(Tag{Name: "testSINT", Typ: TypeSINT, Count: 4, data: []uint8{
+		p.AddTag(Tag{Name: "testSINT", Type: TypeSINT, Count: 4, data: []uint8{
 			0xFF, 0xFE, 0x00, 0x01}})
 
-		p.AddTag(Tag{Name: "testINT", Typ: TypeINT, Count: 10, data: []uint8{
+		p.AddTag(Tag{Name: "testINT", Type: TypeINT, Count: 10, data: []uint8{
 			0xFF, 0xFF, 0x00, 0x01, 0xFE, 0x00, 0xFC, 0x00, 0xCA, 0x00, 0xBD, 0x00, 0xB1, 0x00, 0xFF, 0x00, 127, 0x00, 128, 0x00}})
 
-		p.AddTag(Tag{Name: "testDINT", Typ: TypeDINT, Count: 2, data: []uint8{
+		p.AddTag(Tag{Name: "testDINT", Type: TypeDINT, Count: 2, data: []uint8{
 			0xFF, 0xFF, 0xFF, 0xFF,
 			0x01, 0x00, 0x00, 0x00}})
 
-		p.AddTag(Tag{Name: "testREAL", Typ: TypeREAL, Count: 2, data: []uint8{
+		p.AddTag(Tag{Name: "testREAL", Type: TypeREAL, Count: 2, data: []uint8{
 			0xa4, 0x70, 0x9d, 0x3f,
 			0xcd, 0xcc, 0x44, 0xc1}})
 
-		p.AddTag(Tag{Name: "testDWORD", Typ: TypeDWORD, Count: 2, data: []uint8{
+		p.AddTag(Tag{Name: "testDWORD", Type: TypeDWORD, Count: 2, data: []uint8{
 			0xFF, 0xFF, 0xFF, 0xFF,
 			0x01, 0x00, 0x00, 0x00}})
 
-		p.AddTag(Tag{Name: "testLINT", Typ: TypeLINT, Count: 2, data: []uint8{
+		p.AddTag(Tag{Name: "testLINT", Type: TypeLINT, Count: 2, data: []uint8{
 			0xFF, 0xFF, 0xFF, 0xFF,
 			0xFF, 0xFF, 0xFF, 0xFF,
 			0x01, 0x00, 0x00, 0x00,
 			0x00, 0x00, 0x00, 0x00}})
 
-		p.AddTag(Tag{Name: "testASCII", Typ: TypeSINT, Count: 17, data: []uint8{
+		p.AddTag(Tag{Name: "testASCII", Type: TypeSINT, Count: 17, data: []uint8{
 			'H', 'e', 'l', 'l',
 			'o', '!', 0x00, 0x01, 0x7F, 0xFE, 0xFC, 0xCA, 0xBD, 0xB1, 0xFF, 127, 128}})
 	}
@@ -98,7 +98,7 @@ func (p *PLC) readTag(tag string, index int, count uint16) ([]uint8, uint16, boo
 		tgdata []uint8
 	)
 	if ok {
-		tgtyp = uint16(tg.Typ)
+		tgtyp = uint16(tg.Type)
 		tl := typeLen(tgtyp)
 		tgdata = make([]uint8, count*tl)
 		if index+int(count) > tg.Count {
@@ -110,7 +110,7 @@ func (p *PLC) readTag(tag string, index int, count uint16) ([]uint8, uint16, boo
 	p.tMut.RUnlock()
 	if ok {
 		if p.callback != nil {
-			go p.callback(ReadTag, Success, &Tag{Name: tag, Typ: int(tgtyp), Index: index, Count: int(count), data: tgdata})
+			go p.callback(ReadTag, Success, &Tag{Name: tag, Type: int(tgtyp), Index: index, Count: int(count), data: tgdata})
 		}
 		return tgdata, tgtyp, true
 	}
@@ -123,14 +123,14 @@ func (p *PLC) readTag(tag string, index int, count uint16) ([]uint8, uint16, boo
 func (p *PLC) saveTag(tag string, typ uint16, index int, count uint16, data []uint8) bool {
 	p.tMut.Lock()
 	tg, ok := p.tags[tag]
-	if ok && tg.Typ == int(typ) && tg.Count >= index+int(count) {
+	if ok && tg.Type == int(typ) && tg.Count >= index+int(count) {
 		copy(tg.data[index*int(typeLen(typ)):], data)
 	} else {
-		p.AddTag(Tag{Name: tag, Typ: int(typ), Count: int(count), data: data})
+		p.AddTag(Tag{Name: tag, Type: int(typ), Count: int(count), data: data})
 	}
 	p.tMut.Unlock()
 	if p.callback != nil {
-		go p.callback(WriteTag, Success, &Tag{Name: tag, Typ: int(typ), Index: index, Count: int(count), data: data})
+		go p.callback(WriteTag, Success, &Tag{Name: tag, Type: int(typ), Index: index, Count: int(count), data: data})
 	}
 	return true
 }
@@ -138,18 +138,18 @@ func (p *PLC) saveTag(tag string, typ uint16, index int, count uint16, data []ui
 // AddTag adds tag.
 func (p *PLC) AddTag(t Tag) {
 	if t.data == nil {
-		size := typeLen(uint16(t.Typ)) * uint16(t.Count)
+		size := typeLen(uint16(t.Type)) * uint16(t.Count)
 		t.data = make([]uint8, size)
 	}
 	in := NewInstance(8)
-	in.attr[1] = AttrString(t.Name, "SymbolName")
-	typ := uint16(t.Typ)
+	in.attr[1] = TagString(t.Name, "SymbolName")
+	typ := uint16(t.Type)
 	if t.Count > 1 {
-		typ |= 0x2000 // 1D Array
+		typ |= TypeArray1D
 	}
-	in.attr[2] = AttrUINT(typ, "SymbolType")
-	in.attr[7] = AttrUINT(typeLen(uint16(t.Typ)), "BaseTypeSize")
-	in.attr[8] = &Attribute{Name: "Dimensions", data: []uint8{uint8(t.Count), uint8(t.Count >> 8), uint8(t.Count >> 16), uint8(t.Count >> 24), 0, 0, 0, 0, 0, 0, 0, 0}}
+	in.attr[2] = TagUINT(typ, "SymbolType")
+	in.attr[7] = TagUINT(typeLen(uint16(t.Type)), "BaseTypeSize")
+	in.attr[8] = &Tag{Name: "Dimensions", data: []uint8{uint8(t.Count), uint8(t.Count >> 8), uint8(t.Count >> 16), uint8(t.Count >> 24), 0, 0, 0, 0, 0, 0, 0, 0}}
 	p.tMut.Lock()
 	p.symbols.SetInstance(p.symbols.lastInst+1, in)
 	p.tags[t.Name] = &t
@@ -165,7 +165,7 @@ func (p *PLC) UpdateTag(name string, offset int, data []uint8) bool {
 		fmt.Println("plcconnector UpdateTag: no tag named ", name)
 		return false
 	}
-	offset *= int(typeLen(uint16(t.Typ)))
+	offset *= int(typeLen(uint16(t.Type)))
 	to := offset + len(data)
 	if to > len(t.data) {
 		fmt.Println("plcconnector UpdateTag: to large data ", name)
@@ -572,7 +572,7 @@ loop:
 
 				var (
 					aok bool
-					at  *Attribute
+					at  *Tag
 				)
 				in := p.GetClassInstance(class, instance)
 				if in != nil {
