@@ -64,14 +64,61 @@ func typeLen(t uint16) uint16 {
 		return 2
 	case TypeDINT:
 		return 4
-	case TypeREAL:
-		return 4
-	case TypeDWORD:
-		return 4
 	case TypeLINT:
 		return 8
+	case TypeUSINT:
+		return 1
+	case TypeUINT:
+		return 2
+	case TypeUDINT:
+		return 4
+	case TypeULINT:
+		return 8
+	case TypeREAL:
+		return 4
+	case TypeLREAL:
+		return 8
+	// case TypeSTIME:
+	// 	return 1
+	// case TypeDATE:
+	// 	return 1
+	// case TypeTIMEOFDAY:
+	// 	return 1
+	// case TypeDATETIME:
+	// 	return 1
+	case TypeSTRING:
+		return 1
+	case TypeBYTE:
+		return 1
+	case TypeWORD:
+		return 2
+	case TypeDWORD:
+		return 4
+	case TypeLWORD:
+		return 8
+	case TypeSTRING2:
+		return 2
+	// case TypeFTIME:
+	// 	return 1
+	// case TypeLTIME:
+	// 	return 1
+	// case TypeITIME:
+	// 	return 1
+	// case TypeSTRINGN:
+	// 	return 1
+	// case TypeSHORTSTRING:
+	// 	return 1
+	// case TypeTIME:
+	// 	return 1
+	// case TypeEPATH:
+	// 	return 1
+	// case TypeENGUNIT:
+	// 	return 1
+	// case TypeSTRINGI:
+	// 	return 1
+	default:
+		return 1
 	}
-	return 1
 }
 
 func typeToString(t int) string {
@@ -84,12 +131,58 @@ func typeToString(t int) string {
 		return "INT"
 	case TypeDINT:
 		return "DINT"
-	case TypeREAL:
-		return "REAL"
-	case TypeDWORD:
-		return "DWORD"
 	case TypeLINT:
 		return "LINT"
+	case TypeUSINT:
+		return "USINT"
+	case TypeUINT:
+		return "UINT"
+	case TypeUDINT:
+		return "UDINT"
+	case TypeULINT:
+		return "ULINT"
+	case TypeREAL:
+		return "REAL"
+	case TypeLREAL:
+		return "LREAL"
+	case TypeSTIME:
+		return "STIME"
+	case TypeDATE:
+		return "DATE"
+	case TypeTIMEOFDAY:
+		return "TIMEOFDAY"
+	case TypeDATETIME:
+		return "DATETIME"
+	case TypeSTRING:
+		return "STRING"
+	case TypeBYTE:
+		return "BYTE"
+	case TypeWORD:
+		return "WORD"
+	case TypeDWORD:
+		return "DWORD"
+	case TypeLWORD:
+		return "LWORD"
+	case TypeSTRING2:
+		return "STRING2"
+	case TypeFTIME:
+		return "FTIME"
+	case TypeLTIME:
+		return "LTIME"
+	case TypeITIME:
+		return "ITIME"
+	case TypeSTRINGN:
+		return "STRINGN"
+	case TypeSHORTSTRING:
+		return "SHORTSTRING"
+	case TypeTIME:
+		return "TIME"
+	case TypeEPATH:
+		return "EPATH"
+	case TypeENGUNIT:
+		return "ENGUNIT"
+	case TypeSTRINGI:
+		return "STRINGI"
 	default:
 		return "UNKNOWN"
 	}

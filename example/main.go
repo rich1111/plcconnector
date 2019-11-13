@@ -68,22 +68,24 @@ func main() {
 	if len(os.Args) >= 2 {
 		eds = os.Args[1]
 	}
-	c, err := plc.Init(eds, true)
+	p, err := plc.Init(eds, true)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
+	p.NewTag(uint16(123), "newTagUINT")
+
 	// nie wyświetlaj dodatkowych informacji
-	c.Verbose = true
-	c.DumpNetwork = false
+	p.Verbose = true
+	p.DumpNetwork = false
 
 	// callback
-	// c.Callback(call)
+	// p.Callback(call)
 
 	// strona WWW
-	go c.ServeHTTP("0.0.0.0:28080")
+	go p.ServeHTTP("0.0.0.0:28080")
 
 	// serwer
-	c.Serve("0.0.0.0:44818")
+	p.Serve("0.0.0.0:44818")
 }

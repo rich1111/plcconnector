@@ -63,8 +63,14 @@ func (p *PLC) tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 					tmp = int64(int32(tmp))
 				case TypeDWORD:
 					tmp = int64(int32(tmp))
-				case TypeLINT:
-					tmp = int64(int64(tmp))
+				case TypeUSINT:
+					tmp = int64(uint8(tmp))
+				case TypeUINT:
+					tmp = int64(uint16(tmp))
+				case TypeUDINT:
+					tmp = int64(uint32(tmp))
+				case TypeULINT:
+					tmp = int64(uint64(tmp))
 				}
 				if tmp < 256 && tmp >= 32 {
 					ascii.WriteRune(rune(tmp))
@@ -112,6 +118,14 @@ func tagToJSON(t *Tag) string {
 			tmp = int64(int32(tmp))
 		case TypeDWORD:
 			tmp = int64(int32(tmp))
+		case TypeUSINT:
+			tmp = int64(uint8(tmp))
+		case TypeUINT:
+			tmp = int64(uint16(tmp))
+		case TypeUDINT:
+			tmp = int64(uint32(tmp))
+		case TypeULINT:
+			tmp = int64(uint64(tmp))
 		}
 		if t.Type == TypeREAL {
 			tj.Data = append(tj.Data, float64(math.Float32frombits(uint32(tmp))))
@@ -206,6 +220,17 @@ func tagToHTML(t *Tag) string {
 			tmp = int64(int32(tmp))
 		case TypeLINT:
 			err = binary.Write(buf, binary.BigEndian, tmp)
+		case TypeUSINT:
+			err = binary.Write(buf, binary.BigEndian, int8(tmp))
+			tmp = int64(uint8(tmp))
+		case TypeUINT:
+			err = binary.Write(buf, binary.BigEndian, int16(tmp))
+			tmp = int64(uint16(tmp))
+		case TypeUDINT:
+			err = binary.Write(buf, binary.BigEndian, int32(tmp))
+			tmp = int64(uint32(tmp))
+		case TypeULINT:
+			err = binary.Write(buf, binary.BigEndian, uint64(tmp))
 		}
 		if t.Type != TypeREAL && t.Type != TypeBOOL {
 			ascii := ""

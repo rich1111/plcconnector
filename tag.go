@@ -2,7 +2,9 @@ package plcconnector
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math"
+	"reflect"
 )
 
 // Tag .
@@ -19,6 +21,7 @@ type Tag struct {
 func TagUSINT(v uint8, n string) *Tag {
 	var a Tag
 	a.Name = n
+	a.Count = 1
 	a.Type = TypeUSINT
 	a.data = []byte{v}
 	return &a
@@ -28,6 +31,7 @@ func TagUSINT(v uint8, n string) *Tag {
 func TagUINT(v uint16, n string) *Tag {
 	var a Tag
 	a.Name = n
+	a.Count = 1
 	a.Type = TypeUINT
 	a.data = make([]byte, 2)
 	binary.LittleEndian.PutUint16(a.data, v)
@@ -38,6 +42,7 @@ func TagUINT(v uint16, n string) *Tag {
 func TagUDINT(v uint32, n string) *Tag {
 	var a Tag
 	a.Name = n
+	a.Count = 1
 	a.Type = TypeUDINT
 	a.data = make([]byte, 4)
 	binary.LittleEndian.PutUint32(a.data, v)
@@ -48,6 +53,7 @@ func TagUDINT(v uint32, n string) *Tag {
 func TagINT(v int16, n string) *Tag {
 	var a Tag
 	a.Name = n
+	a.Count = 1
 	a.Type = TypeINT
 	a.data = make([]byte, 2)
 	binary.LittleEndian.PutUint16(a.data, uint16(v))
@@ -58,7 +64,8 @@ func TagINT(v int16, n string) *Tag {
 func TagString(v string, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Type = TypeString
+	a.Count = 1
+	a.Type = TypeSTRING
 	a.data = []byte{byte(len(v)), byte(len(v) >> 8)}
 	a.data = append(a.data, []byte(v)...)
 	return &a
@@ -68,7 +75,8 @@ func TagString(v string, n string) *Tag {
 func TagShortString(v string, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Type = TypeShortString
+	a.Count = 1
+	a.Type = TypeSHORTSTRING
 	a.data = []byte{byte(len(v))}
 	a.data = append(a.data, []byte(v)...)
 	return &a
@@ -78,10 +86,26 @@ func TagShortString(v string, n string) *Tag {
 func TagStringI(v string, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Type = TypeStringI
+	a.Count = 1
+	a.Type = TypeSTRINGI
 	a.data = []byte{1, 'e', 'n', 'g', 0xDA, 4, 0, byte(len(v))}
 	a.data = append(a.data, []byte(v)...)
 	return &a
+}
+
+// NewTag .
+func (p *PLC) NewTag(i interface{}, n string) {
+	var a *Tag
+	r := reflect.TypeOf(i)
+	v := reflect.ValueOf(i)
+	switch r.Kind() {
+	case reflect.Uint16:
+		a = TagUINT(uint16(v.Uint()), n)
+	default:
+		panic("unknown type " + r.String())
+	}
+	fmt.Println(a.Type)
+	p.AddTag(*a)
 }
 
 // DataBytes returns array of bytes.
