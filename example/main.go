@@ -52,6 +52,11 @@ func call(service int, status int, tag *plc.Tag) {
 	fmt.Println()
 }
 
+type test struct {
+	abc uint16
+	def float32
+}
+
 func main() {
 	signalTrap := make(chan os.Signal, 1)
 	signal.Notify(signalTrap, os.Interrupt, syscall.SIGTERM)
@@ -82,6 +87,14 @@ func main() {
 	p.NewTag([2]float64{-0.1, 1.123}, "testLREAL")
 	p.NewTag([2]int64{-1, 1}, "testLINT")
 	p.NewTag([10]int8{'H', 'e', 'l', 'l', 'o', '!', 0x00, 0x01, 0x7F, 127}, "testASCII")
+
+	p.NewTag([20]int8{0x53, 0x54, 0x52, 0x55, 0x43, 0x54, 0x5F, 0x42, 0x3B, 0x6E, 0x45, 0x42, 0x45, 0x43, 0x45, 0x41, 0x48, 0x41, 0x00}, "1")
+	p.NewTag([20]int8{0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x53, 0x54, 0x52, 0x55, 0x43, 0x54, 0x5F, 0x42, 0x30, 0x00}, "2")
+
+	p.NewTag("Ala ma kota", "testSTRING")
+	p.NewTag(int32(100), "test1")
+
+	// p.NewTag(test{abc: 123, def: 1.234}, "testSTRUCT")
 
 	// nie wyświetlaj dodatkowych informacji
 	p.Verbose = true

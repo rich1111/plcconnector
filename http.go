@@ -49,7 +49,11 @@ func (p *PLC) tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 		if p.tags[n].Type != TypeREAL && p.tags[n].Type != TypeLREAL && p.tags[n].Type != TypeBOOL {
 			ascii.Grow(p.tags[n].Count)
 			ln := int(typeLen(uint16(p.tags[n].Type)))
-			for i := 0; i < len(p.tags[n].data); i += ln {
+			startI := 0
+			if p.tags[n].Type == TypeSTRING {
+				startI = 2
+			}
+			for i := startI; i < len(p.tags[n].data); i += ln {
 				tmp := int64(p.tags[n].data[i])
 				for j := 1; j < ln; j++ {
 					tmp += int64(p.tags[n].data[i+j]) << uint(8*j)

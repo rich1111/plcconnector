@@ -419,7 +419,8 @@ func (p *PLC) NewTag(i interface{}, n string) {
 		}
 	case reflect.Slice:
 		panic("use array not slice")
-	// case reflect.String:
+	case reflect.String:
+		a = TagString(v.String(), n)
 	// case reflect.Struct:
 	default:
 		panic("unknown type " + r.String())
