@@ -2,7 +2,6 @@ package plcconnector
 
 import (
 	"encoding/binary"
-	"fmt"
 	"math"
 	"reflect"
 )
@@ -17,6 +16,16 @@ type Tag struct {
 	data []uint8
 }
 
+// TagSINT .
+func TagSINT(v int8, n string) *Tag {
+	var a Tag
+	a.Name = n
+	a.Count = 1
+	a.Type = TypeSINT
+	a.data = []byte{uint8(v)}
+	return &a
+}
+
 // TagUSINT .
 func TagUSINT(v uint8, n string) *Tag {
 	var a Tag
@@ -24,6 +33,17 @@ func TagUSINT(v uint8, n string) *Tag {
 	a.Count = 1
 	a.Type = TypeUSINT
 	a.data = []byte{v}
+	return &a
+}
+
+// TagINT .
+func TagINT(v int16, n string) *Tag {
+	var a Tag
+	a.Name = n
+	a.Count = 1
+	a.Type = TypeINT
+	a.data = make([]byte, 2)
+	binary.LittleEndian.PutUint16(a.data, uint16(v))
 	return &a
 }
 
@@ -38,6 +58,17 @@ func TagUINT(v uint16, n string) *Tag {
 	return &a
 }
 
+// TagDINT .
+func TagDINT(v int32, n string) *Tag {
+	var a Tag
+	a.Name = n
+	a.Count = 1
+	a.Type = TypeDINT
+	a.data = make([]byte, 4)
+	binary.LittleEndian.PutUint32(a.data, uint32(v))
+	return &a
+}
+
 // TagUDINT .
 func TagUDINT(v uint32, n string) *Tag {
 	var a Tag
@@ -49,14 +80,25 @@ func TagUDINT(v uint32, n string) *Tag {
 	return &a
 }
 
-// TagINT .
-func TagINT(v int16, n string) *Tag {
+// TagLINT .
+func TagLINT(v int64, n string) *Tag {
 	var a Tag
 	a.Name = n
 	a.Count = 1
-	a.Type = TypeINT
-	a.data = make([]byte, 2)
-	binary.LittleEndian.PutUint16(a.data, uint16(v))
+	a.Type = TypeLINT
+	a.data = make([]byte, 8)
+	binary.LittleEndian.PutUint64(a.data, uint64(v))
+	return &a
+}
+
+// TagULINT .
+func TagULINT(v uint64, n string) *Tag {
+	var a Tag
+	a.Name = n
+	a.Count = 1
+	a.Type = TypeULINT
+	a.data = make([]byte, 8)
+	binary.LittleEndian.PutUint64(a.data, v)
 	return &a
 }
 
@@ -99,12 +141,33 @@ func (p *PLC) NewTag(i interface{}, n string) {
 	r := reflect.TypeOf(i)
 	v := reflect.ValueOf(i)
 	switch r.Kind() {
+	case reflect.Bool:
+	case reflect.Int8:
+		a = TagSINT(int8(v.Int()), n)
+	case reflect.Int16:
+		a = TagINT(int16(v.Int()), n)
+	case reflect.Int32:
+		a = TagDINT(int32(v.Int()), n)
+	case reflect.Int64:
+		a = TagLINT(v.Int(), n)
+	case reflect.Uint8:
+		a = TagUSINT(uint8(v.Uint()), n)
 	case reflect.Uint16:
 		a = TagUINT(uint16(v.Uint()), n)
+	case reflect.Uint32:
+		a = TagUDINT(uint32(v.Int()), n)
+	case reflect.Uint64:
+		a = TagULINT(v.Uint(), n)
+	// case reflect.Float32:
+	// case reflect.Float64:
+	// case reflect.Complex64:
+	// case reflect.Complex128:
+	// case reflect.Array:
+	// case reflect.String:
+	// case reflect.Struct:
 	default:
 		panic("unknown type " + r.String())
 	}
-	fmt.Println(a.Type)
 	p.AddTag(*a)
 }
 
