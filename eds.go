@@ -220,6 +220,7 @@ func (p *PLC) loadEDS(fn string) error {
 	p.symbols = p.Class[0x6B]
 
 	p.Class[0x6C] = NewClass("Template", 0)
+	p.template = p.Class[0x6C]
 
 	p.Class[0xF4] = NewClass("Port", 9)
 	p.Class[0xF4].inst[0].attr[8] = TagUINT(1, "EntryPort")

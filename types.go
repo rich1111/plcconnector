@@ -54,6 +54,7 @@ const (
 	TypeArray2D = 0x4000
 	TypeArray3D = 0x6000
 	TypeStruct  = 0x8000
+	TypeType    = 0x0FFF
 )
 
 // Status codes

@@ -184,6 +184,9 @@ func typeToString(t int) string {
 	case TypeSTRINGI:
 		return "STRINGI"
 	default:
+		if t > TypeStruct {
+			return "STRUCT"
+		}
 		return "UNKNOWN"
 	}
 }

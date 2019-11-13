@@ -27,6 +27,7 @@ type PLC struct {
 	eds       map[string]map[string]string
 	port      uint16
 	symbols   *Class
+	template  *Class
 	tMut      sync.RWMutex
 	tags      map[string]*Tag
 
@@ -117,8 +118,20 @@ func (p *PLC) AddTag(t Tag) {
 	in.attr[2] = TagUINT(typ, "SymbolType")
 	in.attr[7] = TagUINT(typeLen(uint16(t.Type)), "BaseTypeSize")
 	in.attr[8] = &Tag{Name: "Dimensions", data: []uint8{uint8(t.Count), uint8(t.Count >> 8), uint8(t.Count >> 16), uint8(t.Count >> 24), 0, 0, 0, 0, 0, 0, 0, 0}}
+	var tp *Instance
+	if typ >= TypeStruct {
+		tp = NewInstance(5)
+		tp.attr[1] = TagUINT(typ&TypeType, "StructureHandle")
+		tp.attr[2] = TagUINT(uint16(len(t.td)), "TemplateMemberCount")
+		tp.attr[3] = TagUINT(0, "UnkownAttr3")
+		tp.attr[4] = TagUDINT(12, "TemplateObjectDefinitionSize") // FIXME (x * 4) - 16 // 23 in pdf
+		tp.attr[5] = TagUDINT(6, "TemplateStructureSize")         // FIXME
+	}
 	p.tMut.Lock()
 	p.symbols.SetInstance(p.symbols.lastInst+1, in)
+	if typ >= TypeStruct {
+		p.template.SetInstance(t.Type&TypeType, tp)
+	}
 	p.tags[t.Name] = &t
 	p.tMut.Unlock()
 }

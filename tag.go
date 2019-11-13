@@ -14,6 +14,7 @@ type Tag struct {
 	Count int
 
 	data []uint8
+	td   []Tag
 }
 
 // TagBOOL .
@@ -421,7 +422,27 @@ func (p *PLC) NewTag(i interface{}, n string) {
 		panic("use array not slice")
 	case reflect.String:
 		a = TagString(v.String(), n)
-	// case reflect.Struct:
+	case reflect.Struct:
+		a = new(Tag)
+		a.Name = n
+		a.Count = 1
+		a.Type = TypeStruct + 1 // FIXME type id
+		fs := v.NumField()
+		a.td = make([]Tag, fs)
+		for i := 0; i < fs; i++ {
+			a.td[i].Name = r.Field(i).Name
+			e := r.Field(i).Type
+			a.td[i].Count = 1
+			switch e.Kind() {
+			case reflect.Uint16:
+				a.td[i].Type = TypeUINT
+			case reflect.Float32:
+				a.td[i].Type = TypeREAL
+			default:
+				panic("unsupported struct type " + e.String())
+			}
+		}
+		// fmt.Println(a)
 	default:
 		panic("unknown type " + r.String())
 	}
