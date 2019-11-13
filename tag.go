@@ -16,6 +16,35 @@ type Tag struct {
 	data []uint8
 }
 
+// TagBOOL .
+func TagBOOL(v bool, n string) *Tag {
+	var a Tag
+	a.Name = n
+	a.Count = 1
+	a.Type = TypeBOOL
+	if v {
+		a.data = []byte{0xFF}
+	} else {
+		a.data = []byte{0}
+	}
+	return &a
+}
+
+// TagArrayBool .
+func TagArrayBool(v []bool, c int, n string) *Tag {
+	var a Tag
+	a.Name = n
+	a.Count = c
+	a.Type = TypeBOOL
+	a.data = make([]byte, c)
+	for i, x := range v {
+		if x {
+			a.data[i] = 0xFF
+		}
+	}
+	return &a
+}
+
 // TagSINT .
 func TagSINT(v int8, n string) *Tag {
 	var a Tag
@@ -26,6 +55,19 @@ func TagSINT(v int8, n string) *Tag {
 	return &a
 }
 
+// TagArraySINT .
+func TagArraySINT(v []int8, c int, n string) *Tag {
+	var a Tag
+	a.Name = n
+	a.Count = c
+	a.Type = TypeSINT
+	a.data = make([]byte, c)
+	for i := 0; i < c; i++ {
+		a.data[i] = uint8(v[i])
+	}
+	return &a
+}
+
 // TagUSINT .
 func TagUSINT(v uint8, n string) *Tag {
 	var a Tag
@@ -33,6 +75,19 @@ func TagUSINT(v uint8, n string) *Tag {
 	a.Count = 1
 	a.Type = TypeUSINT
 	a.data = []byte{v}
+	return &a
+}
+
+// TagArrayUSINT .
+func TagArrayUSINT(v []uint8, c int, n string) *Tag {
+	var a Tag
+	a.Name = n
+	a.Count = c
+	a.Type = TypeUSINT
+	a.data = make([]byte, c)
+	for i := 0; i < c; i++ {
+		a.data[i] = v[i]
+	}
 	return &a
 }
 
@@ -47,6 +102,19 @@ func TagINT(v int16, n string) *Tag {
 	return &a
 }
 
+// TagArrayINT .
+func TagArrayINT(v []int16, c int, n string) *Tag {
+	var a Tag
+	a.Name = n
+	a.Count = c
+	a.Type = TypeINT
+	a.data = make([]byte, 2*c)
+	for i := 0; i < c; i++ {
+		binary.LittleEndian.PutUint16(a.data[2*i:], uint16(v[i]))
+	}
+	return &a
+}
+
 // TagUINT .
 func TagUINT(v uint16, n string) *Tag {
 	var a Tag
@@ -55,6 +123,19 @@ func TagUINT(v uint16, n string) *Tag {
 	a.Type = TypeUINT
 	a.data = make([]byte, 2)
 	binary.LittleEndian.PutUint16(a.data, v)
+	return &a
+}
+
+// TagArrayUINT .
+func TagArrayUINT(v []uint16, c int, n string) *Tag {
+	var a Tag
+	a.Name = n
+	a.Count = c
+	a.Type = TypeUINT
+	a.data = make([]byte, 2*c)
+	for i := 0; i < c; i++ {
+		binary.LittleEndian.PutUint16(a.data[2*i:], v[i])
+	}
 	return &a
 }
 
@@ -69,6 +150,19 @@ func TagDINT(v int32, n string) *Tag {
 	return &a
 }
 
+// TagArrayDINT .
+func TagArrayDINT(v []int32, c int, n string) *Tag {
+	var a Tag
+	a.Name = n
+	a.Count = c
+	a.Type = TypeDINT
+	a.data = make([]byte, 4*c)
+	for i := 0; i < c; i++ {
+		binary.LittleEndian.PutUint32(a.data[4*i:], uint32(v[i]))
+	}
+	return &a
+}
+
 // TagUDINT .
 func TagUDINT(v uint32, n string) *Tag {
 	var a Tag
@@ -77,6 +171,19 @@ func TagUDINT(v uint32, n string) *Tag {
 	a.Type = TypeUDINT
 	a.data = make([]byte, 4)
 	binary.LittleEndian.PutUint32(a.data, v)
+	return &a
+}
+
+// TagArrayUDINT .
+func TagArrayUDINT(v []uint32, c int, n string) *Tag {
+	var a Tag
+	a.Name = n
+	a.Count = c
+	a.Type = TypeUDINT
+	a.data = make([]byte, 4*c)
+	for i := 0; i < c; i++ {
+		binary.LittleEndian.PutUint32(a.data[4*i:], v[i])
+	}
 	return &a
 }
 
@@ -91,6 +198,19 @@ func TagLINT(v int64, n string) *Tag {
 	return &a
 }
 
+// TagArrayLINT .
+func TagArrayLINT(v []int64, c int, n string) *Tag {
+	var a Tag
+	a.Name = n
+	a.Count = c
+	a.Type = TypeLINT
+	a.data = make([]byte, 8*c)
+	for i := 0; i < c; i++ {
+		binary.LittleEndian.PutUint64(a.data[8*i:], uint64(v[i]))
+	}
+	return &a
+}
+
 // TagULINT .
 func TagULINT(v uint64, n string) *Tag {
 	var a Tag
@@ -99,6 +219,67 @@ func TagULINT(v uint64, n string) *Tag {
 	a.Type = TypeULINT
 	a.data = make([]byte, 8)
 	binary.LittleEndian.PutUint64(a.data, v)
+	return &a
+}
+
+// TagArrayULINT .
+func TagArrayULINT(v []uint64, c int, n string) *Tag {
+	var a Tag
+	a.Name = n
+	a.Count = c
+	a.Type = TypeULINT
+	a.data = make([]byte, 8*c)
+	for i := 0; i < c; i++ {
+		binary.LittleEndian.PutUint64(a.data[8*i:], v[i])
+	}
+	return &a
+}
+
+// TagREAL .
+func TagREAL(v float32, n string) *Tag {
+	var a Tag
+	a.Name = n
+	a.Count = 1
+	a.Type = TypeREAL
+	a.data = make([]byte, 4)
+	binary.LittleEndian.PutUint32(a.data, math.Float32bits(v))
+	return &a
+}
+
+// TagArrayREAL .
+func TagArrayREAL(v []float32, c int, n string) *Tag {
+	var a Tag
+	a.Name = n
+	a.Count = c
+	a.Type = TypeREAL
+	a.data = make([]byte, 4*c)
+	for i := 0; i < c; i++ {
+		binary.LittleEndian.PutUint32(a.data[4*i:], math.Float32bits(v[i]))
+	}
+	return &a
+}
+
+// TagLREAL .
+func TagLREAL(v float64, n string) *Tag {
+	var a Tag
+	a.Name = n
+	a.Count = 1
+	a.Type = TypeLREAL
+	a.data = make([]byte, 8)
+	binary.LittleEndian.PutUint64(a.data, math.Float64bits(v))
+	return &a
+}
+
+// TagArrayLREAL .
+func TagArrayLREAL(v []float64, c int, n string) *Tag {
+	var a Tag
+	a.Name = n
+	a.Count = c
+	a.Type = TypeLREAL
+	a.data = make([]byte, 8*c)
+	for i := 0; i < c; i++ {
+		binary.LittleEndian.PutUint64(a.data[8*i:], math.Float64bits(v[i]))
+	}
 	return &a
 }
 
@@ -142,6 +323,7 @@ func (p *PLC) NewTag(i interface{}, n string) {
 	v := reflect.ValueOf(i)
 	switch r.Kind() {
 	case reflect.Bool:
+		a = TagBOOL(v.Bool(), n)
 	case reflect.Int8:
 		a = TagSINT(int8(v.Int()), n)
 	case reflect.Int16:
@@ -158,11 +340,85 @@ func (p *PLC) NewTag(i interface{}, n string) {
 		a = TagUDINT(uint32(v.Int()), n)
 	case reflect.Uint64:
 		a = TagULINT(v.Uint(), n)
-	// case reflect.Float32:
-	// case reflect.Float64:
-	// case reflect.Complex64:
-	// case reflect.Complex128:
-	// case reflect.Array:
+	case reflect.Float32:
+		a = TagREAL(float32(v.Float()), n)
+	case reflect.Float64:
+		a = TagLREAL(v.Float(), n)
+	case reflect.Array:
+		e := r.Elem()
+		l := r.Len()
+		switch e.Kind() {
+		case reflect.Bool:
+			bytes := make([]bool, l)
+			for i := range bytes {
+				bytes[i] = v.Index(i).Bool()
+			}
+			a = TagArrayBool(bytes, l, n)
+		case reflect.Int8:
+			bytes := make([]int8, l)
+			for i := range bytes {
+				bytes[i] = int8(v.Index(i).Int())
+			}
+			a = TagArraySINT(bytes, l, n)
+		case reflect.Int16:
+			bytes := make([]int16, l)
+			for i := range bytes {
+				bytes[i] = int16(v.Index(i).Int())
+			}
+			a = TagArrayINT(bytes, l, n)
+		case reflect.Int32:
+			bytes := make([]int32, l)
+			for i := range bytes {
+				bytes[i] = int32(v.Index(i).Int())
+			}
+			a = TagArrayDINT(bytes, l, n)
+		case reflect.Int64:
+			bytes := make([]int64, l)
+			for i := range bytes {
+				bytes[i] = v.Index(i).Int()
+			}
+			a = TagArrayLINT(bytes, l, n)
+		case reflect.Uint8:
+			bytes := make([]uint8, l)
+			for i := range bytes {
+				bytes[i] = uint8(v.Index(i).Uint())
+			}
+			a = TagArrayUSINT(bytes, l, n)
+		case reflect.Uint16:
+			bytes := make([]uint16, l)
+			for i := range bytes {
+				bytes[i] = uint16(v.Index(i).Uint())
+			}
+			a = TagArrayUINT(bytes, l, n)
+		case reflect.Uint32:
+			bytes := make([]uint32, l)
+			for i := range bytes {
+				bytes[i] = uint32(v.Index(i).Uint())
+			}
+			a = TagArrayUDINT(bytes, l, n)
+		case reflect.Uint64:
+			bytes := make([]uint64, l)
+			for i := range bytes {
+				bytes[i] = v.Index(i).Uint()
+			}
+			a = TagArrayULINT(bytes, l, n)
+		case reflect.Float32:
+			bytes := make([]float32, l)
+			for i := range bytes {
+				bytes[i] = float32(v.Index(i).Float())
+			}
+			a = TagArrayREAL(bytes, l, n)
+		case reflect.Float64:
+			bytes := make([]float64, l)
+			for i := range bytes {
+				bytes[i] = v.Index(i).Float()
+			}
+			a = TagArrayLREAL(bytes, l, n)
+		default:
+			panic("unsupported embedded type " + e.String())
+		}
+	case reflect.Slice:
+		panic("use array not slice")
 	// case reflect.String:
 	// case reflect.Struct:
 	default:

@@ -37,7 +37,7 @@ type PLC struct {
 }
 
 // Init initialize library. Must be called first.
-func Init(eds string, testTags bool) (*PLC, error) {
+func Init(eds string) (*PLC, error) {
 	var p PLC
 	p.Class = make(map[int]*Class)
 	p.tags = make(map[string]*Tag)
@@ -46,39 +46,6 @@ func Init(eds string, testTags bool) (*PLC, error) {
 	err := p.loadEDS(eds)
 	if err != nil {
 		return nil, err
-	}
-
-	if testTags {
-		p.AddTag(Tag{Name: "testBOOL", Type: TypeBOOL, Count: 4, data: []uint8{
-			0x00, 0x01, 0xFF, 0x55}})
-
-		p.AddTag(Tag{Name: "testSINT", Type: TypeSINT, Count: 4, data: []uint8{
-			0xFF, 0xFE, 0x00, 0x01}})
-
-		p.AddTag(Tag{Name: "testINT", Type: TypeINT, Count: 10, data: []uint8{
-			0xFF, 0xFF, 0x00, 0x01, 0xFE, 0x00, 0xFC, 0x00, 0xCA, 0x00, 0xBD, 0x00, 0xB1, 0x00, 0xFF, 0x00, 127, 0x00, 128, 0x00}})
-
-		p.AddTag(Tag{Name: "testDINT", Type: TypeDINT, Count: 2, data: []uint8{
-			0xFF, 0xFF, 0xFF, 0xFF,
-			0x01, 0x00, 0x00, 0x00}})
-
-		p.AddTag(Tag{Name: "testREAL", Type: TypeREAL, Count: 2, data: []uint8{
-			0xa4, 0x70, 0x9d, 0x3f,
-			0xcd, 0xcc, 0x44, 0xc1}})
-
-		p.AddTag(Tag{Name: "testDWORD", Type: TypeDWORD, Count: 2, data: []uint8{
-			0xFF, 0xFF, 0xFF, 0xFF,
-			0x01, 0x00, 0x00, 0x00}})
-
-		p.AddTag(Tag{Name: "testLINT", Type: TypeLINT, Count: 2, data: []uint8{
-			0xFF, 0xFF, 0xFF, 0xFF,
-			0xFF, 0xFF, 0xFF, 0xFF,
-			0x01, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x00, 0x00}})
-
-		p.AddTag(Tag{Name: "testASCII", Type: TypeSINT, Count: 17, data: []uint8{
-			'H', 'e', 'l', 'l',
-			'o', '!', 0x00, 0x01, 0x7F, 0xFE, 0xFC, 0xCA, 0xBD, 0xB1, 0xFF, 127, 128}})
 	}
 
 	return &p, nil
