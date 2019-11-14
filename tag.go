@@ -434,6 +434,11 @@ func (p *PLC) NewTag(i interface{}, n string) {
 			a.Name = n
 			a.Count = l
 			p.structHelper(a, e, e.NumField())
+			for i := 0; i < l; i++ {
+				for j := 0; j < e.NumField(); j++ {
+					a.data = append(a.data, valueToByte(v.Index(i).Field(j))...) // TODO preallocate
+				}
+			}
 		default:
 			panic("unsupported embedded type " + e.String())
 		}
@@ -446,6 +451,9 @@ func (p *PLC) NewTag(i interface{}, n string) {
 		a.Name = n
 		a.Count = 1
 		p.structHelper(a, r, v.NumField())
+		for i := 0; i < v.NumField(); i++ {
+			a.data = append(a.data, valueToByte(v.Field(i))...) // TODO preallocate
+		}
 	default:
 		panic("unknown type " + r.String())
 	}
@@ -479,6 +487,113 @@ func (p *PLC) structHelper(a *Tag, t reflect.Type, fs int) {
 	}
 }
 
+func valueToByte(v reflect.Value) []byte {
+	var r []byte
+	switch v.Kind() {
+	case reflect.Bool:
+		if v.Bool() {
+			r = []byte{0xFF}
+		} else {
+			r = []byte{0}
+		}
+	case reflect.Int8:
+		r = []byte{uint8(v.Int())}
+	case reflect.Int16:
+		r = make([]byte, 2)
+		binary.LittleEndian.PutUint16(r, uint16(v.Int()))
+	case reflect.Int32:
+		r = make([]byte, 4)
+		binary.LittleEndian.PutUint32(r, uint32(v.Int()))
+	case reflect.Int64:
+		r = make([]byte, 8)
+		binary.LittleEndian.PutUint64(r, uint64(v.Int()))
+	case reflect.Uint8:
+		r = []byte{uint8(v.Uint())}
+	case reflect.Uint16:
+		r = make([]byte, 2)
+		binary.LittleEndian.PutUint16(r, uint16(v.Uint()))
+	case reflect.Uint32:
+		r = make([]byte, 4)
+		binary.LittleEndian.PutUint32(r, uint32(v.Uint()))
+	case reflect.Uint64:
+		r = make([]byte, 8)
+		binary.LittleEndian.PutUint64(r, v.Uint())
+	case reflect.Float32:
+		r = make([]byte, 4)
+		binary.LittleEndian.PutUint32(r, math.Float32bits(float32(v.Float())))
+	case reflect.Float64:
+		r = make([]byte, 8)
+		binary.LittleEndian.PutUint64(r, math.Float64bits(v.Float()))
+	case reflect.Array:
+		e := v.Index(0)
+		c := v.Len()
+		switch e.Kind() {
+		case reflect.Bool:
+			r = make([]byte, c)
+			for i := 0; i < c; i++ {
+				if v.Index(i).Bool() {
+					r[i] = 0xFF
+				}
+			}
+		case reflect.Int8:
+			r = make([]byte, c)
+			for i := 0; i < c; i++ {
+				r[i] = uint8(v.Index(i).Int())
+			}
+		case reflect.Int16:
+			r = make([]byte, 2*c)
+			for i := 0; i < c; i++ {
+				binary.LittleEndian.PutUint16(r[2*i:], uint16(v.Index(i).Int()))
+			}
+		case reflect.Int32:
+			r = make([]byte, 4*c)
+			for i := 0; i < c; i++ {
+				binary.LittleEndian.PutUint32(r[4*i:], uint32(v.Index(i).Int()))
+			}
+		case reflect.Int64:
+			r = make([]byte, 8*c)
+			for i := 0; i < c; i++ {
+				binary.LittleEndian.PutUint64(r[8*i:], uint64(v.Index(i).Int()))
+			}
+		case reflect.Uint8:
+			r = make([]byte, c)
+			for i := 0; i < c; i++ {
+				r[i] = uint8(v.Index(i).Uint())
+			}
+		case reflect.Uint16:
+			r = make([]byte, 2*c)
+			for i := 0; i < c; i++ {
+				binary.LittleEndian.PutUint16(r[2*i:], uint16(v.Index(i).Uint()))
+			}
+		case reflect.Uint32:
+			r = make([]byte, 4*c)
+			for i := 0; i < c; i++ {
+				binary.LittleEndian.PutUint32(r[4*i:], uint32(v.Index(i).Uint()))
+			}
+		case reflect.Uint64:
+			r = make([]byte, 8*c)
+			for i := 0; i < c; i++ {
+				binary.LittleEndian.PutUint64(r[8*i:], v.Index(i).Uint())
+			}
+		case reflect.Float32:
+			r = make([]byte, 4*c)
+			for i := 0; i < c; i++ {
+				binary.LittleEndian.PutUint32(r[4*i:], math.Float32bits(float32(v.Index(i).Float())))
+			}
+		case reflect.Float64:
+			r = make([]byte, 8*c)
+			for i := 0; i < c; i++ {
+				binary.LittleEndian.PutUint64(r[8*i:], math.Float64bits(v.Index(i).Float()))
+			}
+		default:
+			panic("unsupported embedded value type " + e.String())
+		}
+	default:
+		panic("unsupported value type " + v.String())
+	}
+	return r
+}
+
 func kindToType(k reflect.Kind) int {
 	switch k {
 	case reflect.Bool:
@@ -506,7 +621,7 @@ func kindToType(k reflect.Kind) int {
 	case reflect.Array:
 		return TypeArray1D
 	default:
-		panic("unsupported struct type " + k.String())
+		panic("unsupported kind type " + k.String())
 	}
 }
 
