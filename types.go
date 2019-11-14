@@ -10,11 +10,25 @@ const (
 	// Class Specific
 	InititateUpload = 0x4B
 	ReadTag         = 0x4C
+	ReadTemplate    = 0x4C
 	WriteTag        = 0x4D
 	ForwardClose    = 0x4E
 	UploadTransfer  = 0x4F
 	ForwardOpen     = 0x54
 	GetInstAttrList = 0x55
+)
+
+// Classes
+const (
+	IdentityClass = 0x01
+	FileClass     = 0x37
+
+	SymbolClass   = 0x6B
+	TemplateClass = 0x6C
+
+	PortClass     = 0xF4
+	TCPClass      = 0xF5
+	EthernetClass = 0xF6
 )
 
 // Data types

@@ -147,8 +147,8 @@ func (p *PLC) loadEDS(fn string) error {
 	// fmt.Println(p.eds["Device"]["IconContents"])
 	// fmt.Println(p.eds["Port"]["Port1"])
 
-	p.Class[1] = defaultIdentityClass()
-	i := p.Class[1].inst[1]
+	p.Class[IdentityClass] = defaultIdentityClass()
+	i := p.Class[IdentityClass].inst[1]
 
 	majRev := uint16(1)
 	minRev := uint16(1)
@@ -181,7 +181,7 @@ func (p *PLC) loadEDS(fn string) error {
 		i.attr[13] = TagStringI(vs, "InternationalProductName")
 	}
 
-	p.Class[0x37] = NewClass("File", 32)
+	p.Class[FileClass] = NewClass("File", 32)
 
 	in := NewInstance(11) // EDS.gz
 
@@ -205,7 +205,7 @@ func (p *PLC) loadEDS(fn string) error {
 	in.attr[10] = TagUSINT(1, "FileType")           // read only
 	in.attr[11] = TagUSINT(0, "FileEncodingFormat") // uncompressed
 
-	p.Class[0x37].SetInstance(0xC8, in)
+	p.Class[FileClass].SetInstance(0xC8, in)
 
 	p.Class[0xAC] = NewClass("AC", 0) // unknown class, values from 1756-pm020_-en-p.pdf p. 57
 	in = NewInstance(10)
@@ -216,24 +216,24 @@ func (p *PLC) loadEDS(fn string) error {
 	in.attr[10] = &Tag{Name: "Attr10", Type: TypeDINT, data: []uint8{0xF8, 0xDE, 0x47, 0xB8}}
 	p.Class[0xAC].SetInstance(1, in)
 
-	p.Class[0x6B] = NewClass("Symbol", 0)
-	p.symbols = p.Class[0x6B]
+	p.Class[SymbolClass] = NewClass("Symbol", 0)
+	p.symbols = p.Class[SymbolClass]
 
-	p.Class[0x6C] = NewClass("Template", 0)
-	p.template = p.Class[0x6C]
+	p.Class[TemplateClass] = NewClass("Template", 0)
+	p.template = p.Class[TemplateClass]
 
-	p.Class[0xF4] = NewClass("Port", 9)
-	p.Class[0xF4].inst[0].attr[8] = TagUINT(1, "EntryPort")
-	p.Class[0xF4].inst[0].attr[9] = &Tag{Name: "PortInstanceInfo", data: []uint8{0, 0, 0, 0, 4, 0, 1, 0}} // uint 4 - Ethernet/IP , uint 1 - CIP port number
+	p.Class[PortClass] = NewClass("Port", 9)
+	p.Class[PortClass].inst[0].attr[8] = TagUINT(1, "EntryPort")
+	p.Class[PortClass].inst[0].attr[9] = &Tag{Name: "PortInstanceInfo", data: []uint8{0, 0, 0, 0, 4, 0, 1, 0}} // uint 4 - Ethernet/IP , uint 1 - CIP port number
 	in = NewInstance(7)
 	in.attr[1] = TagUINT(4, "PortType")
 	in.attr[2] = TagUINT(1, "PortNumber")
 	in.attr[3] = &Tag{Name: "LinkObject", Type: TypeEPATH, data: []uint8{0x02, 0x00, 0x20, 0xF5, 0x24, 0x01}}
 	in.attr[4] = TagShortString("EtherNet/IP port", "PortName")
 	in.attr[7] = &Tag{Name: "NodeAddress", Type: TypeEPATH, data: []uint8{0x01, 0x00, 0x10, 0x01}}
-	p.Class[0xF4].SetInstance(1, in)
+	p.Class[PortClass].SetInstance(1, in)
 
-	p.Class[0xF5] = NewClass("TCP Interface", 0)
+	p.Class[TCPClass] = NewClass("TCP Interface", 0)
 	in = NewInstance(6)
 	in.attr[1] = TagUDINT(1, "Status")
 	in.attr[2] = TagUDINT(0b1_1_0, "ConfigurationCapabality")
@@ -249,15 +249,15 @@ func (p *PLC) loadEDS(fn string) error {
 		0, 0, // string domain name
 	}}
 	in.attr[6] = TagString("", "HostName") // TODO
-	p.Class[0xF5].SetInstance(1, in)
+	p.Class[TCPClass].SetInstance(1, in)
 
-	p.Class[0xF6] = NewClass("Ethernet Link", 0)
-	p.Class[0xF6].inst[0].SetAttrUINT(1, 3)
+	p.Class[EthernetClass] = NewClass("Ethernet Link", 0)
+	p.Class[EthernetClass].inst[0].SetAttrUINT(1, 3)
 	in = NewInstance(3)
 	in.attr[1] = TagUDINT(1000, "InterfaceSpeed")
 	in.attr[2] = TagUDINT(0b0_1_011_1_1, "InterfaceFlags")
 	in.attr[3] = &Tag{Name: "PhysicalAddress", data: []uint8{0x02, 0x00, 0x20, 0xF5, 0x24, 0x01}} // TODO MAC
-	p.Class[0xF6].SetInstance(1, in)
+	p.Class[EthernetClass].SetInstance(1, in)
 
 	return nil
 }

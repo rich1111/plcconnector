@@ -441,8 +441,8 @@ loop:
 			// 	break command // FIXME
 			// }
 
-			switch protd.Service {
-			case GetAttrAll:
+			switch {
+			case protd.Service == GetAttrAll:
 				p.debug("GetAttributesAll")
 				mayCon = true
 
@@ -456,7 +456,7 @@ loop:
 					r.write(resp)
 				}
 
-			case GetAttrList:
+			case protd.Service == GetAttrList:
 				p.debug("GetAttributesList")
 				mayCon = true
 				var (
@@ -503,7 +503,7 @@ loop:
 					r.write(resp)
 				}
 
-			case GetInstAttrList: // TODO status 6 too much data (504 unconnected)
+			case protd.Service == GetInstAttrList: // TODO status 6 too much data (504 unconnected)
 				p.debug("GetInstanceAttributesList")
 				mayCon = true
 				var (
@@ -546,7 +546,7 @@ loop:
 					r.write(resp)
 				}
 
-			case GetAttr:
+			case protd.Service == GetAttr:
 				p.debug("GetAttributesSingle")
 				mayCon = true
 
@@ -577,7 +577,7 @@ loop:
 					r.write(resp)
 				}
 
-			case InititateUpload: // TODO only File class?
+			case class == FileClass && protd.Service == InititateUpload:
 				p.debug("InititateUpload")
 				mayCon = true
 				var maxSize uint8
@@ -601,7 +601,7 @@ loop:
 					r.write(resp)
 				}
 
-			case UploadTransfer: // TODO only File class?
+			case class == FileClass && protd.Service == UploadTransfer:
 				p.debug("UploadTransfer")
 				mayCon = true
 				var transferNo uint8
@@ -672,7 +672,7 @@ loop:
 					r.write(resp)
 				}
 
-			case ForwardOpen:
+			case protd.Service == ForwardOpen:
 				p.debug("ForwardOpen")
 
 				var (
@@ -703,7 +703,7 @@ loop:
 				r.write(resp)
 				r.write(sr)
 
-			case ForwardClose:
+			case protd.Service == ForwardClose:
 				p.debug("ForwardClose")
 
 				var (
@@ -730,7 +730,7 @@ loop:
 				r.write(resp)
 				r.write(sr)
 
-			case ReadTag:
+			case protd.Service == ReadTag:
 				p.debug("ReadTag")
 				mayCon = true
 
@@ -764,7 +764,7 @@ loop:
 					r.write(uint16(0))
 				}
 
-			case WriteTag:
+			case protd.Service == WriteTag:
 				p.debug("WriteTag")
 				mayCon = true
 
@@ -807,7 +807,7 @@ loop:
 					r.write(uint16(0))
 				}
 
-			case Reset:
+			case protd.Service == Reset:
 				p.debug("Reset")
 
 				if p.callback != nil {
