@@ -139,11 +139,7 @@ func (p *PLC) AddTag(t Tag) {
 			}
 			bwrite(&buf, uint16(x.Type))  // member type
 			bwrite(&buf, uint32(strSize)) // offset
-			if x.Count > 1 {
-				strSize += x.Len() * x.Count
-			} else {
-				strSize += x.Len()
-			}
+			strSize += x.Len() * x.Count
 		}
 		bwrite(&buf, []byte(t.tn+";n\x00")) // template name
 		for _, x := range t.td {
