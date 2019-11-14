@@ -57,6 +57,12 @@ type structTest struct {
 	def float32
 }
 
+type structTest2 struct {
+	ala  float64
+	kot  int32
+	pies int8
+}
+
 func main() {
 	signalTrap := make(chan os.Signal, 1)
 	signal.Notify(signalTrap, os.Interrupt, syscall.SIGTERM)
@@ -91,7 +97,10 @@ func main() {
 	p.NewTag("Ala ma kota", "testSTRING")
 	p.NewTag(int32(100), "test1")
 
-	p.NewTag([2]structTest{{abc: 123, def: 1.234}, {abc: 456, def: 7.89}}, "testSTRUCT")
+	p.NewTag(structTest{abc: 123, def: 1.234}, "testSTRUCT")
+	p.NewTag([2]structTest{{abc: 123, def: 1.234}, {abc: 456, def: 7.89}}, "testSTRUCT2")
+
+	p.NewTag([4]structTest2{{ala: 5.5, kot: -111, pies: -2}}, "testSTRUCT3")
 
 	// nie wyświetlaj dodatkowych informacji
 	p.Verbose = true

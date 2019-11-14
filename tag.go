@@ -425,23 +425,7 @@ func (p *PLC) NewTag(i interface{}, n string) {
 			a = new(Tag)
 			a.Name = n
 			a.Count = l
-			a.Type = TypeStruct + 1 // FIXME type id
-			fs := e.NumField()
-			a.tn = e.Name()
-			a.td = make([]Tag, fs)
-			for i := 0; i < fs; i++ {
-				a.td[i].Name = e.Field(i).Name
-				e2 := e.Field(i).Type
-				a.td[i].Count = 1
-				switch e2.Kind() {
-				case reflect.Uint16:
-					a.td[i].Type = TypeUINT
-				case reflect.Float32:
-					a.td[i].Type = TypeREAL
-				default:
-					panic("unsupported struct type " + e2.String())
-				}
-			}
+			p.structHelper(a, e, e.NumField())
 		default:
 			panic("unsupported embedded type " + e.String())
 		}
@@ -453,27 +437,60 @@ func (p *PLC) NewTag(i interface{}, n string) {
 		a = new(Tag)
 		a.Name = n
 		a.Count = 1
-		a.Type = TypeStruct + 1 // FIXME type id
-		fs := v.NumField()
-		a.tn = r.Name()
-		a.td = make([]Tag, fs)
-		for i := 0; i < fs; i++ {
-			a.td[i].Name = r.Field(i).Name
-			e := r.Field(i).Type
-			a.td[i].Count = 1
-			switch e.Kind() {
-			case reflect.Uint16:
-				a.td[i].Type = TypeUINT
-			case reflect.Float32:
-				a.td[i].Type = TypeREAL
-			default:
-				panic("unsupported struct type " + e.String())
-			}
-		}
+		p.structHelper(a, r, v.NumField())
 	default:
 		panic("unknown type " + r.String())
 	}
 	p.AddTag(*a)
+}
+
+func (p *PLC) structHelper(a *Tag, t reflect.Type, fs int) {
+	typeID := 0
+	a.tn = t.Name()
+	p.tMut.Lock()
+	id, ok := p.tids[a.tn]
+	if ok {
+		typeID = id
+	} else {
+		typeID = p.tidLast
+		p.tids[a.tn] = typeID
+		p.tidLast++
+	}
+	p.tMut.Unlock()
+	a.Type = TypeStruct + typeID
+	a.td = make([]Tag, fs)
+	for i := 0; i < fs; i++ {
+		a.td[i].Name = t.Field(i).Name
+		e := t.Field(i).Type
+		a.td[i].Count = 1
+		switch e.Kind() {
+		case reflect.Bool:
+			a.td[i].Type = TypeBOOL
+		case reflect.Int8:
+			a.td[i].Type = TypeSINT
+		case reflect.Int16:
+			a.td[i].Type = TypeINT
+		case reflect.Int32:
+			a.td[i].Type = TypeDINT
+		case reflect.Int64:
+			a.td[i].Type = TypeLINT
+		case reflect.Uint8:
+			a.td[i].Type = TypeUSINT
+		case reflect.Uint16:
+			a.td[i].Type = TypeUINT
+		case reflect.Uint32:
+			a.td[i].Type = TypeUDINT
+		case reflect.Uint64:
+			a.td[i].Type = TypeULINT
+		case reflect.Float32:
+			a.td[i].Type = TypeREAL
+		case reflect.Float64:
+			a.td[i].Type = TypeLREAL
+			// fmt.Println(v.Field(i).Float())
+		default:
+			panic("unsupported struct type " + e.String())
+		}
+	}
 }
 
 // DataBytes returns array of bytes.

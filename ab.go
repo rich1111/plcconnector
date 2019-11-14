@@ -28,6 +28,8 @@ type PLC struct {
 	port      uint16
 	symbols   *Class
 	template  *Class
+	tids      map[string]int
+	tidLast   int
 	tMut      sync.RWMutex
 	tags      map[string]*Tag
 
@@ -42,6 +44,8 @@ func Init(eds string) (*PLC, error) {
 	var p PLC
 	p.Class = make(map[int]*Class)
 	p.tags = make(map[string]*Tag)
+	p.tids = make(map[string]int)
+	p.tidLast = 1
 	p.Timeout = 60 * time.Second
 
 	err := p.loadEDS(eds)
@@ -119,7 +123,7 @@ func (p *PLC) AddTag(t Tag) {
 	in.attr[7] = TagUINT(uint16(t.Len()), "BaseTypeSize")
 	in.attr[8] = &Tag{Name: "Dimensions", data: []uint8{uint8(t.Count), uint8(t.Count >> 8), uint8(t.Count >> 16), uint8(t.Count >> 24), 0, 0, 0, 0, 0, 0, 0, 0}}
 	var tp *Instance
-	if typ >= TypeStruct {
+	if typ >= TypeStruct { // TODO only if not already set
 		var buf bytes.Buffer
 		strSize := 0
 
@@ -140,7 +144,7 @@ func (p *PLC) AddTag(t Tag) {
 
 		bwrite(&buf, make([]byte, (4-buf.Len())&3))
 
-		// fmt.Println(t.tn, strSize, buf.Len())
+		fmt.Println(t.tn, strSize, buf.Len())
 
 		tp = NewInstance(5)
 		tp.data = buf.Bytes()
