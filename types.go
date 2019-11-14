@@ -234,6 +234,11 @@ type uploadTransferResponse struct {
 	TranferPacketType uint8
 }
 
+type readTemplateResponse struct {
+	Offset uint32
+	Number uint16
+}
+
 type response struct {
 	Service       uint8
 	_             uint8

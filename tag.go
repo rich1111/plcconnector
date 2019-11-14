@@ -15,6 +15,12 @@ type Tag struct {
 
 	data []uint8
 	td   []Tag
+	tn   string
+}
+
+// Len .
+func (t Tag) Len() int {
+	return int(typeLen(uint16(t.Type)))
 }
 
 // TagBOOL .
@@ -428,6 +434,7 @@ func (p *PLC) NewTag(i interface{}, n string) {
 		a.Count = 1
 		a.Type = TypeStruct + 1 // FIXME type id
 		fs := v.NumField()
+		a.tn = r.Name()
 		a.td = make([]Tag, fs)
 		for i := 0; i < fs; i++ {
 			a.td[i].Name = r.Field(i).Name

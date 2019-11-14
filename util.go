@@ -1,11 +1,20 @@
 package plcconnector
 
 import (
+	"bytes"
 	"encoding/binary"
+	"fmt"
 	"net"
 	"strconv"
 	"strings"
 )
+
+func bwrite(buf *bytes.Buffer, data interface{}) {
+	err := binary.Write(buf, binary.LittleEndian, data)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
 
 func htons(v uint16) uint16 {
 	return binary.LittleEndian.Uint16([]byte{byte(v >> 8), byte(v)})

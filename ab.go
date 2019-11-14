@@ -67,8 +67,8 @@ func (p *PLC) readTag(tag string, index int, count uint16) ([]uint8, uint16, boo
 	)
 	if ok {
 		tgtyp = uint16(tg.Type)
-		tl := typeLen(tgtyp)
-		tgdata = make([]uint8, count*tl)
+		tl := tg.Len()
+		tgdata = make([]uint8, count*uint16(tl))
 		if index+int(count) > tg.Count {
 			ok = false
 		} else {
@@ -92,7 +92,7 @@ func (p *PLC) saveTag(tag string, typ uint16, index int, count uint16, data []ui
 	p.tMut.Lock()
 	tg, ok := p.tags[tag]
 	if ok && tg.Type == int(typ) && tg.Count >= index+int(count) {
-		copy(tg.data[index*int(typeLen(typ)):], data)
+		copy(tg.data[index*tg.Len():], data)
 	} else {
 		p.AddTag(Tag{Name: tag, Type: int(typ), Count: int(count), data: data})
 	}
@@ -106,7 +106,7 @@ func (p *PLC) saveTag(tag string, typ uint16, index int, count uint16, data []ui
 // AddTag adds tag.
 func (p *PLC) AddTag(t Tag) {
 	if t.data == nil {
-		size := typeLen(uint16(t.Type)) * uint16(t.Count)
+		size := uint16(t.Len()) * uint16(t.Count)
 		t.data = make([]uint8, size)
 	}
 	in := NewInstance(8)
@@ -116,16 +116,39 @@ func (p *PLC) AddTag(t Tag) {
 		typ |= TypeArray1D
 	}
 	in.attr[2] = TagUINT(typ, "SymbolType")
-	in.attr[7] = TagUINT(typeLen(uint16(t.Type)), "BaseTypeSize")
+	in.attr[7] = TagUINT(uint16(t.Len()), "BaseTypeSize")
 	in.attr[8] = &Tag{Name: "Dimensions", data: []uint8{uint8(t.Count), uint8(t.Count >> 8), uint8(t.Count >> 16), uint8(t.Count >> 24), 0, 0, 0, 0, 0, 0, 0, 0}}
 	var tp *Instance
 	if typ >= TypeStruct {
+		var buf bytes.Buffer
+		strSize := 0
+
+		for _, x := range t.td {
+			if x.Count > 1 { // TODO BOOL
+				bwrite(&buf, uint16(x.Count))
+			} else {
+				bwrite(&buf, uint16(0))
+			}
+			bwrite(&buf, uint16(x.Type))
+			bwrite(&buf, uint32(strSize))
+			strSize += x.Len()
+		}
+		bwrite(&buf, []byte(t.tn+";n\x00"))
+		for _, x := range t.td {
+			bwrite(&buf, []byte(x.Name+"\x00"))
+		}
+
+		bwrite(&buf, make([]byte, (4-buf.Len())&3))
+
+		// fmt.Println(t.tn, strSize, buf.Len())
+
 		tp = NewInstance(5)
+		tp.data = buf.Bytes()
 		tp.attr[1] = TagUINT(typ&TypeType, "StructureHandle")
 		tp.attr[2] = TagUINT(uint16(len(t.td)), "TemplateMemberCount")
 		tp.attr[3] = TagUINT(0, "UnkownAttr3")
-		tp.attr[4] = TagUDINT(12, "TemplateObjectDefinitionSize") // FIXME (x * 4) - 16 // 23 in pdf
-		tp.attr[5] = TagUDINT(6, "TemplateStructureSize")         // FIXME
+		tp.attr[4] = TagUDINT((uint32(buf.Len())+16)/4, "TemplateObjectDefinitionSize") // (x * 4) - 16 // 23 in pdf
+		tp.attr[5] = TagUDINT(uint32(strSize), "TemplateStructureSize")
 	}
 	p.tMut.Lock()
 	p.symbols.SetInstance(p.symbols.lastInst+1, in)
@@ -145,7 +168,7 @@ func (p *PLC) UpdateTag(name string, offset int, data []uint8) bool {
 		fmt.Println("plcconnector UpdateTag: no tag named ", name)
 		return false
 	}
-	offset *= int(typeLen(uint16(t.Type)))
+	offset *= t.Len()
 	to := offset + len(data)
 	if to > len(t.data) {
 		fmt.Println("plcconnector UpdateTag: to large data ", name)
@@ -257,13 +280,6 @@ func (r *req) reset() {
 	r.readBuf.Reset(r.c)
 	r.writeBuf.Reset()
 	r.wrCIPBuf.Reset()
-}
-
-func bwrite(buf *bytes.Buffer, data interface{}) {
-	err := binary.Write(buf, binary.LittleEndian, data)
-	if err != nil {
-		fmt.Println(err)
-	}
 }
 
 func (p *PLC) handleRequest(conn net.Conn) {
@@ -729,6 +745,22 @@ loop:
 
 				r.write(resp)
 				r.write(sr)
+
+			case class == TemplateClass && protd.Service == ReadTemplate: // TODO Status 0x06
+				p.debug("ReadTemplate")
+				mayCon = true
+
+				var rd readTemplateResponse
+
+				err = r.read(&rd)
+				if err != nil {
+					break loop
+				}
+				p.debug(rd.Offset, rd.Number)
+
+				in := p.GetClassInstance(class, instance)
+				r.write(resp)
+				r.write(in.data)
 
 			case protd.Service == ReadTag:
 				p.debug("ReadTag")
