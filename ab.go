@@ -121,7 +121,11 @@ func (p *PLC) AddTag(t Tag) {
 	}
 	in.attr[2] = TagUINT(typ, "SymbolType")
 	in.attr[7] = TagUINT(uint16(t.Len()), "BaseTypeSize")
-	in.attr[8] = &Tag{Name: "Dimensions", data: []uint8{uint8(t.Count), uint8(t.Count >> 8), uint8(t.Count >> 16), uint8(t.Count >> 24), 0, 0, 0, 0, 0, 0, 0, 0}}
+	if t.Count > 1 {
+		in.attr[8] = &Tag{Name: "Dimensions", data: []uint8{uint8(t.Count), uint8(t.Count >> 8), uint8(t.Count >> 16), uint8(t.Count >> 24), 0, 0, 0, 0, 0, 0, 0, 0}}
+	} else {
+		in.attr[8] = &Tag{Name: "Dimensions", data: []uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
+	}
 	var tp *Instance
 	if typ >= TypeStruct { // TODO only if not already set
 		var buf bytes.Buffer

@@ -463,33 +463,42 @@ func (p *PLC) structHelper(a *Tag, t reflect.Type, fs int) {
 		a.td[i].Name = t.Field(i).Name
 		e := t.Field(i).Type
 		a.td[i].Count = 1
-		switch e.Kind() {
-		case reflect.Bool:
-			a.td[i].Type = TypeBOOL
-		case reflect.Int8:
-			a.td[i].Type = TypeSINT
-		case reflect.Int16:
-			a.td[i].Type = TypeINT
-		case reflect.Int32:
-			a.td[i].Type = TypeDINT
-		case reflect.Int64:
-			a.td[i].Type = TypeLINT
-		case reflect.Uint8:
-			a.td[i].Type = TypeUSINT
-		case reflect.Uint16:
-			a.td[i].Type = TypeUINT
-		case reflect.Uint32:
-			a.td[i].Type = TypeUDINT
-		case reflect.Uint64:
-			a.td[i].Type = TypeULINT
-		case reflect.Float32:
-			a.td[i].Type = TypeREAL
-		case reflect.Float64:
-			a.td[i].Type = TypeLREAL
-			// fmt.Println(v.Field(i).Float())
-		default:
-			panic("unsupported struct type " + e.String())
+		a.td[i].Type = kindToType(e.Kind())
+		if a.td[i].Type == TypeArray1D {
+			a.td[i].Count = e.Len()
+			a.td[i].Type |= kindToType(e.Elem().Kind())
 		}
+	}
+}
+
+func kindToType(k reflect.Kind) int {
+	switch k {
+	case reflect.Bool:
+		return TypeBOOL
+	case reflect.Int8:
+		return TypeSINT
+	case reflect.Int16:
+		return TypeINT
+	case reflect.Int32:
+		return TypeDINT
+	case reflect.Int64:
+		return TypeLINT
+	case reflect.Uint8:
+		return TypeUSINT
+	case reflect.Uint16:
+		return TypeUINT
+	case reflect.Uint32:
+		return TypeUDINT
+	case reflect.Uint64:
+		return TypeULINT
+	case reflect.Float32:
+		return TypeREAL
+	case reflect.Float64:
+		return TypeLREAL
+	case reflect.Array:
+		return TypeArray1D
+	default:
+		panic("unsupported struct type " + k.String())
 	}
 }
 

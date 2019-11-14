@@ -60,7 +60,7 @@ type structTest struct {
 type structTest2 struct {
 	ala  float64
 	kot  int32
-	pies int8
+	pies [8]int8
 }
 
 func main() {
@@ -100,7 +100,7 @@ func main() {
 	p.NewTag(structTest{abc: 123, def: 1.234}, "testSTRUCT")
 	p.NewTag([2]structTest{{abc: 123, def: 1.234}, {abc: 456, def: 7.89}}, "testSTRUCT2")
 
-	p.NewTag([4]structTest2{{ala: 5.5, kot: -111, pies: -2}}, "testSTRUCT3")
+	p.NewTag([4]structTest2{{ala: 5.5, kot: -111, pies: [8]int8{0, 1, 2, 3, 4, 5, 6, 7}}}, "testSTRUCT3")
 
 	// nie wyświetlaj dodatkowych informacji
 	p.Verbose = true
