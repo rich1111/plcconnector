@@ -421,6 +421,27 @@ func (p *PLC) NewTag(i interface{}, n string) {
 				bytes[i] = v.Index(i).Float()
 			}
 			a = TagArrayLREAL(bytes, l, n)
+		case reflect.Struct:
+			a = new(Tag)
+			a.Name = n
+			a.Count = l
+			a.Type = TypeStruct + 1 // FIXME type id
+			fs := e.NumField()
+			a.tn = e.Name()
+			a.td = make([]Tag, fs)
+			for i := 0; i < fs; i++ {
+				a.td[i].Name = e.Field(i).Name
+				e2 := e.Field(i).Type
+				a.td[i].Count = 1
+				switch e2.Kind() {
+				case reflect.Uint16:
+					a.td[i].Type = TypeUINT
+				case reflect.Float32:
+					a.td[i].Type = TypeREAL
+				default:
+					panic("unsupported struct type " + e2.String())
+				}
+			}
 		default:
 			panic("unsupported embedded type " + e.String())
 		}
@@ -449,7 +470,6 @@ func (p *PLC) NewTag(i interface{}, n string) {
 				panic("unsupported struct type " + e.String())
 			}
 		}
-		// fmt.Println(a)
 	default:
 		panic("unknown type " + r.String())
 	}

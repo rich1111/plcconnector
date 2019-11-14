@@ -91,7 +91,7 @@ func main() {
 	p.NewTag("Ala ma kota", "testSTRING")
 	p.NewTag(int32(100), "test1")
 
-	p.NewTag(structTest{abc: 123, def: 1.234}, "testSTRUCT")
+	p.NewTag([2]structTest{{abc: 123, def: 1.234}, {abc: 456, def: 7.89}}, "testSTRUCT")
 
 	// nie wyświetlaj dodatkowych informacji
 	p.Verbose = true
