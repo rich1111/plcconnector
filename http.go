@@ -44,7 +44,7 @@ func (p *PLC) tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 	sort.Strings(arr)
 
 	for _, n := range arr {
-		toSend.WriteString("<tr><td><a href=\"/" + n + "\">" + n + "</a></td><td>" + strconv.Itoa(p.tags[n].Count) + "</td><td>" + typeToString(p.tags[n].Type) + "</td><td>")
+		toSend.WriteString("<tr><td><a href=\"/" + n + "\">" + n + "</a></td><td>" + strconv.Itoa(p.tags[n].Count) + "</td><td>" + p.tags[n].TypeString() + "</td><td>")
 		var ascii strings.Builder
 		if p.tags[n].Type != TypeREAL && p.tags[n].Type != TypeLREAL && p.tags[n].Type != TypeBOOL {
 			ascii.Grow(p.tags[n].Count)
@@ -146,7 +146,7 @@ func tagToJSON(t *Tag) string {
 			}
 		}
 	}
-	tj.Typ = typeToString(t.Type)
+	tj.Typ = t.TypeString()
 
 	b, err := json.Marshal(tj)
 	if err != nil {
@@ -194,7 +194,7 @@ func tagToHTML(t *Tag) string {
 	ln := t.Len()
 
 	toSend.WriteString("<!DOCTYPE html>\n<html><title>" + t.Name + "</title><h3>" + t.Name + "</h3>")
-	toSend.WriteString("<table " + tableStyle + "><tr><th>N</th><th>" + typeToString(t.Type) + "</th>")
+	toSend.WriteString("<table " + tableStyle + "><tr><th>N</th><th>" + t.TypeString() + "</th>")
 	if t.Type == TypeBOOL {
 		toSend.WriteString("</tr>\n")
 	} else if t.Type == TypeREAL || t.Type == TypeLREAL {

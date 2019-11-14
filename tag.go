@@ -23,6 +23,14 @@ func (t Tag) Len() int {
 	return int(typeLen(uint16(t.Type)))
 }
 
+// TypeString .
+func (t Tag) TypeString() string {
+	if t.Type > TypeStruct {
+		return t.tn
+	}
+	return typeToString(t.Type)
+}
+
 // TagBOOL .
 func TagBOOL(v bool, n string) *Tag {
 	var a Tag
