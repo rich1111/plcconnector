@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -248,7 +249,8 @@ func (p *PLC) loadEDS(fn string) error {
 		1, 1, 1, 1, // name server 2
 		0, 0, // string domain name
 	}}
-	in.attr[6] = TagString("", "HostName") // TODO
+	hostname, _ := os.Hostname()
+	in.attr[6] = TagString(hostname, "HostName")
 	p.Class[TCPClass].SetInstance(1, in)
 
 	p.Class[EthernetClass] = NewClass("Ethernet Link", 0)
