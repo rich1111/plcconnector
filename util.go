@@ -4,10 +4,19 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"net"
 	"strconv"
 	"strings"
 )
+
+func bread(rd io.Reader, data interface{}) error {
+	err := binary.Read(rd, binary.LittleEndian, data)
+	if err != nil {
+		fmt.Println(err)
+	}
+	return err
+}
 
 func bwrite(buf *bytes.Buffer, data interface{}) {
 	err := binary.Write(buf, binary.LittleEndian, data)
