@@ -86,13 +86,13 @@ func main() {
 	}
 
 	p.NewTag([4]bool{false, true}, "testBOOL")
-	p.NewTag([4]int8{-128, 127, 0, 1}, "testSINT")
+	p.NewTag([]int8{-128, 127, 0, 1}, "testSINT")
 	p.NewTag([10]int16{-11, 11, 32767, -32768}, "testINT")
-	p.NewTag([2]int32{1, -1}, "testDINT")
-	p.NewTag([2]float32{-0.1, 1.123}, "testREAL")
-	p.NewTag([2]float64{-0.1, 1.123}, "testLREAL")
-	p.NewTag([2]int64{-1, 1}, "testLINT")
-	p.NewTag([10]int8{'H', 'e', 'l', 'l', 'o', '!', 0x00, 0x01, 0x7F, 127}, "testASCII")
+	p.NewTag([]int32{1, -1}, "testDINT")
+	p.NewTag([]float32{-0.1, 1.123}, "testREAL")
+	p.NewTag([]float64{-0.1, 1.123}, "testLREAL")
+	p.NewTag([]int64{-1, 1}, "testLINT")
+	p.NewTag([]int8{'H', 'e', 'l', 'l', 'o', '!', 0x00, 0x01, 0x7F, 127}, "testASCII")
 
 	p.NewTag("Ala ma kota", "testSTRING")
 	p.NewTag(int32(100), "test1")

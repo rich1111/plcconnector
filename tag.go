@@ -407,9 +407,9 @@ func (p *PLC) NewTag(i interface{}, n string) {
 		a = TagREAL(float32(v.Float()), n)
 	case reflect.Float64:
 		a = TagLREAL(v.Float(), n)
-	case reflect.Array:
+	case reflect.Array, reflect.Slice:
 		e := r.Elem()
-		l := r.Len()
+		l := v.Len()
 		switch e.Kind() {
 		case reflect.Bool:
 			bytes := make([]bool, l)
@@ -490,8 +490,6 @@ func (p *PLC) NewTag(i interface{}, n string) {
 		default:
 			panic("unsupported embedded type " + e.String())
 		}
-	case reflect.Slice:
-		panic("use array not slice")
 	case reflect.String:
 		a = TagString(v.String(), n)
 	case reflect.Struct:
