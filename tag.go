@@ -2,9 +2,18 @@ package plcconnector
 
 import (
 	"encoding/binary"
+	"encoding/json"
+	"io/ioutil"
 	"math"
 	"reflect"
 )
+
+type structData struct {
+	d []Tag
+	o map[string]int
+	n string
+	l int
+}
 
 // Tag .
 type Tag struct {
@@ -13,20 +22,44 @@ type Tag struct {
 	Index int
 	Count int
 
-	data []uint8
-	td   []Tag
-	tn   string
+	data   []uint8
+	st     *structData
+	offset int
+}
+
+func (st structData) Elem(n string) *Tag {
+	i, ok := st.o[n]
+	if !ok {
+		return nil
+	}
+	return &st.d[i]
 }
 
 // Len .
 func (t Tag) Len() int {
+	if t.Type > TypeStruct {
+		return t.st.l
+	}
+	switch t.Type {
+	case TypeSTRING, TypeSTRING2, TypeSTRINGI, TypeSTRINGN, TypeSHORTSTRING:
+		return len(t.data)
+	default:
+		return int(typeLen(uint16(t.Type)))
+	}
+}
+
+// ElemLen .
+func (t Tag) ElemLen() int {
+	if t.Type > TypeStruct {
+		return t.st.l
+	}
 	return int(typeLen(uint16(t.Type)))
 }
 
 // TypeString .
 func (t Tag) TypeString() string {
 	if t.Type > TypeStruct {
-		return t.tn
+		return t.st.n
 	}
 	return typeToString(t.Type)
 }
@@ -331,6 +364,21 @@ func TagStringI(v string, n string) *Tag {
 	return &a
 }
 
+// NewTagJSON .
+func (p *PLC) NewTagJSON(fn string, n string) error {
+	var js interface{}
+	fc, err := ioutil.ReadFile(fn)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(fc, &js)
+	if err != nil {
+		return err
+	}
+	p.NewTag(js, n)
+	return nil
+}
+
 // NewTag .
 func (p *PLC) NewTag(i interface{}, n string) {
 	var a *Tag
@@ -462,27 +510,30 @@ func (p *PLC) NewTag(i interface{}, n string) {
 
 func (p *PLC) structHelper(a *Tag, t reflect.Type, fs int) {
 	typeID := 0
-	a.tn = t.Name()
+	a.st = new(structData)
+	a.st.o = make(map[string]int)
+	a.st.n = t.Name()
 	p.tMut.Lock()
-	id, ok := p.tids[a.tn]
+	id, ok := p.tids[a.st.n]
 	if ok {
 		typeID = id
 	} else {
 		typeID = p.tidLast
-		p.tids[a.tn] = typeID
+		p.tids[a.st.n] = typeID
 		p.tidLast++
 	}
 	p.tMut.Unlock()
 	a.Type = TypeStruct + typeID
-	a.td = make([]Tag, fs)
+	a.st.d = make([]Tag, fs)
 	for i := 0; i < fs; i++ {
-		a.td[i].Name = t.Field(i).Name
+		a.st.d[i].Name = t.Field(i).Name
+		a.st.o[t.Field(i).Name] = i
 		e := t.Field(i).Type
-		a.td[i].Count = 1
-		a.td[i].Type = kindToType(e.Kind())
-		if a.td[i].Type == TypeArray1D {
-			a.td[i].Count = e.Len()
-			a.td[i].Type |= kindToType(e.Elem().Kind())
+		a.st.d[i].Count = 1
+		a.st.d[i].Type = kindToType(e.Kind())
+		if a.st.d[i].Type == TypeArray1D {
+			a.st.d[i].Count = e.Len()
+			a.st.d[i].Type |= kindToType(e.Elem().Kind())
 		}
 	}
 }

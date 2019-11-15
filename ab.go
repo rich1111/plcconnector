@@ -62,21 +62,77 @@ func (p *PLC) debug(args ...interface{}) {
 	}
 }
 
-func (p *PLC) readTag(tag string, index int, count uint16) ([]uint8, uint16, bool) {
-	p.tMut.RLock()
-	tg, ok := p.tags[tag]
+func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint16, bool) {
+
 	var (
 		tgtyp  uint16
 		tgdata []uint8
+		tag    string
+		index  int
+		memb   string
+		membi  int
 	)
+
+	if len(path) > 0 && path[0].typ == ansiExtended { // TODO better
+		tag = path[0].txt
+		if len(path) > 1 {
+			switch path[1].typ {
+			case pathElement:
+				index = path[1].val
+			case ansiExtended:
+				memb = path[1].txt
+			}
+		}
+		if len(path) > 2 {
+			switch path[2].typ {
+			case pathElement:
+				membi = path[2].val
+			case ansiExtended:
+				memb = path[2].txt
+			}
+		}
+		if len(path) > 3 && path[3].typ == pathElement {
+			membi = path[3].val
+		}
+	}
+
+	p.tMut.RLock()
+	tg, ok := p.tags[tag]
+
 	if ok {
-		tgtyp = uint16(tg.Type)
-		tl := tg.Len()
-		tgdata = make([]uint8, count*uint16(tl))
-		if index+int(count) > tg.Count {
-			ok = false
+		var (
+			tl       int
+			copyFrom int
+			copyLen  int
+		)
+		tl = tg.Len()
+		copyFrom = index * tl
+		if memb == "" && membi == 0 {
+			tgtyp = uint16(tg.Type)
+		} else if memb != "" && tg.st != nil {
+			el := tg.st.Elem(memb)
+			if el != nil {
+				tl = el.Len()
+				copyFrom += el.offset + membi*tl
+				tgtyp = uint16(el.Type)
+			} else {
+				fmt.Println("no member", memb, "in struct", tg.Name)
+				ok = false
+			}
 		} else {
-			copy(tgdata, tg.data[index*int(tl):])
+			fmt.Println("unsupported", path)
+			ok = false
+		}
+		copyLen = int(count) * tl
+
+		if ok {
+			tgdata = make([]uint8, copyLen)
+			if copyFrom+copyLen > len(tg.data) {
+				ok = false
+			} else {
+				copy(tgdata, tg.data[copyFrom:])
+			}
+			p.debug(typeToString(int(tgtyp)&TypeType), tgdata)
 		}
 	}
 	p.tMut.RUnlock()
@@ -96,7 +152,7 @@ func (p *PLC) saveTag(tag string, typ uint16, index int, count uint16, data []ui
 	p.tMut.Lock()
 	tg, ok := p.tags[tag]
 	if ok && tg.Type == int(typ) && tg.Count >= index+int(count) {
-		copy(tg.data[index*tg.Len():], data)
+		copy(tg.data[index*tg.ElemLen():], data)
 	} else {
 		p.AddTag(Tag{Name: tag, Type: int(typ), Count: int(count), data: data})
 	}
@@ -110,7 +166,7 @@ func (p *PLC) saveTag(tag string, typ uint16, index int, count uint16, data []ui
 // AddTag adds tag.
 func (p *PLC) AddTag(t Tag) {
 	if t.data == nil {
-		size := uint16(t.Len()) * uint16(t.Count)
+		size := uint16(t.ElemLen()) * uint16(t.Count)
 		t.data = make([]uint8, size)
 	}
 	in := NewInstance(8)
@@ -120,7 +176,7 @@ func (p *PLC) AddTag(t Tag) {
 		typ |= TypeArray1D
 	}
 	in.attr[2] = TagUINT(typ, "SymbolType")
-	in.attr[7] = TagUINT(uint16(t.Len()), "BaseTypeSize")
+	in.attr[7] = TagUINT(uint16(t.ElemLen()), "BaseTypeSize")
 	if t.Count > 1 {
 		in.attr[8] = &Tag{Name: "Dimensions", data: []uint8{uint8(t.Count), uint8(t.Count >> 8), uint8(t.Count >> 16), uint8(t.Count >> 24), 0, 0, 0, 0, 0, 0, 0, 0}}
 	} else {
@@ -131,7 +187,7 @@ func (p *PLC) AddTag(t Tag) {
 		var buf bytes.Buffer
 		strSize := 0
 
-		for _, x := range t.td {
+		for i, x := range t.st.d {
 			if x.Count > 1 { // TODO BOOL
 				bwrite(&buf, uint16(x.Count))
 			} else {
@@ -139,21 +195,23 @@ func (p *PLC) AddTag(t Tag) {
 			}
 			bwrite(&buf, uint16(x.Type))  // member type
 			bwrite(&buf, uint32(strSize)) // offset
-			strSize += x.Len() * x.Count
+			t.st.d[i].offset = strSize
+			strSize += x.ElemLen() * x.Count
 		}
-		bwrite(&buf, []byte(t.tn+";n\x00")) // template name
-		for _, x := range t.td {
+		bwrite(&buf, []byte(t.st.n+";n\x00")) // template name
+		for _, x := range t.st.d {
 			bwrite(&buf, []byte(x.Name+"\x00")) // member name
 		}
 
 		bwrite(&buf, make([]byte, (4-buf.Len())&3))
 
-		fmt.Println(t.tn, strSize, buf.Len())
+		t.st.l = strSize
+		fmt.Println(t.st.n, strSize, buf.Len())
 
 		tp = NewInstance(5)
 		tp.data = buf.Bytes()
 		tp.attr[1] = TagUINT(typ&TypeType, "StructureHandle")
-		tp.attr[2] = TagUINT(uint16(len(t.td)), "TemplateMemberCount")
+		tp.attr[2] = TagUINT(uint16(len(t.st.d)), "TemplateMemberCount")
 		tp.attr[3] = TagUINT(0, "UnkownAttr3")
 		tp.attr[4] = TagUDINT((uint32(buf.Len())+16)/4, "TemplateObjectDefinitionSize") // (x * 4) - 16 // 23 in pdf
 		tp.attr[5] = TagUDINT(uint32(strSize), "TemplateStructureSize")
@@ -176,7 +234,7 @@ func (p *PLC) UpdateTag(name string, offset int, data []uint8) bool {
 		fmt.Println("plcconnector UpdateTag: no tag named ", name)
 		return false
 	}
-	offset *= t.Len()
+	offset *= t.ElemLen()
 	to := offset + len(data)
 	if to > len(t.data) {
 		fmt.Println("plcconnector UpdateTag: to large data ", name)
@@ -774,25 +832,14 @@ loop:
 				p.debug("ReadTag")
 				mayCon = true
 
-				var (
-					tagName  string
-					tagIndex int
-					tagCount uint16
-				)
+				var tagCount uint16
 
-				if len(path) > 0 && path[0].typ == ansiExtended {
-					tagName = path[0].txt
-					if len(path) > 1 && path[1].typ == pathElement {
-						tagIndex = path[1].val
-					}
-				}
 				err = r.read(&tagCount)
 				if err != nil {
 					break loop
 				}
-				p.debug(tagName, tagIndex, tagCount)
 
-				if rtData, tagType, ok := p.readTag(tagName, tagIndex, tagCount); ok {
+				if rtData, tagType, ok := p.readTag(path, tagCount); ok {
 					r.write(resp)
 					r.write(tagType)
 					r.write(rtData)

@@ -48,7 +48,7 @@ func (p *PLC) tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 		var ascii strings.Builder
 		if p.tags[n].Type != TypeREAL && p.tags[n].Type != TypeLREAL && p.tags[n].Type != TypeBOOL {
 			ascii.Grow(p.tags[n].Count)
-			ln := p.tags[n].Len()
+			ln := p.tags[n].ElemLen()
 			startI := 0
 			if p.tags[n].Type == TypeSTRING {
 				startI = 2
@@ -103,7 +103,7 @@ type tagJSON struct {
 func tagToJSON(t *Tag) string {
 	var tj tagJSON
 	tj.Count = int(t.Count)
-	ln := t.Len()
+	ln := t.ElemLen()
 	for i := 0; i < len(t.data); i += ln {
 		tmp := int64(t.data[i])
 		for j := 1; j < ln; j++ {
@@ -191,7 +191,7 @@ func float64ToString(f uint64) string {
 func tagToHTML(t *Tag) string {
 	var toSend strings.Builder
 
-	ln := t.Len()
+	ln := t.ElemLen()
 
 	toSend.WriteString("<!DOCTYPE html>\n<html><title>" + t.Name + "</title><h3>" + t.Name + "</h3>")
 	toSend.WriteString("<table " + tableStyle + "><tr><th>N</th><th>" + t.TypeString() + "</th>")
