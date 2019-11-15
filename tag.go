@@ -353,13 +353,17 @@ func TagShortString(v string, n string) *Tag {
 	return &a
 }
 
-// TagStringI . TODO len>255
+// TagStringI .
 func TagStringI(v string, n string) *Tag {
 	var a Tag
 	a.Name = n
 	a.Count = 1
 	a.Type = TypeSTRINGI
-	a.data = []byte{1, 'e', 'n', 'g', 0xDA, 4, 0, byte(len(v))}
+	a.data = []byte{1, 'e', 'n', 'g', TypeSHORTSTRING, 4, 0, byte(len(v))}
+	if len(v) > 255 {
+		a.data[4] = TypeSTRING
+		a.data = append(a.data, byte(len(v)>>8))
+	}
 	a.data = append(a.data, []byte(v)...)
 	return &a
 }
