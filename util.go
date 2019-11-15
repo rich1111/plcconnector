@@ -1,7 +1,6 @@
 package plcconnector
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -18,7 +17,7 @@ func bread(rd io.Reader, data interface{}) error {
 	return err
 }
 
-func bwrite(buf *bytes.Buffer, data interface{}) {
+func bwrite(buf io.Writer, data interface{}) {
 	err := binary.Write(buf, binary.LittleEndian, data)
 	if err != nil {
 		fmt.Println(err)
