@@ -239,7 +239,7 @@ func (p *PLC) loadEDS(fn string) error {
 	in.attr[2] = TagUDINT(0b1_1_0, "ConfigurationCapabality")
 	in.attr[3] = TagUDINT(0b1_0010, "ConfigurationControl")
 	in.attr[4] = &Tag{Name: "PhysicalLinkObject", Type: TypeEPATH, data: []uint8{0x02, 0x00, 0x20, 0xF6, 0x24, 0x01}}
-	ip := getIP4()
+	ip, mac := getNetIf()
 	in.attr[5] = &Tag{Name: "InterfaceConfiguration", data: []uint8{ // TODO
 		uint8(ip >> 24), uint8(ip >> 16), uint8(ip >> 8), uint8(ip), // IP address
 		0xFF, 0, 0, 0, // network mask
@@ -256,7 +256,7 @@ func (p *PLC) loadEDS(fn string) error {
 	in = NewInstance(3)
 	in.attr[1] = TagUDINT(1000, "InterfaceSpeed")
 	in.attr[2] = TagUDINT(0b0_1_011_1_1, "InterfaceFlags")
-	in.attr[3] = &Tag{Name: "PhysicalAddress", data: []uint8{0x02, 0x00, 0x20, 0xF5, 0x24, 0x01}} // TODO MAC
+	in.attr[3] = &Tag{Name: "PhysicalAddress", data: mac}
 	p.Class[EthernetClass].SetInstance(1, in)
 
 	return nil

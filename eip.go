@@ -154,7 +154,7 @@ func (r *req) eipListIdentity() error {
 	data.ProtocolVersion = 1
 	data.SocketFamily = htons(2)
 	data.SocketPort = htons(r.p.port)
-	data.SocketAddr = getIP4()
+	data.SocketAddr, _ = getNetIf()
 
 	attrs := r.p.Class[IdentityClass].inst[0x01].getAttrList([]int{1, 2, 3, 4, 5, 6, 7, 8})
 

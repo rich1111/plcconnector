@@ -24,7 +24,7 @@ func htonl(v uint32) uint32 {
 	return binary.LittleEndian.Uint32([]byte{byte(v >> 24), byte(v >> 16), byte(v >> 8), byte(v)})
 }
 
-func getIP4() uint32 {
+func getNetIf() (uint32, []byte) {
 	ifaces, err := net.Interfaces()
 	if err == nil {
 		for _, i := range ifaces {
@@ -41,14 +41,14 @@ func getIP4() uint32 {
 					if !ip.IsLoopback() {
 						ipstr := ip.String()
 						if !strings.Contains(ipstr, ":") {
-							return binary.LittleEndian.Uint32(ip.To4())
+							return binary.LittleEndian.Uint32(ip.To4()), i.HardwareAddr
 						}
 					}
 				}
 			}
 		}
 	}
-	return 0
+	return 0, nil
 }
 
 func getPort(host string) uint16 {
