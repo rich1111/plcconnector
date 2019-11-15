@@ -185,18 +185,15 @@ func (p *PLC) AddTag(t Tag) {
 	var tp *Instance
 	if typ >= TypeStruct { // TODO only if not already set
 		var buf bytes.Buffer
-		strSize := 0
 
-		for i, x := range t.st.d {
+		for _, x := range t.st.d {
 			if x.Count > 1 { // TODO BOOL
 				bwrite(&buf, uint16(x.Count))
 			} else {
 				bwrite(&buf, uint16(0))
 			}
-			bwrite(&buf, uint16(x.Type))  // member type
-			bwrite(&buf, uint32(strSize)) // offset
-			t.st.d[i].offset = strSize
-			strSize += x.ElemLen() * x.Count
+			bwrite(&buf, uint16(x.Type)) // member type
+			bwrite(&buf, uint32(x.offset))
 		}
 		bwrite(&buf, []byte(t.st.n+";n\x00")) // template name
 		for _, x := range t.st.d {
@@ -205,8 +202,7 @@ func (p *PLC) AddTag(t Tag) {
 
 		bwrite(&buf, make([]byte, (4-buf.Len())&3))
 
-		t.st.l = strSize
-		fmt.Println(t.st.n, strSize, buf.Len())
+		fmt.Println(t.st.n, t.st.l, buf.Len())
 
 		tp = NewInstance(5)
 		tp.data = buf.Bytes()
@@ -214,7 +210,7 @@ func (p *PLC) AddTag(t Tag) {
 		tp.attr[2] = TagUINT(uint16(len(t.st.d)), "TemplateMemberCount")
 		tp.attr[3] = TagUINT(0, "UnkownAttr3")
 		tp.attr[4] = TagUDINT((uint32(buf.Len())+16)/4, "TemplateObjectDefinitionSize") // (x * 4) - 16 // 23 in pdf
-		tp.attr[5] = TagUDINT(uint32(strSize), "TemplateStructureSize")
+		tp.attr[5] = TagUDINT(uint32(t.st.l), "TemplateStructureSize")
 	}
 	p.tMut.Lock()
 	p.symbols.SetInstance(p.symbols.lastInst+1, in)

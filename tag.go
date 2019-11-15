@@ -486,9 +486,10 @@ func (p *PLC) NewTag(i interface{}, n string) {
 			a.Name = n
 			a.Count = l
 			p.structHelper(a, e, e.NumField())
+			a.data = make([]uint8, 0, a.st.l*l)
 			for i := 0; i < l; i++ {
 				for j := 0; j < e.NumField(); j++ {
-					a.data = append(a.data, valueToByte(v.Index(i).Field(j))...) // TODO preallocate
+					a.data = append(a.data, valueToByte(v.Index(i).Field(j))...)
 				}
 			}
 		default:
@@ -501,8 +502,9 @@ func (p *PLC) NewTag(i interface{}, n string) {
 		a.Name = n
 		a.Count = 1
 		p.structHelper(a, r, v.NumField())
+		a.data = make([]uint8, 0, a.st.l)
 		for i := 0; i < v.NumField(); i++ {
-			a.data = append(a.data, valueToByte(v.Field(i))...) // TODO preallocate
+			a.data = append(a.data, valueToByte(v.Field(i))...)
 		}
 	default:
 		panic("unknown type " + r.String())
@@ -537,6 +539,8 @@ func (p *PLC) structHelper(a *Tag, t reflect.Type, fs int) {
 			a.st.d[i].Count = e.Len()
 			a.st.d[i].Type |= kindToType(e.Elem().Kind())
 		}
+		a.st.d[i].offset = a.st.l
+		a.st.l += a.st.d[i].ElemLen() * a.st.d[i].Count
 	}
 }
 
