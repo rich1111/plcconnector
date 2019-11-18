@@ -43,3 +43,47 @@ func Test_req_parsePath(t *testing.T) {
 		})
 	}
 }
+
+func Test_parsePath(t *testing.T) {
+	type args struct {
+		p string
+	}
+	tests := []struct {
+		name string
+		args args
+		want []pathEl
+	}{
+		{"01", args{"[]"}, nil},
+		{"02", args{"."}, nil},
+		{"03", args{"123"}, nil},
+		{"04", args{"t[]"}, nil},
+		{"05", args{"ta[.ss[2]"}, nil},
+		{"06", args{"tag1]ss[2]"}, nil},
+		{"07", args{"tag12[3].ss[2]["}, nil},
+		{"08", args{"tag123[3].ss[2]]"}, nil},
+		{"09", args{"tag1234[3].ss[2]."}, nil},
+		{"07", args{"tag12[3].ss[2][2"}, nil},
+		{"08", args{"tag123[3].ss[2]]3"}, nil},
+		{"09", args{"tag1234[3].ss[2].4"}, nil},
+		{"10", args{"4tag"}, nil},
+		{"12", args{"tag3.5count"}, nil},
+		{"12", args{"tag3.count."}, nil},
+		{"12", args{"tag3.count["}, nil},
+		{"12", args{"tag3.count]"}, nil},
+		{"17", args{"ta g1ss[2]"}, nil},
+		{"18", args{"ta'g1ss[2]"}, nil},
+		{"10", args{"tag"}, []pathEl{pathEl{typ: ansiExtended, txt: "tag"}}},
+		{"11", args{"tag[41]"}, []pathEl{pathEl{typ: ansiExtended, txt: "tag"}, pathEl{typ: pathElement, val: 41}}},
+		{"12", args{"tag3.count"}, []pathEl{pathEl{typ: ansiExtended, txt: "tag3"}, pathEl{typ: ansiExtended, txt: "count"}}},
+		{"13", args{"tag3[5].count"}, []pathEl{pathEl{typ: ansiExtended, txt: "tag3"}, pathEl{typ: pathElement, val: 5}, pathEl{typ: ansiExtended, txt: "count"}}},
+		{"14", args{"tag.count[712]"}, []pathEl{pathEl{typ: ansiExtended, txt: "tag"}, pathEl{typ: ansiExtended, txt: "count"}, pathEl{typ: pathElement, val: 712}}},
+		{"15", args{"tag[6].count[7]"}, []pathEl{pathEl{typ: ansiExtended, txt: "tag"}, pathEl{typ: pathElement, val: 6}, pathEl{typ: ansiExtended, txt: "count"}, pathEl{typ: pathElement, val: 7}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := parsePath(tt.args.p); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("parsePath(\"%s\") = %v, want %v", tt.args.p, got, tt.want)
+			}
+		})
+	}
+}

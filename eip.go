@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"math/rand"
+	"strconv"
+	"unicode"
 )
 
 const (
@@ -30,6 +32,70 @@ type pathEl struct {
 	typ int
 	val int
 	txt string
+}
+
+func parsePath(p string) []pathEl {
+	e := make([]pathEl, 0, 4)
+
+	name := ""
+	no := ""
+	inName := true
+	last := rune(0)
+
+	for _, t := range p {
+		switch {
+		case t == '.':
+			if name == "" {
+				if last != ']' {
+					return nil
+				}
+				break
+			}
+			e = append(e, pathEl{typ: ansiExtended, txt: name})
+			name = ""
+			inName = true
+		case t == '[':
+			if name == "" {
+				return nil
+			}
+			inName = false
+			e = append(e, pathEl{typ: ansiExtended, txt: name})
+			name = ""
+		case t == ']':
+			if no == "" {
+				return nil
+			}
+			inName = true
+			noint, _ := strconv.Atoi(no)
+			e = append(e, pathEl{typ: pathElement, val: noint})
+			no = ""
+		case unicode.IsDigit(t):
+			if inName {
+				if name == "" {
+					return nil
+				}
+				name += string(t)
+			} else {
+				no += string(t)
+			}
+		case unicode.IsLetter(t):
+			if !inName {
+				return nil
+			}
+			name += string(t)
+		default:
+			return nil
+		}
+		last = t
+	}
+	if last == '.' || last == '[' {
+		return nil
+	}
+	if name != "" {
+		e = append(e, pathEl{typ: ansiExtended, txt: name})
+	}
+
+	return e
 }
 
 func (r *req) parsePath(path []uint8) (int, int, int, []pathEl, error) {
