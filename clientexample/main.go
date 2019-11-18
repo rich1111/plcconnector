@@ -23,9 +23,15 @@ func main() {
 			addr = os.Args[1]
 		}
 	}
-	_, err := plc.Connect(addr)
+	c, err := plc.Connect(addr)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	t, err := c.ReadTag("testDINT[1]", 1)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(t)
 }

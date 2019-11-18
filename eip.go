@@ -99,6 +99,9 @@ func parsePath(p string) []pathEl {
 }
 
 func constructPath(p []pathEl) []uint8 {
+	if p == nil {
+		return nil
+	}
 	b := make([]uint8, 0, len(p)*10)
 	for _, e := range p {
 		switch e.typ {
@@ -116,9 +119,9 @@ func constructPath(p []pathEl) []uint8 {
 			if e.val > 65535 {
 				return nil
 			} else if e.val > 255 {
-				b = append(b, []uint8{pathElement | path16, 0, uint8(e.val), uint8(e.val >> 8)}...)
+				b = append(b, []uint8{pathLogical | pathElement | path16, 0, uint8(e.val), uint8(e.val >> 8)}...)
 			} else {
-				b = append(b, []uint8{pathElement, uint8(e.val)}...)
+				b = append(b, []uint8{pathLogical | pathElement, uint8(e.val)}...)
 			}
 		default:
 			return nil

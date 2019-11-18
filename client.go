@@ -13,10 +13,11 @@ import (
 
 // Client .
 type Client struct {
-	c      net.Conn
-	rd     *bufio.Reader
-	wr     *bytes.Buffer
-	handle uint32
+	c       net.Conn
+	rd      *bufio.Reader
+	wr      *bytes.Buffer
+	handle  uint32
+	context uint64
 }
 
 func (c *Client) read(data interface{}) error {
@@ -111,6 +112,8 @@ func Connect(host string) (*Client, error) {
 	}
 	c.handle = h.SessionHandle
 
+	c.wr.Reset()
+	c.rd.Reset(conn)
 	return &c, nil
 }
 
@@ -197,4 +200,52 @@ func Discover() ([]Identity, error) {
 			ids = append(ids, id)
 		}
 	}
+}
+
+// ReadTag .
+func (c *Client) ReadTag(tag string, count int) (*Tag, error) {
+	path := constructPath(parsePath(tag))
+	if path == nil {
+		return nil, errors.New("path parse error")
+	}
+
+	c.context++
+	c.write(encapsulationHeader{
+		Command:       ecSendRRData,
+		Length:        uint16(16 + 4 + len(path)),
+		SessionHandle: c.handle,
+		SenderContext: c.context,
+	})
+	c.write(sendData{
+		Timeout:   20,
+		ItemCount: 2,
+	})
+	c.write(itemType{Type: itNullAddress, Length: 0})
+	c.write(itemType{Type: itUnconnData, Length: uint16(4 + len(path))})
+	c.write(protocolData{
+		Service:  ReadTag,
+		PathSize: uint8(len(path) / 2),
+	})
+	c.write(path)
+	c.write(uint16(count))
+
+	fmt.Println(c.wr.Bytes())
+	_, err := c.c.Write(c.wr.Bytes())
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		h encapsulationHeader
+	)
+
+	err = c.read(&h)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println(h)
+
+	c.wr.Reset()
+	c.rd.Reset(c.c)
+	return nil, nil
 }

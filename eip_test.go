@@ -98,12 +98,12 @@ func Test_constructPath(t *testing.T) {
 		want []uint8
 	}{
 		{"10", args{"tag"}, []uint8{0x91, 3, 't', 'a', 'g', 0}},
-		{"11", args{"tag[41]"}, []uint8{0x91, 3, 't', 'a', 'g', 0, 8, 41}},
+		{"11", args{"tag[41]"}, []uint8{0x91, 3, 't', 'a', 'g', 0, 0x28, 41}},
 		{"12", args{"tag3.count"}, []uint8{0x91, 4, 't', 'a', 'g', '3', 0x91, 5, 'c', 'o', 'u', 'n', 't', 0}},
-		{"13", args{"tag3[60000].count"}, []uint8{0x91, 4, 't', 'a', 'g', '3', 9, 0, 0x60, 0xEA, 0x91, 5, 'c', 'o', 'u', 'n', 't', 0}},
+		{"13", args{"tag3[60000].count"}, []uint8{0x91, 4, 't', 'a', 'g', '3', 0x29, 0, 0x60, 0xEA, 0x91, 5, 'c', 'o', 'u', 'n', 't', 0}},
 		{"13", args{"tag3[70000].count"}, nil},
-		{"14", args{"tag.count[712]"}, []uint8{0x91, 3, 't', 'a', 'g', 0, 0x91, 5, 'c', 'o', 'u', 'n', 't', 0, 9, 0, 0xC8, 2}},
-		{"15", args{"tag[6].count[7]"}, []uint8{0x91, 3, 't', 'a', 'g', 0, 8, 6, 0x91, 5, 'c', 'o', 'u', 'n', 't', 0, 8, 7}},
+		{"14", args{"tag.count[712]"}, []uint8{0x91, 3, 't', 'a', 'g', 0, 0x91, 5, 'c', 'o', 'u', 'n', 't', 0, 0x29, 0, 0xC8, 2}},
+		{"15", args{"tag[6].count[7]"}, []uint8{0x91, 3, 't', 'a', 'g', 0, 0x28, 6, 0x91, 5, 'c', 'o', 'u', 'n', 't', 0, 0x28, 7}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
