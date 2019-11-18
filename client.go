@@ -1,8 +1,10 @@
 package plcconnector
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -10,13 +12,106 @@ import (
 )
 
 // Client .
-type Client struct{}
+type Client struct {
+	c      net.Conn
+	rd     *bufio.Reader
+	wr     *bytes.Buffer
+	handle uint32
+}
+
+func (c *Client) read(data interface{}) error {
+	err := binary.Read(c.rd, binary.LittleEndian, data)
+	if err != nil {
+		fmt.Println(err)
+	}
+	return err
+}
+
+func (c *Client) write(data interface{}) {
+	err := binary.Write(c.wr, binary.LittleEndian, data)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
 
 // Connect .
-func Connect(host string) Client {
-	var c Client
+func Connect(host string) (*Client, error) {
+	var (
+		c   Client
+		h   encapsulationHeader
+		ct  uint16
+		it  itemType
+		ser listServicesData
+		rs  registerSessionData
+	)
 
-	return c
+	conn, err := net.Dial("tcp4", host)
+	if err != nil {
+		return nil, err
+	}
+	c.c = conn
+	c.wr = new(bytes.Buffer)
+
+	conn.SetDeadline(time.Now().Add(time.Second))
+
+	// ListServices
+	c.write(encapsulationHeader{
+		Command: ecListServices,
+	})
+	_, err = conn.Write(c.wr.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	c.rd = bufio.NewReader(conn)
+
+	err = c.read(&h)
+	if err != nil {
+		return nil, err
+	}
+	err = c.read(&ct)
+	if err != nil {
+		return nil, err
+	}
+	err = c.read(&it)
+	if err != nil {
+		return nil, err
+	}
+	err = c.read(&ser)
+	if err != nil {
+		return nil, err
+	}
+	if ser.NameOfService[0] != 67 || ser.CapabilityFlags&lscfTCP != lscfTCP {
+		return nil, errors.New("tcp encapsulation not supported")
+	}
+
+	// RegisterSession
+	c.wr.Reset()
+	c.rd.Reset(conn)
+	c.write(encapsulationHeader{
+		Command: ecRegisterSession,
+		Length:  uint16(binary.Size(rs)),
+	})
+	c.write(registerSessionData{
+		ProtocolVersion: 1,
+	})
+	_, err = conn.Write(c.wr.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	err = c.read(&h)
+	if err != nil {
+		return nil, err
+	}
+	err = c.read(&rs)
+	if err != nil {
+		return nil, err
+	}
+	if rs.ProtocolVersion != 1 {
+		return nil, errors.New("unsupported protocol version")
+	}
+	c.handle = h.SessionHandle
+
+	return &c, nil
 }
 
 // Identity .
@@ -33,7 +128,7 @@ type Identity struct {
 }
 
 // Discover .
-func Discover(bc string) ([]Identity, error) {
+func Discover() ([]Identity, error) {
 	var (
 		buf bytes.Buffer
 		ids []Identity
@@ -48,7 +143,7 @@ func Discover(bc string) ([]Identity, error) {
 		return nil, err
 	}
 
-	raddr, err := net.ResolveUDPAddr("udp4", bc)
+	raddr, err := net.ResolveUDPAddr("udp4", "255.255.255.255:44818")
 	if err != nil {
 		return nil, err
 	}

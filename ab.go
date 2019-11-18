@@ -929,6 +929,13 @@ loop:
 			r.write(data)
 		}
 
+		unread := r.readBuf.Buffered()
+		if unread > 0 {
+			discard := make([]byte, unread)
+			r.read(&discard)
+			fmt.Println("DISCARDED:", discard)
+		}
+
 		err = conn.SetWriteDeadline(timeout)
 		if err != nil {
 			fmt.Println(err)
