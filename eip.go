@@ -98,6 +98,35 @@ func parsePath(p string) []pathEl {
 	return e
 }
 
+func constructPath(p []pathEl) []uint8 {
+	b := make([]uint8, 0, len(p)*10)
+	for _, e := range p {
+		switch e.typ {
+		case ansiExtended:
+			byt := []uint8(e.txt)
+			if len(byt) > 255 {
+				return nil
+			}
+			b = append(b, []uint8{ansiExtended, uint8(len(byt))}...)
+			b = append(b, byt...)
+			if len(byt)&1 == 1 {
+				b = append(b, 0)
+			}
+		case pathElement: // 32 bit?
+			if e.val > 65535 {
+				return nil
+			} else if e.val > 255 {
+				b = append(b, []uint8{pathElement | path16, 0, uint8(e.val), uint8(e.val >> 8)}...)
+			} else {
+				b = append(b, []uint8{pathElement, uint8(e.val)}...)
+			}
+		default:
+			return nil
+		}
+	}
+	return b
+}
+
 func (r *req) parsePath(path []uint8) (int, int, int, []pathEl, error) {
 	class := -1
 	insta := -1
