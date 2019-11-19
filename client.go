@@ -18,6 +18,8 @@ type Client struct {
 	wr      *bytes.Buffer
 	handle  uint32
 	context uint64
+
+	Timeout uint16
 }
 
 func (c *Client) read(data interface{}) error {
@@ -52,6 +54,7 @@ func Connect(host string) (*Client, error) {
 	}
 	c.c = conn
 	c.wr = new(bytes.Buffer)
+	c.Timeout = 20
 
 	conn.SetDeadline(time.Now().Add(time.Second))
 
@@ -202,6 +205,24 @@ func Discover() ([]Identity, error) {
 	}
 }
 
+// Close .
+func (c *Client) Close() error {
+	c.c.SetDeadline(time.Now().Add(time.Second))
+
+	// UnregisterSession
+	c.write(encapsulationHeader{
+		Command:       ecUnRegisterSession,
+		SessionHandle: c.handle,
+	})
+
+	c.c.Write(c.wr.Bytes())
+
+	c.context = 0
+	c.handle = 0
+
+	return c.c.Close()
+}
+
 // ReadTag .
 func (c *Client) ReadTag(tag string, count int) (*Tag, error) {
 	path := constructPath(parsePath(tag))
@@ -209,43 +230,99 @@ func (c *Client) ReadTag(tag string, count int) (*Tag, error) {
 		return nil, errors.New("path parse error")
 	}
 
-	c.context++
-	c.write(encapsulationHeader{
-		Command:       ecSendRRData,
-		Length:        uint16(16 + 4 + len(path)),
-		SessionHandle: c.handle,
-		SenderContext: c.context,
-	})
-	c.write(sendData{
-		Timeout:   20,
-		ItemCount: 2,
-	})
-	c.write(itemType{Type: itNullAddress, Length: 0})
-	c.write(itemType{Type: itUnconnData, Length: uint16(4 + len(path))})
-	c.write(protocolData{
-		Service:  ReadTag,
-		PathSize: uint8(len(path) / 2),
-	})
-	c.write(path)
+	c.writeHead(path, 2)
 	c.write(uint16(count))
 
-	fmt.Println(c.wr.Bytes())
 	_, err := c.c.Write(c.wr.Bytes())
 	if err != nil {
 		return nil, err
 	}
 
-	var (
-		h encapsulationHeader
-	)
-
-	err = c.read(&h)
+	st, ln, err := c.readHead()
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(h)
+	if st != Success { // TODO additional status size
+		return nil, errors.New("status not Success")
+	}
+	var t uint16
+	err = c.read(&t)
+	if err != nil {
+		return nil, err
+	}
+	d := make([]uint8, ln-2)
+	err = c.read(&d)
+	if err != nil {
+		return nil, err
+	}
+
+	// fmt.Println(typeToString(int(t)))
+	// fmt.Println(d)
 
 	c.wr.Reset()
 	c.rd.Reset(c.c)
-	return nil, nil
+	return &Tag{Name: tag, Type: int(t), Count: count, data: d}, nil
+}
+
+func (c *Client) readHead() (int, int, error) {
+	var (
+		h encapsulationHeader
+		s sendData
+		i itemType
+		r response
+	)
+
+	err := c.read(&h)
+	if err != nil {
+		return 0, 0, err
+	}
+	err = c.read(&s)
+	if err != nil {
+		return 0, 0, err
+	}
+	if s.ItemCount != 2 {
+		return 0, 0, errors.New("itemCount != 2")
+	}
+	err = c.read(&i)
+	if err != nil {
+		return 0, 0, err
+	}
+	if i.Type != itNullAddress || i.Length != 0 {
+		return 0, 0, errors.New("connected addres item not supported")
+	}
+	err = c.read(&i)
+	if err != nil {
+		return 0, 0, err
+	}
+	if i.Type != itUnconnData || i.Length == 0 {
+		return 0, 0, errors.New("connected data item not supported")
+	}
+	err = c.read(&r)
+	if err != nil {
+		return 0, 0, err
+	}
+	return int(r.Status), int(i.Length) - 4, nil
+}
+
+func (c *Client) writeHead(path []uint8, addLen int) {
+	c.c.SetDeadline(time.Now().Add(time.Second * time.Duration(c.Timeout)))
+
+	c.context++
+	c.write(encapsulationHeader{
+		Command:       ecSendRRData,
+		Length:        uint16(16 + 2 + len(path) + addLen),
+		SessionHandle: c.handle,
+		SenderContext: c.context,
+	})
+	c.write(sendData{
+		Timeout:   c.Timeout,
+		ItemCount: 2,
+	})
+	c.write(itemType{Type: itNullAddress, Length: 0})
+	c.write(itemType{Type: itUnconnData, Length: uint16(2 + len(path) + addLen)})
+	c.write(protocolData{
+		Service:  ReadTag,
+		PathSize: uint8(len(path) / 2),
+	})
+	c.write(path)
 }

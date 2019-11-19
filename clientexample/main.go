@@ -28,10 +28,11 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	t, err := c.ReadTag("testDINT[1]", 1)
+	t, err := c.ReadTag("testDINT[0]", 2)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	fmt.Println(t)
+	c.Close()
 }
