@@ -137,7 +137,7 @@ func (r *req) parsePath(path []uint8) (int, int, int, []pathEl, error) {
 	pth := []pathEl{}
 	x := 0
 	for i := 0; i < len(path); i++ {
-		if path[i] == ansiExtended {
+		if path[i] == ansiExtended && i+1 < len(path) && i+1+int(path[i+1]) < len(path) {
 			ln := path[i+1]
 			ansi := string(path[i+2 : i+int(ln)+2])
 			i += int(ln) + 1
@@ -149,14 +149,14 @@ func (r *req) parsePath(path []uint8) (int, int, int, []pathEl, error) {
 			typ := path[i] & pathSegType
 			size := path[i] & pathSize
 			el := 0
-			switch size {
-			case path8:
+			switch {
+			case size == path8 && i+1 < len(path):
 				el = int(path[i+1])
 				i++
-			case path16:
+			case size == path16 && i+3 < len(path):
 				el = int(path[i+2]) + (int(path[i+3]) << 8)
 				i += 3
-			case path32:
+			case size == path32 && i+5 < len(path):
 				el = int(path[i+2]) + (int(path[i+3]) << 8) + (int(path[i+4]) << 16) + (int(path[i+5]) << 24)
 				i += 5
 			default:
@@ -190,6 +190,7 @@ func (r *req) parsePath(path []uint8) (int, int, int, []pathEl, error) {
 			}
 		} else {
 			r.p.debug("path type error", path[i])
+			return 0, 0, 0, nil, errPath
 		}
 		x++
 	}
