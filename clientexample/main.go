@@ -28,7 +28,7 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	t, err := c.ReadTag("testDINT[0]", 2)
+	t, err := c.ReadTag("testSTRUCT", 1)
 	if err != nil {
 		fmt.Println(err)
 		return
