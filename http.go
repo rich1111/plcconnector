@@ -254,7 +254,11 @@ func tagToHTML(t *Tag) string {
 			if tmp <= 256 && ((t.Type == TypeSINT && tmp >= -128) || (t.Type != TypeSINT && tmp >= 0)) {
 				ascii = asciiCode(uint8(tmp))
 			}
-			toSend.WriteString(fmt.Sprintf("<td>%d</td><td>%v</td><td>%v</td><td>%v</td><td>%v</td></tr>\n", n, tmp, hx, ascii, bin))
+			if t.Type == TypeULINT {
+				toSend.WriteString(fmt.Sprintf("<td>%d</td><td>%v</td><td>%v</td><td>%v</td><td>%v</td></tr>\n", n, uint64(tmp), hx, ascii, bin))
+			} else {
+				toSend.WriteString(fmt.Sprintf("<td>%d</td><td>%v</td><td>%v</td><td>%v</td><td>%v</td></tr>\n", n, tmp, hx, ascii, bin))
+			}
 		} else if t.Type == TypeBOOL {
 			toSend.WriteString(fmt.Sprintf("<td>%d</td><td>%v</td></tr>\n", n, tmp))
 		} else if t.Type == TypeREAL {

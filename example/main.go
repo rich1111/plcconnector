@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"os/signal"
 	"syscall"
@@ -86,12 +87,22 @@ func main() {
 	}
 
 	p.NewTag([4]bool{false, true}, "testBOOL")
-	p.NewTag([]int8{-128, 127, 0, 1}, "testSINT")
-	p.NewTag([10]int16{-11, 11, 32767, -32768}, "testINT")
-	p.NewTag([]int32{1, -1}, "testDINT")
-	p.NewTag([]float32{-0.1, 1.123}, "testREAL")
-	p.NewTag([]float64{-0.1, 1.123}, "testLREAL")
-	p.NewTag([]int64{-1, 1}, "testLINT")
+
+	p.NewTag([]int8{1, -128, 127}, "testSINT")
+	p.NewTag([]uint8{1, 0xFF, 0}, "testUSINT")
+
+	p.NewTag([]int16{1, -32768, 32767}, "testINT")
+	p.NewTag([]uint16{1, 0xFFFF, 0}, "testUINT")
+
+	p.NewTag([]int32{1, -2147483648, 2147483647}, "testDINT")
+	p.NewTag([]uint32{1, 0xFFFFFFFF, 0}, "testUDINT")
+
+	p.NewTag([]int64{1, -9223372036854775808, 9223372036854775807}, "testLINT")
+	p.NewTag([]uint64{1, 0xFFFFFFFFFFFFFFFF, 0}, "testULINT")
+
+	p.NewTag([]float32{-0.1, 1.123, 0, math.Float32frombits(0x80000000), float32(math.NaN()), float32(math.Inf(1)), float32(math.Inf(-1))}, "testREAL")
+	p.NewTag([]float64{-0.1, 1.123, 0, math.Float64frombits(0x8000000000000000), math.NaN(), math.Inf(1), math.Inf(-1)}, "testLREAL")
+
 	p.NewTag([]int8{'H', 'e', 'l', 'l', 'o', '!', 0x00, 0x01, 0x7F, 127}, "testASCII")
 
 	p.NewTag("Ala ma kota", "testSTRING")
