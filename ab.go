@@ -222,7 +222,7 @@ func (p *PLC) AddTag(t Tag) {
 	p.tMut.Lock()
 	p.symbols.SetInstance(p.symbols.lastInst+1, in)
 	if typ >= TypeStruct {
-		p.template.SetInstance(t.Type&TypeType, tp)
+		p.template.SetInstance(int(typ)&TypeType, tp)
 	}
 	p.tags[t.Name] = &t
 	p.tMut.Unlock()
