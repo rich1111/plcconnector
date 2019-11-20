@@ -1,18 +1,22 @@
 package plcconnector
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"math"
 	"reflect"
+	"strconv"
 )
 
 type structData struct {
 	d []Tag
 	o map[string]int
-	n string
-	l int
+	n string // name
+	l int    // length
+	h uint16 // handle
 }
 
 // Tag .
@@ -484,8 +488,7 @@ func (p *PLC) NewTag(i interface{}, n string) {
 		case reflect.Struct:
 			a = new(Tag)
 			a.Name = n
-			a.Count = l
-			p.structHelper(a, e, e.NumField())
+			p.structHelper(a, e, e.NumField(), l)
 			a.data = make([]uint8, 0, a.st.l*l)
 			for i := 0; i < l; i++ {
 				for j := 0; j < e.NumField(); j++ {
@@ -500,8 +503,7 @@ func (p *PLC) NewTag(i interface{}, n string) {
 	case reflect.Struct:
 		a = new(Tag)
 		a.Name = n
-		a.Count = 1
-		p.structHelper(a, r, v.NumField())
+		p.structHelper(a, r, v.NumField(), 1)
 		a.data = make([]uint8, 0, a.st.l)
 		for i := 0; i < v.NumField(); i++ {
 			a.data = append(a.data, valueToByte(v.Field(i))...)
@@ -512,11 +514,15 @@ func (p *PLC) NewTag(i interface{}, n string) {
 	p.AddTag(*a)
 }
 
-func (p *PLC) structHelper(a *Tag, t reflect.Type, fs int) {
+func (p *PLC) structHelper(a *Tag, t reflect.Type, fs int, ln int) {
 	typeID := 0
+	var typencstr bytes.Buffer
+	a.Count = ln
 	a.st = new(structData)
 	a.st.o = make(map[string]int)
 	a.st.n = t.Name()
+	typencstr.WriteString(a.st.n)
+	typencstr.WriteRune(',')
 	p.tMut.Lock()
 	id, ok := p.tids[a.st.n]
 	if ok {
@@ -539,9 +545,18 @@ func (p *PLC) structHelper(a *Tag, t reflect.Type, fs int) {
 			a.st.d[i].Count = e.Len()
 			a.st.d[i].Type |= kindToType(e.Elem().Kind())
 		}
+		typencstr.WriteString(typeToString(a.st.d[i].Type & TypeType))
+		if a.st.d[i].Type&TypeArray3D > 0 {
+			typencstr.WriteString("[" + strconv.Itoa(a.st.d[i].Count) + "]")
+		}
+		if i < fs-1 {
+			typencstr.WriteRune(',')
+		}
 		a.st.d[i].offset = a.st.l
 		a.st.l += a.st.d[i].ElemLen() * a.st.d[i].Count
 	}
+	a.st.h = crc16(typencstr.Bytes())
+	fmt.Printf("%v = 0x%X\n", typencstr.String(), a.st.h)
 }
 
 func valueToByte(v reflect.Value) []byte {

@@ -69,6 +69,8 @@ const (
 	TypeArray3D = 0x6000
 	TypeStruct  = 0x8000
 	TypeType    = 0x0FFF
+
+	TypeStructHead = 0x02A00000
 )
 
 // Status codes

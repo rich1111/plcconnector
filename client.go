@@ -250,7 +250,15 @@ func (c *Client) ReadTag(tag string, count int) (*Tag, error) {
 	if err != nil {
 		return nil, err
 	}
-	d := make([]uint8, ln-2)
+	typlen := 2
+	if t == TypeStructHead>>16 {
+		err = c.read(&t)
+		if err != nil {
+			return nil, err
+		}
+		typlen = 4
+	}
+	d := make([]uint8, ln-typlen)
 	err = c.read(&d)
 	if err != nil {
 		return nil, err

@@ -62,10 +62,10 @@ func (p *PLC) debug(args ...interface{}) {
 	}
 }
 
-func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint16, bool) {
+func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint32, bool) {
 
 	var (
-		tgtyp  uint16
+		tgtyp  uint32
 		tgdata []uint8
 		tag    string
 		index  int
@@ -108,13 +108,13 @@ func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint16, bool) {
 		tl = tg.Len()
 		copyFrom = index * tl
 		if memb == "" && membi == 0 {
-			tgtyp = uint16(tg.Type)
+			tgtyp = uint32(tg.Type)
 		} else if memb != "" && tg.st != nil {
 			el := tg.st.Elem(memb)
 			if el != nil {
 				tl = el.Len()
 				copyFrom += el.offset + membi*tl
-				tgtyp = uint16(el.Type)
+				tgtyp = uint32(el.Type)
 			} else {
 				fmt.Println("no member", memb, "in struct", tg.Name)
 				ok = false
@@ -125,6 +125,12 @@ func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint16, bool) {
 		}
 		copyLen = int(count) * tl
 
+		if tg.st != nil && memb == "" {
+			tgtyp |= TypeStructHead
+		} else {
+			tgtyp &= TypeType
+		}
+
 		if ok {
 			tgdata = make([]uint8, copyLen)
 			if copyFrom+copyLen > len(tg.data) {
@@ -132,7 +138,7 @@ func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint16, bool) {
 			} else {
 				copy(tgdata, tg.data[copyFrom:])
 			}
-			p.debug(typeToString(int(tgtyp)&TypeType), tgdata)
+			p.debug(typeToString(int(tgtyp)), tgdata)
 		}
 	}
 	p.tMut.RUnlock()
@@ -185,6 +191,7 @@ func (p *PLC) AddTag(t Tag) {
 	var tp *Instance
 	if typ >= TypeStruct { // TODO only if not already set
 		var buf bytes.Buffer
+		t.Type = int(t.st.h)
 
 		for _, x := range t.st.d {
 			if x.Count > 1 { // TODO BOOL
@@ -202,11 +209,11 @@ func (p *PLC) AddTag(t Tag) {
 
 		bwrite(&buf, make([]byte, (4-buf.Len())&3))
 
-		fmt.Println(t.st.n, t.st.l, buf.Len())
+		// fmt.Println(t.st.n, t.st.l, buf.Len())
 
 		tp = NewInstance(5)
 		tp.data = buf.Bytes()
-		tp.attr[1] = TagUINT(typ&TypeType, "StructureHandle")
+		tp.attr[1] = TagUINT(t.st.h, "StructureHandle")
 		tp.attr[2] = TagUINT(uint16(len(t.st.d)), "TemplateMemberCount")
 		tp.attr[3] = TagUINT(0, "UnkownAttr3")
 		tp.attr[4] = TagUDINT((uint32(buf.Len())+16)/4, "TemplateObjectDefinitionSize") // (x * 4) - 16 // 23 in pdf
@@ -837,7 +844,10 @@ loop:
 
 				if rtData, tagType, ok := p.readTag(path, tagCount); ok {
 					r.write(resp)
-					r.write(tagType)
+					if tagType&0xFFFF0000 == TypeStructHead {
+						r.write(uint16(tagType >> 16))
+					}
+					r.write(uint16(tagType))
 					r.write(rtData)
 				} else {
 					resp.Status = PathSegmentError
