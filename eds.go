@@ -202,12 +202,11 @@ func (p *PLC) loadEDS(fn string) error {
 		in.data = f
 	}
 
-	chksum := uint(0)
+	chksum := 0
 	for _, x := range in.data {
-		chksum += uint(x)
-		chksum &= 0xFFFF
+		chksum += int(x)
 	}
-	chksum = 0x10000 - chksum
+	chksum = 0x10000 - (chksum & 0xFFFF)
 
 	in.attr[1] = TagUSINT(stateLoaded, "State")
 	in.attr[2] = TagStringI("EDS and Icon Files", "InstanceName")
