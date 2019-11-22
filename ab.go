@@ -216,7 +216,7 @@ func (p *PLC) AddTag(t Tag) {
 		tp.attr[1] = TagUINT(t.st.h, "StructureHandle")
 		tp.attr[2] = TagUINT(uint16(len(t.st.d)), "TemplateMemberCount")
 		tp.attr[3] = TagUINT(0, "UnkownAttr3")
-		tp.attr[4] = TagUDINT((uint32(buf.Len())+16)/4, "TemplateObjectDefinitionSize") // (x * 4) - 16 // 23 in pdf
+		tp.attr[4] = TagUDINT((uint32(buf.Len())+20)/4, "TemplateObjectDefinitionSize") // (x * 4) - 20 // 23 in pdf, was 16
 		tp.attr[5] = TagUDINT(uint32(t.st.l), "TemplateStructureSize")
 	}
 	p.tMut.Lock()
