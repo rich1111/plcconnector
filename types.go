@@ -44,22 +44,22 @@ const (
 	TypeULINT       = 0xC9 // 8
 	TypeREAL        = 0xCA // 4
 	TypeLREAL       = 0xCB // 8
-	TypeSTIME       = 0xCC // synchronous time
-	TypeDATE        = 0xCD
-	TypeTIMEOFDAY   = 0xCE
-	TypeDATETIME    = 0xCF
-	TypeSTRING      = 0xD0 // 1
-	TypeBYTE        = 0xD1 // 1
-	TypeWORD        = 0xD2 // 2
-	TypeDWORD       = 0xD3 // 4
-	TypeLWORD       = 0xD4 // 8
-	TypeSTRING2     = 0xD5 // 2
-	TypeFTIME       = 0xD6 // duration high resolution
-	TypeLTIME       = 0xD7 // duration long
-	TypeITIME       = 0xD8 // duration short
-	TypeSTRINGN     = 0xD9 // n
-	TypeSHORTSTRING = 0xDA
-	TypeTIME        = 0xDB // duration miliseconds
+	TypeSTIME       = 0xCC // synchronous time =DINT
+	TypeDATE        = 0xCD // day from 01-01-1972 =UINT
+	TypeTIMEOFDAY   = 0xCE // =UDINT
+	TypeDATETIME    = 0xCF // =UDINT+UINT
+	TypeSTRING      = 0xD0 // =UINT+x*USINT
+	TypeBYTE        = 0xD1 // =x*USINT
+	TypeWORD        = 0xD2 // =x*UINT
+	TypeDWORD       = 0xD3 // =x*UDINT
+	TypeLWORD       = 0xD4 // =x*ULINT
+	TypeSTRING2     = 0xD5 // =UINT+x*UINT
+	TypeFTIME       = 0xD6 // duration high resolution microseconds =DINT
+	TypeLTIME       = 0xD7 // duration long microseconds =LINT
+	TypeITIME       = 0xD8 // duration short =INT
+	TypeSTRINGN     = 0xD9 // =UINT+UINT(n)+x*n
+	TypeSHORTSTRING = 0xDA // =USINT+x*USINT
+	TypeTIME        = 0xDB // duration miliseconds =DINT
 	TypeEPATH       = 0xDC
 	TypeENGUNIT     = 0xDD // engineering units
 	TypeSTRINGI     = 0xDE

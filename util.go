@@ -95,14 +95,14 @@ func typeLen(t uint16) uint16 {
 		return 4
 	case TypeLREAL:
 		return 8
-	// case TypeSTIME:
-	// 	return 1
-	// case TypeDATE:
-	// 	return 1
-	// case TypeTIMEOFDAY:
-	// 	return 1
-	// case TypeDATETIME:
-	// 	return 1
+	case TypeSTIME:
+		return 4
+	case TypeDATE:
+		return 2
+	case TypeTIMEOFDAY:
+		return 4
+	case TypeDATETIME:
+		return 6
 	case TypeSTRING:
 		return 1
 	case TypeBYTE:
@@ -115,18 +115,18 @@ func typeLen(t uint16) uint16 {
 		return 8
 	case TypeSTRING2:
 		return 2
-	// case TypeFTIME:
-	// 	return 1
-	// case TypeLTIME:
-	// 	return 1
-	// case TypeITIME:
-	// 	return 1
+	case TypeFTIME:
+		return 4
+	case TypeLTIME:
+		return 8
+	case TypeITIME:
+		return 2
 	// case TypeSTRINGN:
 	// 	return 1
-	// case TypeSHORTSTRING:
-	// 	return 1
-	// case TypeTIME:
-	// 	return 1
+	case TypeSHORTSTRING:
+		return 1
+	case TypeTIME:
+		return 4
 	// case TypeEPATH:
 	// 	return 1
 	// case TypeENGUNIT:
