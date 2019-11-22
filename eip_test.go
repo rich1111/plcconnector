@@ -74,6 +74,8 @@ func Test_parsePath(t *testing.T) {
 		{"18", args{"ta'g1ss[2]"}, nil},
 		{"12", args{"tag3[.].count"}, nil},
 		{"12", args{"tag3[abc].count"}, nil},
+		{"10", args{"tag:8:U"}, []pathEl{pathEl{typ: ansiExtended, txt: "tag:8:U"}}},
+		{"10", args{"tag_aa:12:33"}, []pathEl{pathEl{typ: ansiExtended, txt: "tag_aa:12:33"}}},
 		{"10", args{"tag"}, []pathEl{pathEl{typ: ansiExtended, txt: "tag"}}},
 		{"11", args{"tag[41]"}, []pathEl{pathEl{typ: ansiExtended, txt: "tag"}, pathEl{typ: pathElement, val: 41}}},
 		{"12", args{"tag3.count"}, []pathEl{pathEl{typ: ansiExtended, txt: "tag3"}, pathEl{typ: ansiExtended, txt: "count"}}},

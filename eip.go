@@ -78,7 +78,7 @@ func parsePath(p string) []pathEl {
 			} else {
 				no += string(t)
 			}
-		case unicode.IsLetter(t):
+		case unicode.IsLetter(t) || t == ':' || t == '_':
 			if !inName {
 				return nil
 			}

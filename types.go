@@ -45,7 +45,7 @@ const (
 	TypeREAL        = 0xCA // 4
 	TypeLREAL       = 0xCB // 8
 	TypeSTIME       = 0xCC // synchronous time
-	TypeDATE        = 0x0CD
+	TypeDATE        = 0xCD
 	TypeTIMEOFDAY   = 0xCE
 	TypeDATETIME    = 0xCF
 	TypeSTRING      = 0xD0 // 1
