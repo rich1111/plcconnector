@@ -537,7 +537,11 @@ loop:
 					r.write(in.getAttrAll())
 				} else {
 					p.debug("path unknown", path)
-					resp.Status = PathUnknown
+					if class == FileClass {
+						resp.Status = ObjectNotExist
+					} else {
+						resp.Status = PathUnknown
+					}
 					r.write(resp)
 				}
 
@@ -584,7 +588,11 @@ loop:
 					r.write(buf.Bytes())
 				} else {
 					p.debug("path unknown", path)
-					resp.Status = PathUnknown
+					if class == FileClass {
+						resp.Status = ObjectNotExist
+					} else {
+						resp.Status = PathUnknown
+					}
 					r.write(resp)
 				}
 
@@ -658,7 +666,11 @@ loop:
 					r.write(at.data)
 				} else {
 					p.debug("path unknown", path)
-					resp.Status = PathUnknown
+					if class == FileClass {
+						resp.Status = ObjectNotExist
+					} else {
+						resp.Status = PathUnknown
+					}
 					r.write(resp)
 				}
 

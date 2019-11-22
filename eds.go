@@ -1,6 +1,8 @@
 package plcconnector
 
 import (
+	"bytes"
+	"compress/gzip"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -184,10 +186,23 @@ func (p *PLC) loadEDS(fn string) error {
 
 	p.Class[FileClass] = NewClass("File", 32)
 
+	gzipped := false
+
 	in := NewInstance(11) // EDS.gz
 
+	if gzipped {
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		gz.Name = "0001000E00601800.eds"
+		gz.Comment = "ODVA File Encoding V1.0"
+		gz.OS = 0x0B // NTFS
+		gz.Write(f)
+		in.data = buf.Bytes()
+	} else {
+		in.data = f
+	}
+
 	chksum := uint(0)
-	in.data = f
 	for _, x := range in.data {
 		chksum += uint(x)
 		chksum &= 0xFFFF
@@ -197,14 +212,19 @@ func (p *PLC) loadEDS(fn string) error {
 	in.attr[1] = TagUSINT(stateLoaded, "State")
 	in.attr[2] = TagStringI("EDS and Icon Files", "InstanceName")
 	in.attr[3] = TagUINT(1, "InstanceFormatVersion")
-	in.attr[4] = TagStringI("EDS.txt", "FileName")
+	if gzipped {
+		in.attr[4] = TagStringI("EDS.gz", "FileName")
+		in.attr[11] = TagUSINT(1, "FileEncodingFormat")
+	} else {
+		in.attr[4] = TagStringI("EDS.txt", "FileName")
+		in.attr[11] = TagUSINT(0, "FileEncodingFormat")
+	}
 	in.attr[5] = TagUINT(majRev+minRev<<8, "FileRevision")
-	in.attr[6] = TagUDINT(uint32(len(f)), "FileSize")
+	in.attr[6] = TagUDINT(uint32(len(in.data)), "FileSize")
 	in.attr[7] = TagINT(int16(chksum), "FileChecksum")
-	in.attr[8] = TagUSINT(255, "InvocationMethod")  // not aplicable
-	in.attr[9] = TagUSINT(1, "FileSaveParameters")  // BYTE
-	in.attr[10] = TagUSINT(1, "FileType")           // read only
-	in.attr[11] = TagUSINT(0, "FileEncodingFormat") // uncompressed
+	in.attr[8] = TagUSINT(255, "InvocationMethod") // not aplicable
+	in.attr[9] = TagUSINT(1, "FileSaveParameters") // BYTE
+	in.attr[10] = TagUSINT(1, "FileType")          // read only
 
 	p.Class[FileClass].SetInstance(0xC8, in)
 
