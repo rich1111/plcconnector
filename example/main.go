@@ -116,9 +116,12 @@ func main() {
 
 	p.NewUDT([]plc.T{{N: "x", T: "DINT"}, {N: "y", T: "DINT"}}, "POSITION")
 	p.NewUDT([]plc.T{{N: "sprites", T: "POSITION", C: 8}, {N: "money", T: "LINT"}}, "HMM")
+	p.NewUDT([]plc.T{{N: "x", T: "DINT"}, {N: "y", T: "DINT"}, {N: "z", T: "DINT"}}, "POSITION3D")
+	p.NewUDT([]plc.T{{N: "objects", T: "POSITION3D", C: 2}, {N: "lives", T: "SINT"}}, "MHH")
 
 	p.CreateTag("POSITION", "pos1")
 	p.CreateTag("HMM", "hmm1")
+	p.CreateTag("MHH", "mhh1")
 
 	err = p.NewTagJSON("test.json", "JSON")
 	if err != nil {
