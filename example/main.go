@@ -114,6 +114,12 @@ func main() {
 	p.NewTag([4]structTest2{{ala: 5.5, kot: -111, pies: [8]int8{0, 1, 2, 3, 4, 5, 6, 7}},
 		{ala: -5.5, kot: 111, pies: [8]int8{8, 9, 10, 11, 12, 13, 14, 15}}}, "testSTRUCT3")
 
+	p.NewUDT([]plc.T{{N: "x", T: "DINT"}, {N: "y", T: "DINT"}}, "POSITION")
+	p.NewUDT([]plc.T{{N: "sprites", T: "POSITION", C: 8}, {N: "money", T: "LINT"}}, "HMM")
+
+	p.CreateTag("POSITION", "pos1")
+	p.CreateTag("HMM", "hmm1")
+
 	err = p.NewTagJSON("test.json", "JSON")
 	if err != nil {
 		fmt.Println(err)

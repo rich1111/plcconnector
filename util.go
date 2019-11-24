@@ -208,6 +208,77 @@ func typeToString(t int) string {
 	}
 }
 
+func (p *PLC) stringToType(t string) int {
+	switch t {
+	case "BOOL":
+		return TypeBOOL
+	case "SINT":
+		return TypeSINT
+	case "INT":
+		return TypeINT
+	case "DINT":
+		return TypeDINT
+	case "LINT":
+		return TypeLINT
+	case "USINT":
+		return TypeUSINT
+	case "UINT":
+		return TypeUINT
+	case "UDINT":
+		return TypeUDINT
+	case "ULINT":
+		return TypeULINT
+	case "REAL":
+		return TypeREAL
+	case "LREAL":
+		return TypeLREAL
+	case "STIME":
+		return TypeSTIME
+	case "DATE":
+		return TypeDATE
+	case "TIMEOFDAY":
+		return TypeTIMEOFDAY
+	case "DATETIME":
+		return TypeDATETIME
+	case "STRING":
+		return TypeSTRING
+	case "BYTE":
+		return TypeBYTE
+	case "WORD":
+		return TypeWORD
+	case "DWORD":
+		return TypeDWORD
+	case "LWORD":
+		return TypeLWORD
+	case "STRING2":
+		return TypeSTRING2
+	case "FTIME":
+		return TypeFTIME
+	case "LTIME":
+		return TypeLTIME
+	case "ITIME":
+		return TypeITIME
+	case "STRINGN":
+		return TypeSTRINGN
+	case "SHORTSTRING":
+		return TypeSHORTSTRING
+	case "TIME":
+		return TypeTIME
+	case "EPATH":
+		return TypeEPATH
+	case "ENGUNIT":
+		return TypeENGUNIT
+	case "STRINGI":
+		return TypeSTRINGI
+	default:
+		s, ok := p.tids[t]
+		if ok {
+			return TypeStruct + int(s.h)
+		}
+		return 0
+	}
+}
+
 func asciiCode(x uint8) (r string) {
 	switch x {
 	case 0:

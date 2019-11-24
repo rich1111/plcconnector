@@ -28,7 +28,7 @@ type PLC struct {
 	port      uint16
 	symbols   *Class
 	template  *Class
-	tids      map[string]int
+	tids      map[string]structData
 	tidLast   int
 	tMut      sync.RWMutex
 	tags      map[string]*Tag
@@ -44,7 +44,7 @@ func Init(eds string) (*PLC, error) {
 	var p PLC
 	p.Class = make(map[int]*Class)
 	p.tags = make(map[string]*Tag)
-	p.tids = make(map[string]int)
+	p.tids = make(map[string]structData)
 	p.tidLast = 1
 	p.Timeout = 60 * time.Second
 
@@ -188,42 +188,11 @@ func (p *PLC) AddTag(t Tag) {
 	} else {
 		in.attr[8] = &Tag{Name: "Dimensions", data: []uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
 	}
-	var tp *Instance
-	if typ >= TypeStruct { // TODO only if not already set
-		var buf bytes.Buffer
+	if typ >= TypeStruct {
 		t.Type = int(t.st.h)
-
-		for _, x := range t.st.d {
-			if x.Count > 1 { // TODO BOOL
-				bwrite(&buf, uint16(x.Count))
-			} else {
-				bwrite(&buf, uint16(0))
-			}
-			bwrite(&buf, uint16(x.Type)) // member type
-			bwrite(&buf, uint32(x.offset))
-		}
-		bwrite(&buf, []byte(t.st.n+";n\x00")) // template name
-		for _, x := range t.st.d {
-			bwrite(&buf, []byte(x.Name+"\x00")) // member name
-		}
-
-		bwrite(&buf, make([]byte, (4-buf.Len())&3))
-
-		// fmt.Println(t.st.n, t.st.l, buf.Len())
-
-		tp = NewInstance(5)
-		tp.data = buf.Bytes()
-		tp.attr[1] = TagUINT(t.st.h, "StructureHandle")
-		tp.attr[2] = TagUINT(uint16(len(t.st.d)), "TemplateMemberCount")
-		tp.attr[3] = TagUINT(0, "UnkownAttr3")
-		tp.attr[4] = TagUDINT((uint32(buf.Len())+20)/4, "TemplateObjectDefinitionSize") // (x * 4) - 20 // 23 in pdf, was 16
-		tp.attr[5] = TagUDINT(uint32(t.st.l), "TemplateStructureSize")
 	}
 	p.tMut.Lock()
 	p.symbols.SetInstance(p.symbols.lastInst+1, in)
-	if typ >= TypeStruct {
-		p.template.SetInstance(int(typ)&TypeType, tp)
-	}
 	p.tags[t.Name] = &t
 	p.tMut.Unlock()
 }

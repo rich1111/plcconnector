@@ -1,14 +1,11 @@
 package plcconnector
 
 import (
-	"bytes"
 	"encoding/binary"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"math"
 	"reflect"
-	"strconv"
 )
 
 type structData struct {
@@ -17,6 +14,7 @@ type structData struct {
 	n string // name
 	l int    // length
 	h uint16 // handle
+	i int    // instance (Symbols)
 }
 
 // Tag .
@@ -514,51 +512,6 @@ func (p *PLC) NewTag(i interface{}, n string) {
 	p.AddTag(*a)
 }
 
-func (p *PLC) structHelper(a *Tag, t reflect.Type, fs int, ln int) {
-	typeID := 0
-	var typencstr bytes.Buffer
-	a.Count = ln
-	a.st = new(structData)
-	a.st.o = make(map[string]int)
-	a.st.n = t.Name()
-	typencstr.WriteString(a.st.n)
-	typencstr.WriteRune(',')
-	p.tMut.Lock()
-	id, ok := p.tids[a.st.n]
-	if ok {
-		typeID = id
-	} else {
-		typeID = p.tidLast
-		p.tids[a.st.n] = typeID
-		p.tidLast++
-	}
-	p.tMut.Unlock()
-	a.Type = TypeStruct + typeID
-	a.st.d = make([]Tag, fs)
-	for i := 0; i < fs; i++ {
-		a.st.d[i].Name = t.Field(i).Name
-		a.st.o[t.Field(i).Name] = i
-		e := t.Field(i).Type
-		a.st.d[i].Count = 1
-		a.st.d[i].Type = kindToType(e.Kind())
-		if a.st.d[i].Type == TypeArray1D {
-			a.st.d[i].Count = e.Len()
-			a.st.d[i].Type |= kindToType(e.Elem().Kind())
-		}
-		typencstr.WriteString(typeToString(a.st.d[i].Type & TypeType))
-		if a.st.d[i].Type&TypeArray3D > 0 {
-			typencstr.WriteString("[" + strconv.Itoa(a.st.d[i].Count) + "]")
-		}
-		if i < fs-1 {
-			typencstr.WriteRune(',')
-		}
-		a.st.d[i].offset = a.st.l
-		a.st.l += a.st.d[i].ElemLen() * a.st.d[i].Count
-	}
-	a.st.h = crc16(typencstr.Bytes())
-	fmt.Printf("%v = 0x%X\n", typencstr.String(), a.st.h)
-}
-
 func valueToByte(v reflect.Value) []byte {
 	var r []byte
 	switch v.Kind() {
@@ -781,4 +734,18 @@ func (t *Tag) DataLINT() []int64 {
 		ret = append(ret, tmp)
 	}
 	return ret
+}
+
+// CreateTag .
+func (p *PLC) CreateTag(typ string, name string) {
+	var t Tag
+	st, ok := p.tids[typ]
+	if ok {
+		t.st = &st
+		t.Type = TypeStruct | t.st.i
+		t.Name = name
+		t.Count = 1
+		t.data = make([]uint8, t.st.l)
+		p.AddTag(t)
+	}
 }
