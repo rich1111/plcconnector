@@ -32,13 +32,15 @@ func (p *PLC) NewUDT(udt []T, name string) error {
 		}
 		st.d[i].Count = udt[i].C
 		st.d[i].Type = p.stringToType(udt[i].T)
-		if st.d[i].Type >= TypeStruct {
+		if st.d[i].Type >= TypeStructHead {
 			ste, ok := p.tids[udt[i].T]
 			if ok {
 				st.d[i].st = &ste
 			} else {
 				panic("!" + udt[i].T)
 			}
+		} else if st.d[i].Count > 1 {
+			st.d[i].Type |= TypeArray1D
 		}
 		// fmt.Println(udt[i].T, st.d[i].Type)
 		typencstr.WriteString(udt[i].T)
@@ -50,9 +52,6 @@ func (p *PLC) NewUDT(udt []T, name string) error {
 		}
 		st.d[i].offset = st.l
 		st.l += st.d[i].ElemLen() * st.d[i].Count
-		if st.d[i].Type >= TypeStruct { // FIXME!! A002
-			st.d[i].Type &^= TypeStruct
-		}
 	}
 	st.h = crc16(typencstr.Bytes())
 	p.addUDT(st)
@@ -62,10 +61,10 @@ func (p *PLC) NewUDT(udt []T, name string) error {
 
 func (p *PLC) addUDT(st *structData) int {
 	p.tMut.Lock()
-	s, ok := p.tids[st.n]
+	ste, ok := p.tids[st.n]
 	if ok {
 		p.tMut.Unlock()
-		return s.i
+		return ste.i
 	}
 	st.i = p.tidLast
 	p.tids[st.n] = *st
@@ -124,7 +123,7 @@ func (p *PLC) structHelper(a *Tag, t reflect.Type, fs int, ln int) {
 		a.st.d[i].Type = kindToType(e.Kind())
 		if a.st.d[i].Type == TypeArray1D {
 			a.st.d[i].Count = e.Len()
-			a.st.d[i].Type = kindToType(e.Elem().Kind())
+			a.st.d[i].Type = TypeArray1D | kindToType(e.Elem().Kind())
 		}
 		typencstr.WriteString(typeToString(a.st.d[i].Type & TypeType))
 		if a.st.d[i].Type&TypeArray3D > 0 {
@@ -137,6 +136,7 @@ func (p *PLC) structHelper(a *Tag, t reflect.Type, fs int, ln int) {
 		a.st.l += a.st.d[i].ElemLen() * a.st.d[i].Count
 	}
 	a.st.h = crc16(typencstr.Bytes())
-	a.Type = TypeStruct + p.addUDT(a.st)
+	a.Type = TypeStructHead | int(a.st.h)
+	a.st.i = p.addUDT(a.st)
 	fmt.Printf("%v = 0x%X (%d)\n", typencstr.String(), a.st.h, a.st.h)
 }

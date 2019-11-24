@@ -126,7 +126,7 @@ func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint32, bool) {
 		copyLen = int(count) * tl
 
 		if tg.st != nil && memb == "" {
-			tgtyp |= TypeStructHead
+			// tgtyp |= TypeStructHead
 		} else {
 			tgtyp &= TypeType
 		}
@@ -181,15 +181,16 @@ func (p *PLC) AddTag(t Tag) {
 	if t.Count > 1 {
 		typ |= TypeArray1D
 	}
-	in.attr[2] = TagUINT(typ, "SymbolType")
+	if t.Type >= TypeStructHead {
+		in.attr[2] = TagUINT(TypeStruct+uint16(t.st.i), "SymbolType")
+	} else {
+		in.attr[2] = TagUINT(typ, "SymbolType")
+	}
 	in.attr[7] = TagUINT(uint16(t.ElemLen()), "BaseTypeSize")
 	if t.Count > 1 {
 		in.attr[8] = &Tag{Name: "Dimensions", data: []uint8{uint8(t.Count), uint8(t.Count >> 8), uint8(t.Count >> 16), uint8(t.Count >> 24), 0, 0, 0, 0, 0, 0, 0, 0}}
 	} else {
 		in.attr[8] = &Tag{Name: "Dimensions", data: []uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
-	}
-	if typ >= TypeStruct {
-		t.Type = int(t.st.h)
 	}
 	p.tMut.Lock()
 	p.symbols.SetInstance(p.symbols.lastInst+1, in)
@@ -825,7 +826,7 @@ loop:
 
 				if rtData, tagType, ok := p.readTag(path, tagCount); ok {
 					r.write(resp)
-					if tagType&0xFFFF0000 == TypeStructHead {
+					if tagType >= TypeStructHead {
 						r.write(uint16(tagType >> 16))
 					}
 					r.write(uint16(tagType))

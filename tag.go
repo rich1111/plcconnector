@@ -39,7 +39,7 @@ func (st structData) Elem(n string) *Tag {
 
 // Len .
 func (t Tag) Len() int {
-	if t.Type > TypeStruct {
+	if t.Type >= TypeStructHead {
 		return t.st.l
 	}
 	switch t.Type {
@@ -52,7 +52,7 @@ func (t Tag) Len() int {
 
 // ElemLen .
 func (t Tag) ElemLen() int {
-	if t.Type > TypeStruct {
+	if t.Type >= TypeStructHead {
 		return t.st.l
 	}
 	return int(typeLen(uint16(t.Type)))
@@ -60,7 +60,7 @@ func (t Tag) ElemLen() int {
 
 // TypeString .
 func (t Tag) TypeString() string {
-	if t.Type > TypeStruct {
+	if t.Type >= TypeStructHead {
 		return t.st.n
 	}
 	return typeToString(t.Type)
@@ -742,7 +742,7 @@ func (p *PLC) CreateTag(typ string, name string) {
 	st, ok := p.tids[typ]
 	if ok {
 		t.st = &st
-		t.Type = TypeStruct | t.st.i
+		t.Type = TypeStructHead | int(t.st.h)
 		t.Name = name
 		t.Count = 1
 		t.data = make([]uint8, t.st.l)

@@ -201,7 +201,7 @@ func typeToString(t int) string {
 	case TypeSTRINGI:
 		return "STRINGI"
 	default:
-		if t&0xFFFF0000 == TypeStructHead {
+		if t >= TypeStructHead {
 			return "STRUCT"
 		}
 		return "UNKNOWN"
@@ -273,7 +273,7 @@ func (p *PLC) stringToType(t string) int {
 	default:
 		s, ok := p.tids[t]
 		if ok {
-			return TypeStruct + int(s.h)
+			return TypeStructHead | int(s.h)
 		}
 		return 0
 	}
