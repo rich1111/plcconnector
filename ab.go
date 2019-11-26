@@ -809,9 +809,15 @@ loop:
 				}
 				p.debug(rd.Offset, rd.Number)
 
-				in := p.GetClassInstance(class, instance)
-				r.write(resp)
-				r.write(in.data)
+				if in := p.GetClassInstance(class, instance); in != nil {
+					r.write(resp)
+					r.write(in.data)
+				} else {
+					p.debug("path unknown", path)
+
+					resp.Status = PathUnknown
+					r.write(resp)
+				}
 
 			case protd.Service == ReadTag:
 				p.debug("ReadTag")
