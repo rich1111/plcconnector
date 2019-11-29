@@ -80,7 +80,15 @@ func (p *PLC) addUDT(st *structData) int {
 		} else {
 			bwrite(&buf, uint16(0))
 		}
-		bwrite(&buf, uint16(x.Type)) // member type
+		if x.Type >= TypeStructHead {
+			if x.st.i > 1 {
+				bwrite(&buf, uint16(x.st.i|TypeStruct))
+			} else {
+				bwrite(&buf, uint16(x.st.i|TypeStruct|TypeArray1D))
+			}
+		} else {
+			bwrite(&buf, uint16(x.Type)) // member type
+		}
 		bwrite(&buf, uint32(x.offset))
 	}
 	bwrite(&buf, []byte(st.n+";n\x00")) // template name
