@@ -82,9 +82,9 @@ func (p *PLC) addUDT(st *structData) int {
 		}
 		if x.Type >= TypeStructHead {
 			if x.st.i > 1 {
-				bwrite(&buf, uint16(x.st.i|TypeStruct))
-			} else {
 				bwrite(&buf, uint16(x.st.i|TypeStruct|TypeArray1D))
+			} else {
+				bwrite(&buf, uint16(x.st.i|TypeStruct))
 			}
 		} else {
 			bwrite(&buf, uint16(x.Type)) // member type
