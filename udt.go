@@ -16,6 +16,11 @@ type T struct {
 
 // NewUDT .
 func (p *PLC) NewUDT(udt []T, name string) error {
+	p.newUDT(udt, name, 0)
+	return nil
+}
+
+func (p *PLC) newUDT(udt []T, name string, handle int) error {
 	var typencstr bytes.Buffer
 	st := new(structData)
 	st.o = make(map[string]int)
@@ -53,7 +58,11 @@ func (p *PLC) NewUDT(udt []T, name string) error {
 		st.d[i].offset = st.l
 		st.l += st.d[i].ElemLen() * st.d[i].Count
 	}
-	st.h = crc16(typencstr.Bytes())
+	if handle == 0 {
+		st.h = crc16(typencstr.Bytes())
+	} else {
+		st.h = uint16(handle)
+	}
 	p.addUDT(st)
 	fmt.Printf("%v = 0x%X (%d)\n", typencstr.String(), st.h, st.h)
 	return nil

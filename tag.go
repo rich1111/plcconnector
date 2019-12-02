@@ -2,8 +2,6 @@ package plcconnector
 
 import (
 	"encoding/binary"
-	"encoding/json"
-	"io/ioutil"
 	"math"
 	"reflect"
 )
@@ -368,21 +366,6 @@ func TagStringI(v string, n string) *Tag {
 	}
 	a.data = append(a.data, []byte(v)...)
 	return &a
-}
-
-// NewTagJSON .
-func (p *PLC) NewTagJSON(fn string, n string) error {
-	var js interface{}
-	fc, err := ioutil.ReadFile(fn)
-	if err != nil {
-		return err
-	}
-	err = json.Unmarshal(fc, &js)
-	if err != nil {
-		return err
-	}
-	p.NewTag(js, n)
-	return nil
 }
 
 // NewTag .
