@@ -747,7 +747,7 @@ func (p *PLC) CreateTag(typ string, name string) {
 	}
 }
 
-func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint32, bool) {
+func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint32, bool) { // FIXME false callback
 
 	var (
 		tgtyp  uint32
@@ -849,7 +849,7 @@ func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint32, bool) {
 	return nil, 0, false
 }
 
-func (p *PLC) saveTag(path []pathEl, typ uint16, count uint16, data []uint8) bool {
+func (p *PLC) saveTag(path []pathEl, typ uint16, count int, data []uint8, offset int) bool { // FIXME false callback
 	var (
 		tag   string
 		index int
@@ -877,14 +877,16 @@ func (p *PLC) saveTag(path []pathEl, typ uint16, count uint16, data []uint8) boo
 
 	p.tMut.Lock()
 	tg, ok := p.tags[tag]
-	if ok && tg.Type == int(typ) && tg.Count >= index+int(count) {
+	index += offset / tg.ElemLen()
+	if ok && tg.Type == int(typ) && tg.Count >= index+count {
 		copy(tg.data[index*tg.ElemLen():], data)
 	} else {
-		p.AddTag(Tag{Name: tag, Type: int(typ), Count: int(count), data: data})
+		p.tMut.Unlock()
+		return false
 	}
 	p.tMut.Unlock()
 	if p.callback != nil {
-		go p.callback(WriteTag, Success, &Tag{Name: tag, Type: int(typ), Index: index, Count: int(count), data: data})
+		go p.callback(WriteTag, Success, &Tag{Name: tag, Type: int(typ), Index: index, Count: count, data: data})
 	}
 	return true
 }

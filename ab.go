@@ -239,6 +239,7 @@ loop:
 				protd        protocolData
 				protSeqCount uint16
 				resp         response
+				dataLen      int
 			)
 			err = r.read(&r.rrdata)
 			if err != nil {
@@ -292,11 +293,13 @@ loop:
 			if err != nil {
 				break loop
 			}
+			dataLen = int(item.Length)
 			if item.Type == itConnData {
 				err = r.read(&protSeqCount)
 				if err != nil {
 					break loop
 				}
+				dataLen -= 2
 				cidok = true
 			} else if item.Type != itUnconnData {
 				p.debug("unkown data item:", item.Type)
@@ -327,6 +330,7 @@ loop:
 			if err != nil {
 				break loop
 			}
+			dataLen -= 2 + len(ePath)
 
 			class, instance, attr, path, err := r.parsePath(ePath)
 			if p.Verbose {
@@ -359,6 +363,7 @@ loop:
 				if err != nil {
 					break loop
 				}
+				dataLen -= 6 + len(ePath)
 
 				class, instance, attr, path, err = r.parsePath(ePath)
 				if p.Verbose {
@@ -743,7 +748,46 @@ loop:
 					break loop
 				}
 
-				if p.saveTag(path, tagType, tagCount, wrData) {
+				if p.saveTag(path, tagType, int(tagCount), wrData, 0) {
+					r.write(resp)
+				} else {
+					resp.Status = PathSegmentError
+					resp.AddStatusSize = 1
+
+					r.write(resp)
+					r.write(uint16(0))
+				}
+
+			case protd.Service == WriteTagFrag:
+				p.debug("WriteTagFragmented")
+				mayCon = true
+
+				var (
+					tagType   uint16
+					tagCount  uint16
+					tagOffset uint32
+				)
+
+				err = r.read(&tagType)
+				if err != nil {
+					break loop
+				}
+				err = r.read(&tagCount)
+				if err != nil {
+					break loop
+				}
+				err = r.read(&tagOffset)
+				if err != nil {
+					break loop
+				}
+
+				wrData := make([]uint8, dataLen-8)
+				err = r.read(wrData)
+				if err != nil {
+					break loop
+				}
+
+				if p.saveTag(path, tagType, (dataLen-8)/int(typeLen(tagType)), wrData, int(tagOffset)) {
 					r.write(resp)
 				} else {
 					resp.Status = PathSegmentError
