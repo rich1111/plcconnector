@@ -724,18 +724,10 @@ loop:
 				mayCon = true
 
 				var (
-					tagName  string
 					tagType  uint16
-					tagIndex int
 					tagCount uint16
 				)
 
-				if len(path) > 0 && path[0].typ == ansiExtended {
-					tagName = path[0].txt
-					if len(path) > 1 && path[1].typ == pathElement {
-						tagIndex = path[1].val
-					}
-				}
 				err = r.read(&tagType)
 				if err != nil {
 					break loop
@@ -744,7 +736,6 @@ loop:
 				if err != nil {
 					break loop
 				}
-				p.debug(tagName, tagType, tagIndex, tagCount)
 
 				wrData := make([]uint8, typeLen(tagType)*tagCount)
 				err = r.read(wrData)
@@ -752,7 +743,7 @@ loop:
 					break loop
 				}
 
-				if p.saveTag(tagName, tagType, tagIndex, tagCount, wrData) {
+				if p.saveTag(path, tagType, tagCount, wrData) {
 					r.write(resp)
 				} else {
 					resp.Status = PathSegmentError

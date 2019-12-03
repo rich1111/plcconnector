@@ -720,6 +720,19 @@ func (t *Tag) DataLINT() []int64 {
 	return ret
 }
 
+// DataString returns string.
+func (t *Tag) DataString() string {
+	switch t.Type {
+	case TypeSTRING:
+		return string(t.data[2:])
+	case TypeSHORTSTRING:
+		return string(t.data[1:])
+	default:
+		fmt.Println("DataString error", t.Type)
+	}
+	return "error string"
+}
+
 // CreateTag .
 func (p *PLC) CreateTag(typ string, name string) {
 	var t Tag
@@ -743,29 +756,39 @@ func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint32, bool) {
 		index  int
 		memb   string
 		membi  int
+		pi     = 0
 	)
 
-	if len(path) > 0 && path[0].typ == ansiExtended { // TODO better
-		tag = path[0].txt
-		if len(path) > 1 {
-			switch path[1].typ {
+	if len(path) > 0 {
+		if path[0].typ == ansiExtended { // TODO better, function
+			tag = path[0].txt
+		} else if len(path) > 1 && path[0].typ == pathClass && path[0].val == SymbolClass && path[1].typ == pathInstance {
+			pi = 1
+			tag = p.symbols.inst[path[1].val].attr[1].DataString()
+		} else {
+			return nil, 0, false
+		}
+		if len(path) > pi+1 {
+			switch path[pi+1].typ {
 			case pathElement:
-				index = path[1].val
+				index = path[pi+1].val
 			case ansiExtended:
-				memb = path[1].txt
+				memb = path[pi+1].txt
 			}
 		}
-		if len(path) > 2 {
-			switch path[2].typ {
+		if len(path) > pi+2 {
+			switch path[pi+2].typ {
 			case pathElement:
-				membi = path[2].val
+				membi = path[pi+2].val
 			case ansiExtended:
-				memb = path[2].txt
+				memb = path[pi+2].txt
 			}
 		}
-		if len(path) > 3 && path[3].typ == pathElement {
-			membi = path[3].val
+		if len(path) > pi+3 && path[pi+3].typ == pathElement {
+			membi = path[pi+3].val
 		}
+	} else {
+		return nil, 0, false
 	}
 
 	p.tMut.RLock()
@@ -826,7 +849,32 @@ func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint32, bool) {
 	return nil, 0, false
 }
 
-func (p *PLC) saveTag(tag string, typ uint16, index int, count uint16, data []uint8) bool {
+func (p *PLC) saveTag(path []pathEl, typ uint16, count uint16, data []uint8) bool {
+	var (
+		tag   string
+		index int
+		pi    int
+	)
+
+	if len(path) > 0 {
+		if path[0].typ == ansiExtended { // TODO better, function
+			tag = path[0].txt
+		} else if len(path) > 1 && path[0].typ == pathClass && path[0].val == SymbolClass && path[1].typ == pathInstance {
+			pi = 1
+			tag = p.symbols.inst[path[1].val].attr[1].DataString()
+		} else {
+			return false
+		}
+		if len(path) > pi+1 {
+			switch path[pi+1].typ {
+			case pathElement:
+				index = path[pi+1].val
+			}
+		}
+	} else {
+		return false
+	}
+
 	p.tMut.Lock()
 	tg, ok := p.tags[tag]
 	if ok && tg.Type == int(typ) && tg.Count >= index+int(count) {
