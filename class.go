@@ -117,7 +117,7 @@ func (p *PLC) GetClassInstancesList(class int, instanceFrom int) ([]int, []*Inst
 			instanceFrom = 1
 		}
 		c.m.RLock()
-		ret := make([]int, 0, len(c.inst)-instanceFrom)
+		ret := make([]int, 0, len(c.inst))
 		i := 0
 		for in := range c.inst {
 			if in >= instanceFrom {
