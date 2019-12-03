@@ -88,8 +88,7 @@ func (p *PLC) ImportJSON(file string) error {
 			tag.Type = int(st.h) | TypeStructHead
 			tag.data = make([]uint8, st.l*tag.Count)
 		}
-		p.AddTag(tag)
-
+		p.addTag(tag, s.Instance)
 	}
 	return nil
 }

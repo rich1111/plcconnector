@@ -2,6 +2,7 @@ package plcconnector
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math"
 	"reflect"
 )
@@ -731,4 +732,169 @@ func (p *PLC) CreateTag(typ string, name string) {
 		t.data = make([]uint8, t.st.l)
 		p.AddTag(t)
 	}
+}
+
+func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint32, bool) {
+
+	var (
+		tgtyp  uint32
+		tgdata []uint8
+		tag    string
+		index  int
+		memb   string
+		membi  int
+	)
+
+	if len(path) > 0 && path[0].typ == ansiExtended { // TODO better
+		tag = path[0].txt
+		if len(path) > 1 {
+			switch path[1].typ {
+			case pathElement:
+				index = path[1].val
+			case ansiExtended:
+				memb = path[1].txt
+			}
+		}
+		if len(path) > 2 {
+			switch path[2].typ {
+			case pathElement:
+				membi = path[2].val
+			case ansiExtended:
+				memb = path[2].txt
+			}
+		}
+		if len(path) > 3 && path[3].typ == pathElement {
+			membi = path[3].val
+		}
+	}
+
+	p.tMut.RLock()
+	tg, ok := p.tags[tag]
+
+	if ok {
+		var (
+			tl       int
+			copyFrom int
+			copyLen  int
+		)
+		tl = tg.Len()
+		copyFrom = index * tl
+		if memb == "" && membi == 0 {
+			tgtyp = uint32(tg.Type)
+		} else if memb != "" && tg.st != nil {
+			el := tg.st.Elem(memb)
+			if el != nil {
+				tl = el.Len()
+				copyFrom += el.offset + membi*tl
+				tgtyp = uint32(el.Type)
+			} else {
+				fmt.Println("no member", memb, "in struct", tg.Name)
+				ok = false
+			}
+		} else {
+			fmt.Println("unsupported", path)
+			ok = false
+		}
+		copyLen = int(count) * tl
+
+		if tg.st != nil && memb == "" {
+			// tgtyp |= TypeStructHead
+		} else {
+			tgtyp &= TypeType
+		}
+
+		if ok {
+			tgdata = make([]uint8, copyLen)
+			if copyFrom+copyLen > len(tg.data) {
+				ok = false
+			} else {
+				copy(tgdata, tg.data[copyFrom:])
+			}
+			p.debug(typeToString(int(tgtyp)), tgdata)
+		}
+	}
+	p.tMut.RUnlock()
+	if ok {
+		if p.callback != nil {
+			go p.callback(ReadTag, Success, &Tag{Name: tag, Type: int(tgtyp), Index: index, Count: int(count), data: tgdata})
+		}
+		return tgdata, tgtyp, true
+	}
+	if p.callback != nil {
+		go p.callback(ReadTag, PathSegmentError, nil)
+	}
+	return nil, 0, false
+}
+
+func (p *PLC) saveTag(tag string, typ uint16, index int, count uint16, data []uint8) bool {
+	p.tMut.Lock()
+	tg, ok := p.tags[tag]
+	if ok && tg.Type == int(typ) && tg.Count >= index+int(count) {
+		copy(tg.data[index*tg.ElemLen():], data)
+	} else {
+		p.AddTag(Tag{Name: tag, Type: int(typ), Count: int(count), data: data})
+	}
+	p.tMut.Unlock()
+	if p.callback != nil {
+		go p.callback(WriteTag, Success, &Tag{Name: tag, Type: int(typ), Index: index, Count: int(count), data: data})
+	}
+	return true
+}
+
+func (p *PLC) addTag(t Tag, instance int) {
+	if t.data == nil {
+		size := uint16(t.ElemLen()) * uint16(t.Count)
+		t.data = make([]uint8, size)
+	}
+	in := NewInstance(8)
+	in.attr[1] = TagString(t.Name, "SymbolName")
+	typ := uint16(t.Type)
+	if t.Count > 1 {
+		typ |= TypeArray1D
+	}
+	if t.Type >= TypeStructHead {
+		in.attr[2] = TagUINT(TypeStruct+uint16(t.st.i), "SymbolType")
+	} else {
+		in.attr[2] = TagUINT(typ, "SymbolType")
+	}
+	in.attr[7] = TagUINT(uint16(t.ElemLen()), "BaseTypeSize")
+	if t.Count > 1 {
+		in.attr[8] = &Tag{Name: "Dimensions", data: []uint8{uint8(t.Count), uint8(t.Count >> 8), uint8(t.Count >> 16), uint8(t.Count >> 24), 0, 0, 0, 0, 0, 0, 0, 0}}
+	} else {
+		in.attr[8] = &Tag{Name: "Dimensions", data: []uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
+	}
+	p.tMut.Lock()
+	if instance == -1 {
+		p.symbols.SetInstance(p.symbols.lastInst+1, in)
+	} else {
+		p.symbols.SetInstance(instance, in)
+	}
+	p.tags[t.Name] = &t
+	p.tMut.Unlock()
+}
+
+// AddTag adds tag.
+func (p *PLC) AddTag(t Tag) {
+	p.addTag(t, -1)
+}
+
+// UpdateTag sets data to the tag
+func (p *PLC) UpdateTag(name string, offset int, data []uint8) bool {
+	p.tMut.Lock()
+	defer p.tMut.Unlock()
+	t, ok := p.tags[name]
+	if !ok {
+		fmt.Println("plcconnector UpdateTag: no tag named ", name)
+		return false
+	}
+	offset *= t.ElemLen()
+	to := offset + len(data)
+	if to > len(t.data) {
+		fmt.Println("plcconnector UpdateTag: to large data ", name)
+		return false
+	}
+	for i := offset; i < to; i++ {
+		t.data[i] = data[i-offset]
+	}
+	return true
 }
