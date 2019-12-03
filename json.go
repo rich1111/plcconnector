@@ -55,9 +55,10 @@ func (p *PLC) ImportJSON(file string) error {
 			tx.N = m.Name
 			tx.T = m.Type
 			tx.C = m.Size
+			tx.O = m.Offset
 			tmpl = append(tmpl, tx)
 		}
-		p.newUDT(tmpl, name, t.Handle)
+		p.newUDT(tmpl, name, t.Handle, t.Size)
 	}
 	for name, s := range db.Symbols {
 		var tag Tag
