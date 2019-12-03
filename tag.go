@@ -747,7 +747,7 @@ func (p *PLC) CreateTag(typ string, name string) {
 	}
 }
 
-func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint32, bool) { // FIXME false callback
+func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint32, int, bool) { // FIXME false callback
 
 	var (
 		tgtyp  uint32
@@ -757,6 +757,7 @@ func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint32, bool) { // 
 		memb   string
 		membi  int
 		pi     = 0
+		tl     int
 	)
 
 	if len(path) > 0 {
@@ -766,7 +767,7 @@ func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint32, bool) { // 
 			pi = 1
 			tag = p.symbols.inst[path[1].val].attr[1].DataString()
 		} else {
-			return nil, 0, false
+			return nil, 0, 0, false
 		}
 		if len(path) > pi+1 {
 			switch path[pi+1].typ {
@@ -788,7 +789,7 @@ func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint32, bool) { // 
 			membi = path[pi+3].val
 		}
 	} else {
-		return nil, 0, false
+		return nil, 0, 0, false
 	}
 
 	p.tMut.RLock()
@@ -796,7 +797,6 @@ func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint32, bool) { // 
 
 	if ok {
 		var (
-			tl       int
 			copyFrom int
 			copyLen  int
 		)
@@ -841,12 +841,12 @@ func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint32, bool) { // 
 		if p.callback != nil {
 			go p.callback(ReadTag, Success, &Tag{Name: tag, Type: int(tgtyp), Index: index, Count: int(count), data: tgdata})
 		}
-		return tgdata, tgtyp, true
+		return tgdata, tgtyp, tl, true
 	}
 	if p.callback != nil {
 		go p.callback(ReadTag, PathSegmentError, nil)
 	}
-	return nil, 0, false
+	return nil, 0, 0, false
 }
 
 func (p *PLC) saveTag(path []pathEl, typ uint16, count int, data []uint8, offset int) bool { // FIXME false callback

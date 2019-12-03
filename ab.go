@@ -19,20 +19,19 @@ import (
 
 // PLC .
 type PLC struct {
-	callback   func(service int, statut int, tag *Tag)
-	closeI     bool
-	closeMut   sync.RWMutex
-	closeWMut  sync.Mutex
-	closeWait  *sync.Cond
-	eds        map[string]map[string]string
-	maxForward int
-	port       uint16
-	symbols    *Class
-	template   *Class
-	tids       map[string]structData
-	tidLast    int
-	tMut       sync.RWMutex
-	tags       map[string]*Tag
+	callback  func(service int, statut int, tag *Tag)
+	closeI    bool
+	closeMut  sync.RWMutex
+	closeWMut sync.Mutex
+	closeWait *sync.Cond
+	eds       map[string]map[string]string
+	port      uint16
+	symbols   *Class
+	template  *Class
+	tids      map[string]structData
+	tidLast   int
+	tMut      sync.RWMutex
+	tags      map[string]*Tag
 
 	Class       map[int]*Class
 	DumpNetwork bool // enables dumping network packets
@@ -48,7 +47,6 @@ func Init(eds string) (*PLC, error) {
 	p.tids = make(map[string]structData)
 	p.tidLast = 1
 	p.Timeout = 60 * time.Second
-	p.maxForward = 472
 
 	err := p.loadEDS(eds)
 	if err != nil {
@@ -294,11 +292,13 @@ loop:
 				break loop
 			}
 			dataLen = int(item.Length)
+			maxData := 65000
 			if item.Type == itConnData {
 				err = r.read(&protSeqCount)
 				if err != nil {
 					break loop
 				}
+				maxData = 472 // FIXME read from forward open
 				dataLen -= 2
 				cidok = true
 			} else if item.Type != itUnconnData {
@@ -462,7 +462,7 @@ loop:
 				li, ins := p.GetClassInstancesList(class, instance)
 				if li != nil {
 					for a, x := range li {
-						if buf.Len() >= p.maxForward-20 {
+						if buf.Len() >= maxData-20 {
 							resp.Status = PartialTransfer
 							break
 						}
@@ -709,13 +709,50 @@ loop:
 					break loop
 				}
 
-				if rtData, tagType, ok := p.readTag(path, tagCount); ok {
-					r.write(resp)
+				if rtData, tagType, elLen, ok := p.readTag(path, tagCount); ok {
 					if tagType >= TypeStructHead {
 						r.write(uint16(tagType >> 16))
 					}
+					if false && len(rtData) > maxData {
+						resp.Status = PartialTransfer
+						rtData = rtData[:(maxData/elLen)*elLen]
+					}
+					r.write(resp)
 					r.write(uint16(tagType))
 					r.write(rtData)
+				} else {
+					resp.Status = PathSegmentError
+					resp.AddStatusSize = 1
+
+					r.write(resp)
+					r.write(uint16(0))
+				}
+
+			case protd.Service == ReadTagFrag:
+				p.debug("ReadTagFragmented")
+				mayCon = true
+
+				var (
+					tagCount  uint16
+					tagOffset uint32
+				)
+
+				err = r.read(&tagCount)
+				if err != nil {
+					break loop
+				}
+				err = r.read(&tagOffset)
+				if err != nil {
+					break loop
+				}
+
+				if rtData, tagType, _, ok := p.readTag(path, tagCount); ok && tagOffset < uint32(len(rtData)) {
+					if tagType >= TypeStructHead {
+						r.write(uint16(tagType >> 16))
+					}
+					r.write(resp)
+					r.write(uint16(tagType))
+					r.write(rtData[tagOffset:])
 				} else {
 					resp.Status = PathSegmentError
 					resp.AddStatusSize = 1
