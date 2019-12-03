@@ -14,6 +14,9 @@ const (
 	WriteTag        = 0x4D
 	ForwardClose    = 0x4E
 	UploadTransfer  = 0x4F
+	UnconnectedSend = 0x52
+	ReadTagFrag     = 0x52
+	WriteTagFrag    = 0x53
 	ForwardOpen     = 0x54
 	GetInstAttrList = 0x55
 )
@@ -21,6 +24,7 @@ const (
 // Classes
 const (
 	IdentityClass = 0x01
+	ConnManager   = 0x06
 	FileClass     = 0x37
 
 	SymbolClass   = 0x6B

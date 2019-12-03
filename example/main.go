@@ -132,7 +132,7 @@ func main() {
 	}
 
 	// nie wyświetlaj dodatkowych informacji
-	p.Verbose = true
+	p.Verbose = false
 	p.DumpNetwork = false
 
 	// callback

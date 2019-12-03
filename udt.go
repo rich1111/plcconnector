@@ -2,7 +2,6 @@ package plcconnector
 
 import (
 	"bytes"
-	"fmt"
 	"reflect"
 	"strconv"
 )
@@ -70,7 +69,7 @@ func (p *PLC) newUDT(udt []T, name string, handle int, size int) error {
 		st.l = size
 	}
 	p.addUDT(st)
-	fmt.Printf("%v = 0x%X (%d)\n", typencstr.String(), st.h, st.h)
+	// fmt.Printf("%v = 0x%X (%d)\n", typencstr.String(), st.h, st.h)
 	return nil
 }
 
@@ -161,5 +160,5 @@ func (p *PLC) structHelper(a *Tag, t reflect.Type, fs int, ln int) {
 	a.st.h = crc16(typencstr.Bytes())
 	a.Type = TypeStructHead | int(a.st.h)
 	a.st.i = p.addUDT(a.st)
-	fmt.Printf("%v = 0x%X (%d)\n", typencstr.String(), a.st.h, a.st.h)
+	// fmt.Printf("%v = 0x%X (%d)\n", typencstr.String(), a.st.h, a.st.h)
 }

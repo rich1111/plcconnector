@@ -496,6 +496,31 @@ loop:
 			// 	break command // FIXME
 			// }
 
+			if class == ConnManager && protd.Service == UnconnectedSend {
+				var usdata [4]uint8
+				err = r.read(&usdata)
+				if err != nil {
+					break loop
+				}
+				err = r.read(&protd)
+				if err != nil {
+					break loop
+				}
+
+				resp.Service = protd.Service + 128
+
+				ePath = make([]uint8, protd.PathSize*2)
+				err = r.read(&ePath)
+				if err != nil {
+					break loop
+				}
+
+				class, instance, attr, path, err = r.parsePath(ePath)
+				if p.Verbose {
+					fmt.Printf("UNC SEND: Class %X Instance %X Attr %X %v\n", class, instance, attr, path)
+				}
+			}
+
 			switch {
 			case protd.Service == GetAttrAll:
 				p.debug("GetAttributesAll")
@@ -897,7 +922,7 @@ loop:
 				r.write(resp)
 
 			default:
-				p.debug("unknown service:", protd.Service)
+				fmt.Println("unknown service:", protd.Service)
 
 				resp.Status = ServNotSup
 				r.write(resp)
@@ -915,7 +940,7 @@ loop:
 			}
 
 		default:
-			p.debug("unknown command:", r.encHead.Command)
+			fmt.Println("unknown command:", r.encHead.Command)
 
 			data := make([]uint8, r.encHead.Length)
 			err = r.read(&data)
