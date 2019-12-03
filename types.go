@@ -82,6 +82,7 @@ const (
 	Success          = 0x00
 	PathSegmentError = 0x04
 	PathUnknown      = 0x05
+	PartialTransfer  = 0x06
 	ServNotSup       = 0x08
 	AttrListError    = 0x0A
 	AttrNotSup       = 0x14

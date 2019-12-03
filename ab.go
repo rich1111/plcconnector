@@ -19,19 +19,20 @@ import (
 
 // PLC .
 type PLC struct {
-	callback  func(service int, statut int, tag *Tag)
-	closeI    bool
-	closeMut  sync.RWMutex
-	closeWMut sync.Mutex
-	closeWait *sync.Cond
-	eds       map[string]map[string]string
-	port      uint16
-	symbols   *Class
-	template  *Class
-	tids      map[string]structData
-	tidLast   int
-	tMut      sync.RWMutex
-	tags      map[string]*Tag
+	callback   func(service int, statut int, tag *Tag)
+	closeI     bool
+	closeMut   sync.RWMutex
+	closeWMut  sync.Mutex
+	closeWait  *sync.Cond
+	eds        map[string]map[string]string
+	maxForward int
+	port       uint16
+	symbols    *Class
+	template   *Class
+	tids       map[string]structData
+	tidLast    int
+	tMut       sync.RWMutex
+	tags       map[string]*Tag
 
 	Class       map[int]*Class
 	DumpNetwork bool // enables dumping network packets
@@ -47,6 +48,7 @@ func Init(eds string) (*PLC, error) {
 	p.tids = make(map[string]structData)
 	p.tidLast = 1
 	p.Timeout = 60 * time.Second
+	p.maxForward = 472
 
 	err := p.loadEDS(eds)
 	if err != nil {
@@ -591,7 +593,7 @@ loop:
 					r.write(resp)
 				}
 
-			case protd.Service == GetInstAttrList: // TODO status 6 too much data (504 unconnected)
+			case protd.Service == GetInstAttrList:
 				p.debug("GetInstanceAttributesList")
 				mayCon = true
 				var (
@@ -612,6 +614,10 @@ loop:
 				li, ins := p.GetClassInstancesList(class, instance)
 				if li != nil {
 					for a, x := range li {
+						if buf.Len() >= p.maxForward-20 {
+							resp.Status = PartialTransfer
+							break
+						}
 						bwrite(&buf, uint32(x))
 						in := ins[a]
 						in.m.RLock()
@@ -956,7 +962,7 @@ loop:
 		if unread > 0 {
 			discard := make([]byte, unread)
 			r.read(&discard)
-			fmt.Println("DISCARDED:", discard)
+			p.debug("DISCARDED:", discard)
 		}
 
 		err = conn.SetWriteDeadline(timeout)

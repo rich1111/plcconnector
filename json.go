@@ -48,6 +48,14 @@ func (p *PLC) ImportJSON(file string) error {
 	if err != nil {
 		return err
 	}
+
+	in := p.Class[0xAC].inst[1]
+	in.attr[1] = TagINT(int16(db.AC[0]), "Attr1")
+	in.attr[2] = TagINT(int16(db.AC[1]), "Attr2")
+	in.attr[3] = TagDINT(int32(db.AC[2]), "Attr3")
+	in.attr[4] = TagDINT(int32(db.AC[3]), "Attr4")
+	in.attr[10] = TagDINT(int32(db.AC[4]), "Attr5")
+
 	for name, t := range db.Templates {
 		var tmpl []T
 		for _, m := range t.Member {
