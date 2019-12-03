@@ -186,7 +186,7 @@ func (p *PLC) loadEDS(fn string) error {
 
 	p.Class[FileClass] = NewClass("File", 32)
 
-	gzipped := false
+	gzipped := true
 
 	in := NewInstance(11) // EDS.gz
 
@@ -197,6 +197,7 @@ func (p *PLC) loadEDS(fn string) error {
 		gz.Comment = "ODVA File Encoding V1.0"
 		gz.OS = 0x0B // NTFS
 		gz.Write(f)
+		gz.Close()
 		in.data = buf.Bytes()
 	} else {
 		in.data = f
