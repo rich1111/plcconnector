@@ -58,12 +58,14 @@ func parsePath(p string) []pathEl {
 			name = ""
 			inName = true
 		case t == '[':
-			if name == "" {
-				return nil
-			}
 			inName = false
-			e = append(e, pathEl{typ: ansiExtended, txt: name})
-			name = ""
+			if last != ']' {
+				if name == "" {
+					return nil
+				}
+				e = append(e, pathEl{typ: ansiExtended, txt: name})
+				name = ""
+			}
 		case t == ']':
 			if no == "" {
 				return nil
@@ -102,7 +104,7 @@ func parsePath(p string) []pathEl {
 		}
 		last = t
 	}
-	if last == '.' || last == '[' {
+	if last == '.' || last == '[' || no != "" {
 		return nil
 	}
 
