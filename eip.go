@@ -10,6 +10,7 @@ import (
 
 const (
 	ansiExtended = 0x91
+	pathBit      = 0xFF
 
 	pathType    = 0xE0
 	pathLogical = 0x20
@@ -39,6 +40,8 @@ func parsePath(p string) []pathEl {
 
 	name := ""
 	no := ""
+	bit := ""
+	inBit := false
 	inName := true
 	last := rune(0)
 
@@ -71,14 +74,25 @@ func parsePath(p string) []pathEl {
 			no = ""
 		case unicode.IsDigit(t):
 			if inName {
-				if name == "" {
-					return nil
+				if name == "" && bit == "" {
+					if last == '.' {
+						inBit = true
+						bit += string(t)
+					} else {
+						return nil
+					}
+				} else if inBit {
+					bit += string(t)
+				} else {
+					name += string(t)
 				}
-				name += string(t)
 			} else {
 				no += string(t)
 			}
 		case unicode.IsLetter(t) || t == ':' || t == '_':
+			if inName && inBit {
+				return nil
+			}
 			if !inName {
 				return nil
 			}
@@ -91,8 +105,14 @@ func parsePath(p string) []pathEl {
 	if last == '.' || last == '[' {
 		return nil
 	}
+
 	if name != "" {
 		e = append(e, pathEl{typ: ansiExtended, txt: name})
+	}
+
+	if bit != "" {
+		bitint, _ := strconv.Atoi(bit)
+		e = append(e, pathEl{typ: pathBit, val: bitint})
 	}
 
 	return e
@@ -123,6 +143,7 @@ func constructPath(p []pathEl) []uint8 {
 			} else {
 				b = append(b, []uint8{pathLogical | pathElement, uint8(e.val)}...)
 			}
+		case pathBit:
 		default:
 			return nil
 		}
