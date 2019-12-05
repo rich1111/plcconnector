@@ -849,6 +849,53 @@ func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint32, int, bool) 
 	return nil, 0, 0, false
 }
 
+func (p *PLC) readModWriteTag(path []pathEl, orMask, andMask []uint8) bool { // FIXME false callback
+	var (
+		tag   string
+		index int
+		pi    int
+	)
+
+	if len(path) > 0 {
+		if path[0].typ == ansiExtended { // TODO better, function
+			tag = path[0].txt
+		} else if len(path) > 1 && path[0].typ == pathClass && path[0].val == SymbolClass && path[1].typ == pathInstance {
+			pi = 1
+			tag = p.symbols.inst[path[1].val].attr[1].DataString()
+		} else {
+			return false
+		}
+		if len(path) > pi+1 {
+			switch path[pi+1].typ {
+			case pathElement:
+				index = path[pi+1].val
+			}
+		}
+	} else {
+		return false
+	}
+
+	p.tMut.Lock()
+	tg, ok := p.tags[tag]
+	if ok && tg.Count >= index {
+		el := index * tg.ElemLen()
+		for i, or := range orMask {
+			tg.data[el+i] |= or
+		}
+		for i, and := range andMask {
+			tg.data[el+i] &= and
+		}
+	} else {
+		p.tMut.Unlock()
+		return false
+	}
+	p.tMut.Unlock()
+	// if p.callback != nil { TODO
+	// 	go p.callback(WriteTag, Success, &Tag{Name: tag, Type: int(typ), Index: index, Count: count, data: data})
+	// }
+	return true
+}
+
 func (p *PLC) saveTag(path []pathEl, typ uint16, count int, data []uint8, offset int) bool { // FIXME false callback
 	var (
 		tag   string

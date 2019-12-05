@@ -12,6 +12,7 @@ const (
 	ReadTag         = 0x4C
 	ReadTemplate    = 0x4C
 	WriteTag        = 0x4D
+	ReadModifyWrite = 0x4E
 	ForwardClose    = 0x4E
 	UploadTransfer  = 0x4F
 	UnconnectedSend = 0x52

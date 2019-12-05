@@ -618,7 +618,7 @@ loop:
 					r.write(resp)
 				}
 
-			case protd.Service == ForwardOpen:
+			case class == ConnManager && protd.Service == ForwardOpen:
 				p.debug("ForwardOpen")
 
 				var (
@@ -649,7 +649,7 @@ loop:
 				r.write(resp)
 				r.write(sr)
 
-			case protd.Service == ForwardClose:
+			case class == ConnManager && protd.Service == ForwardClose:
 				p.debug("ForwardClose")
 
 				var (
@@ -713,7 +713,7 @@ loop:
 					if tagType >= TypeStructHead {
 						r.write(uint16(tagType >> 16))
 					}
-					if false && len(rtData) > maxData {
+					if false && len(rtData) > maxData { // FIXME
 						resp.Status = PartialTransfer
 						rtData = rtData[:(maxData/elLen)*elLen]
 					}
@@ -752,7 +752,37 @@ loop:
 					}
 					r.write(resp)
 					r.write(uint16(tagType))
-					r.write(rtData[tagOffset:])
+					r.write(rtData[tagOffset:]) // FIXME status 6
+				} else {
+					resp.Status = PathSegmentError
+					resp.AddStatusSize = 1
+
+					r.write(resp)
+					r.write(uint16(0))
+				}
+
+			case protd.Service == ReadModifyWrite:
+				p.debug("ReadModifyWrite")
+				mayCon = true
+
+				var maskSize uint16
+
+				err = r.read(&maskSize)
+				if err != nil {
+					break loop
+				}
+				orMask := make([]uint8, maskSize)
+				err = r.read(&orMask)
+				if err != nil {
+					break loop
+				}
+				andMask := make([]uint8, maskSize)
+				err = r.read(&andMask)
+				if err != nil {
+					break loop
+				}
+				if p.readModWriteTag(path, orMask, andMask) {
+					r.write(resp)
 				} else {
 					resp.Status = PathSegmentError
 					resp.AddStatusSize = 1
