@@ -193,7 +193,7 @@ func tagToHTML(t *Tag) string {
 
 	ln := t.ElemLen()
 
-	toSend.WriteString("<!DOCTYPE html>\n<html><title>" + t.Name + "</title><h3>" + t.Name + "</h3>")
+	toSend.WriteString("<!DOCTYPE html>\n<html><title>" + t.Name + "</title><a href=\"/\">powrót</a><h3>" + t.Name + "</h3>")
 	toSend.WriteString("<table " + tableStyle + "><tr><th>N</th><th>" + t.TypeString() + "</th>")
 	if t.Type == TypeBOOL {
 		toSend.WriteString("</tr>\n")
