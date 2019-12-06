@@ -35,6 +35,7 @@ type PLC struct {
 
 	Class       map[int]*Class
 	DumpNetwork bool // enables dumping network packets
+	Name        string
 	Verbose     bool // enables debugging output
 	Timeout     time.Duration
 }

@@ -180,6 +180,7 @@ func (p *PLC) loadEDS(fn string) error {
 	i.SetAttrUINT(4, majRev+minRev<<8)
 	vs, err := p.getEDS("Device", "ProdName")
 	if err == nil {
+		p.Name = vs
 		i.attr[7] = TagShortString(vs, "ProductName")
 		i.attr[13] = TagStringI(vs, "InternationalProductName")
 	}
