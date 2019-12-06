@@ -713,7 +713,7 @@ loop:
 					if tagType >= TypeStructHead {
 						r.write(uint16(tagType >> 16))
 					}
-					if false && len(rtData) > maxData { // FIXME
+					if len(rtData) > maxData {
 						resp.Status = PartialTransfer
 						rtData = rtData[:(maxData/elLen)*elLen]
 					}
@@ -746,13 +746,18 @@ loop:
 					break loop
 				}
 
-				if rtData, tagType, _, ok := p.readTag(path, tagCount); ok && tagOffset < uint32(len(rtData)) {
+				if rtData, tagType, elLen, ok := p.readTag(path, tagCount); ok && tagOffset < uint32(len(rtData)) {
 					if tagType >= TypeStructHead {
 						r.write(uint16(tagType >> 16))
 					}
+					rtData = rtData[tagOffset:]
+					if len(rtData) > maxData {
+						resp.Status = PartialTransfer
+						rtData = rtData[:(maxData/elLen)*elLen]
+					}
 					r.write(resp)
 					r.write(uint16(tagType))
-					r.write(rtData[tagOffset:]) // FIXME status 6
+					r.write(rtData)
 				} else {
 					resp.Status = PathSegmentError
 					resp.AddStatusSize = 1
