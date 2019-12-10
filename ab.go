@@ -442,6 +442,62 @@ loop:
 
 func (r *req) serviceHandle() bool {
 	switch {
+	case r.class == MessageRouter && r.protd.Service == MultiServ: // TODO errors, status 6
+		r.p.debug("MultipleServicePacket")
+
+		var (
+			count  uint16
+			offset uint16
+		)
+		err := r.read(&count)
+		if err != nil {
+			return false
+		}
+		offset = 2 + 2*count
+
+		svs := make([]uint16, count)
+		err = r.read(&svs)
+		if err != nil {
+			return false
+		}
+
+		r.write(r.resp)
+		r.write(count)
+
+		oldBuf := r.writeBuf
+		newBuf := new(bytes.Buffer)
+		r.writeBuf = newBuf
+
+		for i := range svs {
+			err = r.read(&r.protd)
+			if err != nil {
+				return false
+			}
+
+			r.resp.Service = r.protd.Service + 128
+			r.resp.Status = Success
+
+			ePath := make([]uint8, r.protd.PathSize*2)
+			err = r.read(&ePath)
+			if err != nil {
+				return false
+			}
+			// r.dataLen -= 2 + len(ePath) // FIXME
+
+			r.class, r.instance, r.attr, r.path, err = r.parsePath(ePath)
+			if r.p.Verbose {
+				fmt.Printf("Class %X Instance %X Attr %X %v\n", r.class, r.instance, r.attr, r.path)
+			}
+
+			svs[i] = offset + uint16(r.writeBuf.Len())
+			if !r.serviceHandle() {
+				return false
+			}
+		}
+		r.writeBuf = oldBuf
+		r.write(svs)
+		r.write(newBuf.Bytes())
+
 	case r.protd.Service == GetAttrAll:
 		r.p.debug("GetAttributesAll")
 

@@ -6,7 +6,9 @@ const (
 	GetAttrAll  = 0x01
 	GetAttrList = 0x03
 	Reset       = 0x05
+	MultiServ   = 0x0A
 	GetAttr     = 0x0E
+
 	// Class Specific
 	InititateUpload = 0x4B
 	ReadTag         = 0x4C
@@ -25,6 +27,7 @@ const (
 // Classes
 const (
 	IdentityClass = 0x01
+	MessageRouter = 0x02
 	ConnManager   = 0x06
 	FileClass     = 0x37
 
