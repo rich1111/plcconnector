@@ -123,15 +123,23 @@ func (p *PLC) Close() {
 }
 
 type req struct {
+	attr     int
 	c        net.Conn
+	class    int
 	connID   uint32
-	file     map[int]*[3]uint8
-	rrdata   sendData
+	dataLen  int
 	encHead  encapsulationHeader
+	file     map[int]*[3]uint8
+	instance int
+	maxData  int
 	p        *PLC
+	path     []pathEl
+	protd    protocolData
 	readBuf  *bufio.Reader
-	writeBuf *bytes.Buffer
+	resp     response
+	rrdata   sendData
 	wrCIPBuf *bytes.Buffer
+	writeBuf *bytes.Buffer
 }
 
 func (r *req) read(data interface{}) error {
@@ -235,10 +243,7 @@ loop:
 
 			var (
 				item         itemType
-				protd        protocolData
 				protSeqCount uint16
-				resp         response
-				dataLen      int
 			)
 			err = r.read(&r.rrdata)
 			if err != nil {
@@ -256,7 +261,6 @@ loop:
 
 			r.rrdata.Timeout = 0
 			cidok := false
-			mayCon := false
 			itemserror := false
 
 			if r.rrdata.ItemCount != 2 {
@@ -292,15 +296,15 @@ loop:
 			if err != nil {
 				break loop
 			}
-			dataLen = int(item.Length)
-			maxData := 65000
+			r.dataLen = int(item.Length)
+			r.maxData = 65000
 			if item.Type == itConnData {
 				err = r.read(&protSeqCount)
 				if err != nil {
 					break loop
 				}
-				maxData = 472 // FIXME read from forward open
-				dataLen -= 2
+				r.maxData = 472 // FIXME read from forward open
+				r.dataLen -= 2
 				cidok = true
 			} else if item.Type != itUnconnData {
 				p.debug("unkown data item:", item.Type)
@@ -318,24 +322,24 @@ loop:
 			}
 
 			// CIP
-			err = r.read(&protd)
+			err = r.read(&r.protd)
 			if err != nil {
 				break loop
 			}
 
-			resp.Service = protd.Service + 128
-			resp.Status = Success
+			r.resp.Service = r.protd.Service + 128
+			r.resp.Status = Success
 
-			ePath := make([]uint8, protd.PathSize*2)
+			ePath := make([]uint8, r.protd.PathSize*2)
 			err = r.read(&ePath)
 			if err != nil {
 				break loop
 			}
-			dataLen -= 2 + len(ePath)
+			r.dataLen -= 2 + len(ePath)
 
-			class, instance, attr, path, err := r.parsePath(ePath)
+			r.class, r.instance, r.attr, r.path, err = r.parsePath(ePath)
 			if p.Verbose {
-				fmt.Printf("Class %X Instance %X Attr %X %v\n", class, instance, attr, path)
+				fmt.Printf("Class %X Instance %X Attr %X %v\n", r.class, r.instance, r.attr, r.path)
 			}
 			// if err != nil {
 			// 	resp.Status = PathSegmentError
@@ -346,547 +350,38 @@ loop:
 			// 	break command // FIXME
 			// }
 
-			if class == ConnManager && protd.Service == UnconnectedSend {
+			if r.class == ConnManager && r.protd.Service == UnconnectedSend {
 				var usdata [4]uint8
 				err = r.read(&usdata)
 				if err != nil {
 					break loop
 				}
-				err = r.read(&protd)
+				err = r.read(&r.protd)
 				if err != nil {
 					break loop
 				}
 
-				resp.Service = protd.Service + 128
+				r.resp.Service = r.protd.Service + 128
 
-				ePath = make([]uint8, protd.PathSize*2)
+				ePath = make([]uint8, r.protd.PathSize*2)
 				err = r.read(&ePath)
 				if err != nil {
 					break loop
 				}
-				dataLen -= 6 + len(ePath)
+				r.dataLen -= 6 + len(ePath)
 
-				class, instance, attr, path, err = r.parsePath(ePath)
+				r.class, r.instance, r.attr, r.path, err = r.parsePath(ePath)
 				if p.Verbose {
-					fmt.Printf("UNC SEND: Class %X Instance %X Attr %X %v\n", class, instance, attr, path)
+					fmt.Printf("UNC SEND: Class %X Instance %X Attr %X %v\n", r.class, r.instance, r.attr, r.path)
 				}
 			}
 
-			switch {
-			case protd.Service == GetAttrAll:
-				p.debug("GetAttributesAll")
-				mayCon = true
-
-				in := p.GetClassInstance(class, instance)
-				if in != nil {
-					r.write(resp)
-					r.write(in.getAttrAll())
-				} else {
-					p.debug("path unknown", path)
-					if class == FileClass {
-						resp.Status = ObjectNotExist
-					} else {
-						resp.Status = PathUnknown
-					}
-					r.write(resp)
-				}
-
-			case protd.Service == GetAttrList:
-				p.debug("GetAttributesList")
-				mayCon = true
-				var (
-					count uint16
-					buf   bytes.Buffer
-					st    uint16
-				)
-
-				err = r.read(&count)
-				if err != nil {
-					break loop
-				}
-				attr := make([]uint16, count)
-				err = r.read(&attr)
-				if err != nil {
-					break loop
-				}
-
-				in := p.GetClassInstance(class, instance)
-				if in != nil {
-					in.m.RLock()
-					ln := len(in.attr)
-					for _, i := range attr {
-						bwrite(&buf, i)
-						if int(i) < ln && in.attr[i] != nil {
-							p.debug(in.attr[i].Name)
-							st = Success
-							bwrite(&buf, st)
-							bwrite(&buf, in.attr[i].data)
-						} else {
-							resp.Status = AttrListError
-							st = AttrNotSup
-							bwrite(&buf, st)
-						}
-					}
-					in.m.RUnlock()
-
-					r.write(resp)
-					r.write(count)
-					r.write(buf.Bytes())
-				} else {
-					p.debug("path unknown", path)
-					if class == FileClass {
-						resp.Status = ObjectNotExist
-					} else {
-						resp.Status = PathUnknown
-					}
-					r.write(resp)
-				}
-
-			case protd.Service == GetInstAttrList:
-				p.debug("GetInstanceAttributesList")
-				mayCon = true
-				var (
-					count uint16
-					buf   bytes.Buffer
-				)
-
-				err = r.read(&count)
-				if err != nil {
-					break loop
-				}
-				attr := make([]uint16, count)
-				err = r.read(&attr)
-				if err != nil {
-					break loop
-				}
-
-				li, ins := p.GetClassInstancesList(class, instance)
-				if li != nil {
-					for a, x := range li {
-						if buf.Len() >= maxData-20 {
-							resp.Status = PartialTransfer
-							break
-						}
-						bwrite(&buf, uint32(x))
-						in := ins[a]
-						in.m.RLock()
-						ln := len(in.attr)
-						for _, i := range attr {
-							if int(i) < ln && in.attr[i] != nil {
-								bwrite(&buf, in.attr[i].data)
-							} else { // FIXME break
-								resp.Status = AttrListError
-							}
-						}
-						in.m.RUnlock()
-					}
-
-					r.write(resp)
-					r.write(buf.Bytes())
-				} else {
-					p.debug("path unknown", path)
-					resp.Status = PathUnknown
-					r.write(resp)
-				}
-
-			case protd.Service == GetAttr:
-				p.debug("GetAttributesSingle")
-				mayCon = true
-
-				var (
-					aok bool
-					at  *Tag
-				)
-				in := p.GetClassInstance(class, instance)
-				if in != nil {
-					in.m.RLock()
-					if attr < len(in.attr) {
-						at = in.attr[attr]
-						if at != nil {
-							aok = true
-						}
-					}
-					in.m.RUnlock()
-				}
-				resp.Service = protd.Service + 128
-
-				if in != nil && aok {
-					p.debug(at.Name)
-					r.write(resp)
-					r.write(at.data)
-				} else {
-					p.debug("path unknown", path)
-					if class == FileClass {
-						resp.Status = ObjectNotExist
-					} else {
-						resp.Status = PathUnknown
-					}
-					r.write(resp)
-				}
-
-			case class == FileClass && protd.Service == InititateUpload:
-				p.debug("InititateUpload")
-				mayCon = true
-				var maxSize uint8
-
-				err = r.read(&maxSize)
-				if err != nil {
-					break loop
-				}
-
-				in := p.GetClassInstance(class, instance)
-				if in != nil {
-					var sr initUploadResponse
-					sr.FileSize = uint32(len(in.data))
-					sr.TransferSize = maxSize
-					r.file[instance] = &[3]uint8{maxSize, 0, 0} // TransferSize, TransferNumber, TransferNumber rollover
-					r.write(resp)
-					r.write(sr)
-				} else {
-					p.debug("path unknown", path)
-					resp.Status = PathUnknown
-					r.write(resp)
-				}
-
-			case class == FileClass && protd.Service == UploadTransfer:
-				p.debug("UploadTransfer")
-				mayCon = true
-				var transferNo uint8
-
-				err = r.read(&transferNo)
-				if err != nil {
-					break loop
-				}
-
-				in := p.GetClassInstance(class, instance)
-				f, fok := r.file[instance]
-				if in != nil && fok {
-					if transferNo == f[1] || transferNo == f[1]+1 || (transferNo == 0 && f[1] == 255) {
-						if transferNo == 0 && f[1] == 255 { // rollover
-							p.debug("rollover")
-							f[2]++ // FIXME retry!
-						}
-
-						var sr uploadTransferResponse
-						addcksum := false
-						dtlen := len(in.data)
-						pos := (int(f[2]) + 1) * int(transferNo) * int(f[0])
-						posto := pos + int(f[0])
-						if posto > dtlen {
-							posto = dtlen
-						}
-						dt := in.data[pos:posto]
-						sr.TransferNumber = transferNo
-						if transferNo == 0 && dtlen <= int(f[0]) {
-							sr.TranferPacketType = tptFirstLast
-							addcksum = true
-						} else if transferNo == 0 && f[2] == 0 {
-							sr.TranferPacketType = tptFirst
-						} else if pos+int(f[0]) >= dtlen {
-							sr.TranferPacketType = tptLast
-							addcksum = true
-						} else {
-							sr.TranferPacketType = tptMiddle
-						}
-						f[1] = transferNo
-
-						ln := uint16(binary.Size(resp) + binary.Size(sr) + len(dt))
-						if addcksum {
-							ln += uint16(binary.Size(in.getAttrData(7)))
-						}
-
-						p.debug(pos, ":", posto)
-
-						r.write(resp)
-						r.write(sr)
-						r.write(dt)
-						if addcksum {
-							r.write(in.getAttrData(7))
-						}
-					} else {
-						p.debug("transfer number error", transferNo)
-
-						resp.Status = InvalidPar
-						resp.AddStatusSize = 1
-
-						r.write(resp)
-						r.write(uint16(0))
-					}
-				} else {
-					p.debug("path unknown", path)
-
-					resp.Status = PathUnknown
-					r.write(resp)
-				}
-
-			case class == ConnManager && protd.Service == ForwardOpen:
-				p.debug("ForwardOpen")
-
-				var (
-					fodata forwardOpenData
-					sr     forwardOpenResponse
-				)
-				err = r.read(&fodata)
-				if err != nil {
-					break loop
-				}
-				connPath := make([]uint8, fodata.ConnPathSize*2)
-				err = r.read(&connPath)
-				if err != nil {
-					break loop
-				}
-
-				sr.OTConnectionID = rand.Uint32()
-				sr.TOConnectionID = fodata.TOConnectionID
-				sr.ConnSerialNumber = fodata.ConnSerialNumber
-				sr.VendorID = fodata.VendorID
-				sr.OriginatorSerialNumber = fodata.OriginatorSerialNumber
-				sr.OTAPI = fodata.OTRPI
-				sr.TOAPI = fodata.TORPI
-				sr.AppReplySize = 0
-
-				r.connID = fodata.TOConnectionID
-
-				r.write(resp)
-				r.write(sr)
-
-			case class == ConnManager && protd.Service == ForwardClose:
-				p.debug("ForwardClose")
-
-				var (
-					fcdata forwardCloseData
-					sr     forwardCloseResponse
-				)
-				err = r.read(&fcdata)
-				if err != nil {
-					break loop
-				}
-				connPath := make([]uint8, fcdata.ConnPathSize*2)
-				err = r.read(&connPath)
-				if err != nil {
-					break loop
-				}
-
-				sr.ConnSerialNumber = fcdata.ConnSerialNumber
-				sr.VendorID = fcdata.VendorID
-				sr.OriginatorSerialNumber = fcdata.OriginatorSerialNumber
-				sr.AppReplySize = 0
-
-				r.connID = 0
-
-				r.write(resp)
-				r.write(sr)
-
-			case class == TemplateClass && protd.Service == ReadTemplate: // TODO Status 0x06
-				p.debug("ReadTemplate")
-				mayCon = true
-
-				var rd readTemplateResponse
-
-				err = r.read(&rd)
-				if err != nil {
-					break loop
-				}
-				p.debug(rd.Offset, rd.Number)
-
-				if in := p.GetClassInstance(class, instance); in != nil {
-					r.write(resp)
-					r.write(in.data)
-				} else {
-					p.debug("path unknown", path)
-
-					resp.Status = PathUnknown
-					r.write(resp)
-				}
-
-			case protd.Service == ReadTag:
-				p.debug("ReadTag")
-				mayCon = true
-
-				var tagCount uint16
-
-				err = r.read(&tagCount)
-				if err != nil {
-					break loop
-				}
-
-				if rtData, tagType, elLen, ok := p.readTag(path, tagCount); ok {
-					if tagType >= TypeStructHead {
-						r.write(uint16(tagType >> 16))
-					}
-					if len(rtData) > maxData {
-						resp.Status = PartialTransfer
-						rtData = rtData[:(maxData/elLen)*elLen]
-					}
-					r.write(resp)
-					r.write(uint16(tagType))
-					r.write(rtData)
-				} else {
-					resp.Status = PathSegmentError
-					resp.AddStatusSize = 1
-
-					r.write(resp)
-					r.write(uint16(0))
-				}
-
-			case protd.Service == ReadTagFrag:
-				p.debug("ReadTagFragmented")
-				mayCon = true
-
-				var (
-					tagCount  uint16
-					tagOffset uint32
-				)
-
-				err = r.read(&tagCount)
-				if err != nil {
-					break loop
-				}
-				err = r.read(&tagOffset)
-				if err != nil {
-					break loop
-				}
-
-				if rtData, tagType, elLen, ok := p.readTag(path, tagCount); ok && tagOffset < uint32(len(rtData)) {
-					if tagType >= TypeStructHead {
-						r.write(uint16(tagType >> 16))
-					}
-					rtData = rtData[tagOffset:]
-					if len(rtData) > maxData {
-						resp.Status = PartialTransfer
-						rtData = rtData[:(maxData/elLen)*elLen]
-					}
-					r.write(resp)
-					r.write(uint16(tagType))
-					r.write(rtData)
-				} else {
-					resp.Status = PathSegmentError
-					resp.AddStatusSize = 1
-
-					r.write(resp)
-					r.write(uint16(0))
-				}
-
-			case protd.Service == ReadModifyWrite:
-				p.debug("ReadModifyWrite")
-				mayCon = true
-
-				var maskSize uint16
-
-				err = r.read(&maskSize)
-				if err != nil {
-					break loop
-				}
-				orMask := make([]uint8, maskSize)
-				err = r.read(&orMask)
-				if err != nil {
-					break loop
-				}
-				andMask := make([]uint8, maskSize)
-				err = r.read(&andMask)
-				if err != nil {
-					break loop
-				}
-				if p.readModWriteTag(path, orMask, andMask) {
-					r.write(resp)
-				} else {
-					resp.Status = PathSegmentError
-					resp.AddStatusSize = 1
-
-					r.write(resp)
-					r.write(uint16(0))
-				}
-
-			case protd.Service == WriteTag:
-				p.debug("WriteTag")
-				mayCon = true
-
-				var (
-					tagType  uint16
-					tagCount uint16
-				)
-
-				err = r.read(&tagType)
-				if err != nil {
-					break loop
-				}
-				err = r.read(&tagCount)
-				if err != nil {
-					break loop
-				}
-
-				wrData := make([]uint8, typeLen(tagType)*tagCount)
-				err = r.read(wrData)
-				if err != nil {
-					break loop
-				}
-
-				if p.saveTag(path, tagType, int(tagCount), wrData, 0) {
-					r.write(resp)
-				} else {
-					resp.Status = PathSegmentError
-					resp.AddStatusSize = 1
-
-					r.write(resp)
-					r.write(uint16(0))
-				}
-
-			case protd.Service == WriteTagFrag:
-				p.debug("WriteTagFragmented")
-				mayCon = true
-
-				var (
-					tagType   uint16
-					tagCount  uint16
-					tagOffset uint32
-				)
-
-				err = r.read(&tagType)
-				if err != nil {
-					break loop
-				}
-				err = r.read(&tagCount)
-				if err != nil {
-					break loop
-				}
-				err = r.read(&tagOffset)
-				if err != nil {
-					break loop
-				}
-
-				wrData := make([]uint8, dataLen-8)
-				err = r.read(wrData)
-				if err != nil {
-					break loop
-				}
-
-				if p.saveTag(path, tagType, (dataLen-8)/int(typeLen(tagType)), wrData, int(tagOffset)) {
-					r.write(resp)
-				} else {
-					resp.Status = PathSegmentError
-					resp.AddStatusSize = 1
-
-					r.write(resp)
-					r.write(uint16(0))
-				}
-
-			case protd.Service == Reset:
-				p.debug("Reset")
-
-				if p.callback != nil {
-					go p.callback(Reset, Success, nil)
-				}
-				r.write(resp)
-
-			default:
-				fmt.Println("unknown service:", protd.Service)
-
-				resp.Status = ServNotSup
-				r.write(resp)
+			if !r.serviceHandle() {
+				break loop
 			}
 
 			r.writeCIP(r.rrdata)
-			if mayCon && cidok && r.connID != 0 {
+			if cidok && r.connID != 0 {
 				r.writeCIP(itemType{Type: itConnAddress, Length: uint16(binary.Size(r.connID))})
 				r.writeCIP(r.connID)
 				r.writeCIP(itemType{Type: itConnData, Length: uint16(binary.Size(protSeqCount) + r.writeBuf.Len())})
@@ -943,4 +438,508 @@ loop:
 	if err != nil {
 		fmt.Println(err)
 	}
+}
+
+func (r *req) serviceHandle() bool {
+	switch {
+	case r.protd.Service == GetAttrAll:
+		r.p.debug("GetAttributesAll")
+
+		in := r.p.GetClassInstance(r.class, r.instance)
+		if in != nil {
+			r.write(r.resp)
+			r.write(in.getAttrAll())
+		} else {
+			r.p.debug("path unknown", r.path)
+			if r.class == FileClass {
+				r.resp.Status = ObjectNotExist
+			} else {
+				r.resp.Status = PathUnknown
+			}
+			r.write(r.resp)
+		}
+
+	case r.protd.Service == GetAttrList:
+		r.p.debug("GetAttributesList")
+		var (
+			count uint16
+			buf   bytes.Buffer
+			st    uint16
+		)
+
+		err := r.read(&count)
+		if err != nil {
+			return false
+		}
+		attr := make([]uint16, count)
+		err = r.read(&attr)
+		if err != nil {
+			return false
+		}
+
+		in := r.p.GetClassInstance(r.class, r.instance)
+		if in != nil {
+			in.m.RLock()
+			ln := len(in.attr)
+			for _, i := range attr {
+				bwrite(&buf, i)
+				if int(i) < ln && in.attr[i] != nil {
+					r.p.debug(in.attr[i].Name)
+					st = Success
+					bwrite(&buf, st)
+					bwrite(&buf, in.attr[i].data)
+				} else {
+					r.resp.Status = AttrListError
+					st = AttrNotSup
+					bwrite(&buf, st)
+				}
+			}
+			in.m.RUnlock()
+
+			r.write(r.resp)
+			r.write(count)
+			r.write(buf.Bytes())
+		} else {
+			r.p.debug("path unknown", r.path)
+			if r.class == FileClass {
+				r.resp.Status = ObjectNotExist
+			} else {
+				r.resp.Status = PathUnknown
+			}
+			r.write(r.resp)
+		}
+
+	case r.protd.Service == GetInstAttrList:
+		r.p.debug("GetInstanceAttributesList")
+		var (
+			count uint16
+			buf   bytes.Buffer
+		)
+
+		err := r.read(&count)
+		if err != nil {
+			return false
+		}
+		attr := make([]uint16, count)
+		err = r.read(&attr)
+		if err != nil {
+			return false
+		}
+
+		li, ins := r.p.GetClassInstancesList(r.class, r.instance)
+		if li != nil {
+			for a, x := range li {
+				if buf.Len() >= r.maxData-20 {
+					r.resp.Status = PartialTransfer
+					break
+				}
+				bwrite(&buf, uint32(x))
+				in := ins[a]
+				in.m.RLock()
+				ln := len(in.attr)
+				for _, i := range attr {
+					if int(i) < ln && in.attr[i] != nil {
+						bwrite(&buf, in.attr[i].data)
+					} else { // FIXME break
+						r.resp.Status = AttrListError
+					}
+				}
+				in.m.RUnlock()
+			}
+
+			r.write(r.resp)
+			r.write(buf.Bytes())
+		} else {
+			r.p.debug("path unknown", r.path)
+			r.resp.Status = PathUnknown
+			r.write(r.resp)
+		}
+
+	case r.protd.Service == GetAttr:
+		r.p.debug("GetAttributesSingle")
+
+		var (
+			aok bool
+			at  *Tag
+		)
+		in := r.p.GetClassInstance(r.class, r.instance)
+		if in != nil {
+			in.m.RLock()
+			if r.attr < len(in.attr) {
+				at = in.attr[r.attr]
+				if at != nil {
+					aok = true
+				}
+			}
+			in.m.RUnlock()
+		}
+		r.resp.Service = r.protd.Service + 128
+
+		if in != nil && aok {
+			r.p.debug(at.Name)
+			r.write(r.resp)
+			r.write(at.data)
+		} else {
+			r.p.debug("path unknown", r.path)
+			if r.class == FileClass {
+				r.resp.Status = ObjectNotExist
+			} else {
+				r.resp.Status = PathUnknown
+			}
+			r.write(r.resp)
+		}
+
+	case r.class == FileClass && r.protd.Service == InititateUpload:
+		r.p.debug("InititateUpload")
+		var maxSize uint8
+
+		err := r.read(&maxSize)
+		if err != nil {
+			return false
+		}
+
+		in := r.p.GetClassInstance(r.class, r.instance)
+		if in != nil {
+			var sr initUploadResponse
+			sr.FileSize = uint32(len(in.data))
+			sr.TransferSize = maxSize
+			r.file[r.instance] = &[3]uint8{maxSize, 0, 0} // TransferSize, TransferNumber, TransferNumber rollover
+			r.write(r.resp)
+			r.write(sr)
+		} else {
+			r.p.debug("path unknown", r.path)
+			r.resp.Status = PathUnknown
+			r.write(r.resp)
+		}
+
+	case r.class == FileClass && r.protd.Service == UploadTransfer:
+		r.p.debug("UploadTransfer")
+		var transferNo uint8
+
+		err := r.read(&transferNo)
+		if err != nil {
+			return false
+		}
+
+		in := r.p.GetClassInstance(r.class, r.instance)
+		f, fok := r.file[r.instance]
+		if in != nil && fok {
+			if transferNo == f[1] || transferNo == f[1]+1 || (transferNo == 0 && f[1] == 255) {
+				if transferNo == 0 && f[1] == 255 { // rollover
+					r.p.debug("rollover")
+					f[2]++ // FIXME retry!
+				}
+
+				var sr uploadTransferResponse
+				addcksum := false
+				dtlen := len(in.data)
+				pos := (int(f[2]) + 1) * int(transferNo) * int(f[0])
+				posto := pos + int(f[0])
+				if posto > dtlen {
+					posto = dtlen
+				}
+				dt := in.data[pos:posto]
+				sr.TransferNumber = transferNo
+				if transferNo == 0 && dtlen <= int(f[0]) {
+					sr.TranferPacketType = tptFirstLast
+					addcksum = true
+				} else if transferNo == 0 && f[2] == 0 {
+					sr.TranferPacketType = tptFirst
+				} else if pos+int(f[0]) >= dtlen {
+					sr.TranferPacketType = tptLast
+					addcksum = true
+				} else {
+					sr.TranferPacketType = tptMiddle
+				}
+				f[1] = transferNo
+
+				ln := uint16(binary.Size(r.resp) + binary.Size(sr) + len(dt))
+				if addcksum {
+					ln += uint16(binary.Size(in.getAttrData(7)))
+				}
+
+				r.p.debug(pos, ":", posto)
+
+				r.write(r.resp)
+				r.write(sr)
+				r.write(dt)
+				if addcksum {
+					r.write(in.getAttrData(7))
+				}
+			} else {
+				r.p.debug("transfer number error", transferNo)
+
+				r.resp.Status = InvalidPar
+				r.resp.AddStatusSize = 1
+
+				r.write(r.resp)
+				r.write(uint16(0))
+			}
+		} else {
+			r.p.debug("path unknown", r.path)
+
+			r.resp.Status = PathUnknown
+			r.write(r.resp)
+		}
+
+	case r.class == ConnManager && r.protd.Service == ForwardOpen:
+		r.p.debug("ForwardOpen")
+
+		var (
+			fodata forwardOpenData
+			sr     forwardOpenResponse
+		)
+		err := r.read(&fodata)
+		if err != nil {
+			return false
+		}
+		connPath := make([]uint8, fodata.ConnPathSize*2)
+		err = r.read(&connPath)
+		if err != nil {
+			return false
+		}
+
+		sr.OTConnectionID = rand.Uint32()
+		sr.TOConnectionID = fodata.TOConnectionID
+		sr.ConnSerialNumber = fodata.ConnSerialNumber
+		sr.VendorID = fodata.VendorID
+		sr.OriginatorSerialNumber = fodata.OriginatorSerialNumber
+		sr.OTAPI = fodata.OTRPI
+		sr.TOAPI = fodata.TORPI
+		sr.AppReplySize = 0
+
+		r.connID = fodata.TOConnectionID
+
+		r.write(r.resp)
+		r.write(sr)
+
+	case r.class == ConnManager && r.protd.Service == ForwardClose:
+		r.p.debug("ForwardClose")
+
+		var (
+			fcdata forwardCloseData
+			sr     forwardCloseResponse
+		)
+		err := r.read(&fcdata)
+		if err != nil {
+			return false
+		}
+		connPath := make([]uint8, fcdata.ConnPathSize*2)
+		err = r.read(&connPath)
+		if err != nil {
+			return false
+		}
+
+		sr.ConnSerialNumber = fcdata.ConnSerialNumber
+		sr.VendorID = fcdata.VendorID
+		sr.OriginatorSerialNumber = fcdata.OriginatorSerialNumber
+		sr.AppReplySize = 0
+
+		r.connID = 0
+
+		r.write(r.resp)
+		r.write(sr)
+
+	case r.class == TemplateClass && r.protd.Service == ReadTemplate: // TODO Status 0x06
+		r.p.debug("ReadTemplate")
+
+		var rd readTemplateResponse
+
+		err := r.read(&rd)
+		if err != nil {
+			return false
+		}
+		r.p.debug(rd.Offset, rd.Number)
+
+		if in := r.p.GetClassInstance(r.class, r.instance); in != nil {
+			r.write(r.resp)
+			r.write(in.data)
+		} else {
+			r.p.debug("path unknown", r.path)
+
+			r.resp.Status = PathUnknown
+			r.write(r.resp)
+		}
+
+	case r.protd.Service == ReadTag:
+		r.p.debug("ReadTag")
+
+		var tagCount uint16
+
+		err := r.read(&tagCount)
+		if err != nil {
+			return false
+		}
+
+		if rtData, tagType, elLen, ok := r.p.readTag(r.path, tagCount); ok {
+			if tagType >= TypeStructHead {
+				r.write(uint16(tagType >> 16))
+			}
+			if len(rtData) > r.maxData {
+				r.resp.Status = PartialTransfer
+				rtData = rtData[:(r.maxData/elLen)*elLen]
+			}
+			r.write(r.resp)
+			r.write(uint16(tagType))
+			r.write(rtData)
+		} else {
+			r.resp.Status = PathSegmentError
+			r.resp.AddStatusSize = 1
+
+			r.write(r.resp)
+			r.write(uint16(0))
+		}
+
+	case r.protd.Service == ReadTagFrag:
+		r.p.debug("ReadTagFragmented")
+
+		var (
+			tagCount  uint16
+			tagOffset uint32
+		)
+
+		err := r.read(&tagCount)
+		if err != nil {
+			return false
+		}
+		err = r.read(&tagOffset)
+		if err != nil {
+			return false
+		}
+
+		if rtData, tagType, elLen, ok := r.p.readTag(r.path, tagCount); ok && tagOffset < uint32(len(rtData)) {
+			if tagType >= TypeStructHead {
+				r.write(uint16(tagType >> 16))
+			}
+			rtData = rtData[tagOffset:]
+			if len(rtData) > r.maxData {
+				r.resp.Status = PartialTransfer
+				rtData = rtData[:(r.maxData/elLen)*elLen]
+			}
+			r.write(r.resp)
+			r.write(uint16(tagType))
+			r.write(rtData)
+		} else {
+			r.resp.Status = PathSegmentError
+			r.resp.AddStatusSize = 1
+
+			r.write(r.resp)
+			r.write(uint16(0))
+		}
+
+	case r.protd.Service == ReadModifyWrite:
+		r.p.debug("ReadModifyWrite")
+
+		var maskSize uint16
+
+		err := r.read(&maskSize)
+		if err != nil {
+			return false
+		}
+		orMask := make([]uint8, maskSize)
+		err = r.read(&orMask)
+		if err != nil {
+			return false
+		}
+		andMask := make([]uint8, maskSize)
+		err = r.read(&andMask)
+		if err != nil {
+			return false
+		}
+		if r.p.readModWriteTag(r.path, orMask, andMask) {
+			r.write(r.resp)
+		} else {
+			r.resp.Status = PathSegmentError
+			r.resp.AddStatusSize = 1
+
+			r.write(r.resp)
+			r.write(uint16(0))
+		}
+
+	case r.protd.Service == WriteTag:
+		r.p.debug("WriteTag")
+
+		var (
+			tagType  uint16
+			tagCount uint16
+		)
+
+		err := r.read(&tagType)
+		if err != nil {
+			return false
+		}
+		err = r.read(&tagCount)
+		if err != nil {
+			return false
+		}
+
+		wrData := make([]uint8, typeLen(tagType)*tagCount)
+		err = r.read(wrData)
+		if err != nil {
+			return false
+		}
+
+		if r.p.saveTag(r.path, tagType, int(tagCount), wrData, 0) {
+			r.write(r.resp)
+		} else {
+			r.resp.Status = PathSegmentError
+			r.resp.AddStatusSize = 1
+
+			r.write(r.resp)
+			r.write(uint16(0))
+		}
+
+	case r.protd.Service == WriteTagFrag:
+		r.p.debug("WriteTagFragmented")
+
+		var (
+			tagType   uint16
+			tagCount  uint16
+			tagOffset uint32
+		)
+
+		err := r.read(&tagType)
+		if err != nil {
+			return false
+		}
+		err = r.read(&tagCount)
+		if err != nil {
+			return false
+		}
+		err = r.read(&tagOffset)
+		if err != nil {
+			return false
+		}
+
+		wrData := make([]uint8, r.dataLen-8)
+		err = r.read(wrData)
+		if err != nil {
+			return false
+		}
+
+		if r.p.saveTag(r.path, tagType, (r.dataLen-8)/int(typeLen(tagType)), wrData, int(tagOffset)) {
+			r.write(r.resp)
+		} else {
+			r.resp.Status = PathSegmentError
+			r.resp.AddStatusSize = 1
+
+			r.write(r.resp)
+			r.write(uint16(0))
+		}
+
+	case r.protd.Service == Reset:
+		r.p.debug("Reset")
+
+		if r.p.callback != nil {
+			go r.p.callback(Reset, Success, nil)
+		}
+		r.write(r.resp)
+
+	default:
+		fmt.Println("unknown service:", r.protd.Service)
+
+		r.resp.Status = ServNotSup
+		r.write(r.resp)
+	}
+	return true
 }
