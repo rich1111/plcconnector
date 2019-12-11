@@ -805,7 +805,10 @@ func (p *PLC) parsePathEl(path []pathEl) (*Tag, uint32, int, int, int, error) {
 			}
 			tl = el.Len()
 			copyFrom += el.offset
-			tgtyp = uint32(el.Type) // TODO BOOL
+			tgtyp = uint32(el.Type)
+			if tgtyp == TypeBOOL {
+				tl = el.Count
+			}
 			tgc = el
 		}
 	}
@@ -835,7 +838,19 @@ func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint32, int, bool) 
 		p.tagError(ReadTag, PathSegmentError, nil)
 		return nil, 0, 0, false
 	}
-	copy(tgdata, tg.data[copyFrom:])
+	if tg.st != nil && tgtyp == TypeBOOL {
+		if tl >= 8 {
+			panic("tl >= 8")
+		}
+		tgdata = make([]uint8, 1)
+		if ((tg.data[copyFrom] >> tl) & 1) > 0 {
+			tgdata[0] = 0xFF
+		} else {
+			tgdata[0] = 0
+		}
+	} else {
+		copy(tgdata, tg.data[copyFrom:])
+	}
 
 	p.tagError(ReadTag, Success, &Tag{Name: tg.Name, Type: int(tgtyp), Index: index, Count: int(count), data: tgdata})
 	return tgdata, tgtyp, tl, true
@@ -872,7 +887,7 @@ func (p *PLC) saveTag(path []pathEl, typ uint16, count int, data []uint8, offset
 	p.tMut.Lock()
 	defer p.tMut.Unlock()
 
-	tg, tgtyp, _, copyFrom, index, err := p.parsePathEl(path)
+	tg, tgtyp, tl, copyFrom, index, err := p.parsePathEl(path)
 
 	if err != nil {
 		p.tagError(WriteTag, PathSegmentError, nil)
@@ -883,7 +898,18 @@ func (p *PLC) saveTag(path []pathEl, typ uint16, count int, data []uint8, offset
 		p.tagError(WriteTag, TooMuchData, nil)
 		return false
 	}
-	copy(tg.data[copyFrom+offset:], data)
+	if tg.st != nil && tgtyp == TypeBOOL {
+		if tl >= 8 {
+			panic("tl >= 8")
+		}
+		if data[0] == 0 {
+			tg.data[copyFrom+offset] &^= 1 << tl
+		} else {
+			tg.data[copyFrom+offset] |= 1 << tl
+		}
+	} else {
+		copy(tg.data[copyFrom+offset:], data)
+	}
 
 	p.tagError(WriteTag, Success, &Tag{Name: tg.Name, Type: int(tgtyp), Index: index, Count: count, data: data})
 	return true
