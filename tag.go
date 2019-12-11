@@ -879,11 +879,11 @@ func (p *PLC) saveTag(path []pathEl, typ uint16, count int, data []uint8, offset
 		return false
 	}
 
-	if len(tg.data) < len(data)+copyFrom {
+	if len(tg.data) < len(data)+copyFrom+offset {
 		p.tagError(WriteTag, TooMuchData, nil)
 		return false
 	}
-	copy(tg.data[copyFrom:], data)
+	copy(tg.data[copyFrom+offset:], data)
 
 	p.tagError(WriteTag, Success, &Tag{Name: tg.Name, Type: int(tgtyp), Index: index, Count: count, data: data})
 	return true
