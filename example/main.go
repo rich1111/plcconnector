@@ -121,14 +121,19 @@ func main() {
 		p.NewTag([4]structTest2{{ala: 5.5, kot: -111, pies: [8]int8{0, 1, 2, 3, 4, 5, 6, 7}},
 			{ala: -5.5, kot: 111, pies: [8]int8{8, 9, 10, 11, 12, 13, 14, 15}}}, "testSTRUCT3")
 
-		p.NewUDT([]plc.T{{N: "x", T: "DINT"}, {N: "y", T: "DINT"}}, "POSITION")
-		p.NewUDT([]plc.T{{N: "sprites", T: "POSITION", C: 8}, {N: "money", T: "LINT"}}, "HMM")
-		p.NewUDT([]plc.T{{N: "x", T: "DINT"}, {N: "y", T: "DINT"}, {N: "z", T: "DINT"}}, "POSITION3D")
-		p.NewUDT([]plc.T{{N: "objects", T: "POSITION3D", C: 2}, {N: "lives", T: "SINT"}}, "MHH")
+		p.NewUDT([]plc.T{{N: "x", T: "DINT", O: -1}, {N: "y", T: "DINT", O: -1}}, "POSITION")
+		p.NewUDT([]plc.T{{N: "sprites", T: "POSITION", C: 8, O: -1}, {N: "money", T: "LINT", O: -1}}, "HMM")
+		p.NewUDT([]plc.T{{N: "x", T: "DINT", O: -1}, {N: "y", T: "DINT", O: -1}, {N: "z", T: "DINT", O: -1}}, "POSITION3D")
+		p.NewUDT([]plc.T{{N: "objects", T: "POSITION3D", C: 2, O: -1}, {N: "lives", T: "SINT", O: -1}}, "MHH")
+
+		p.NewUDT([]plc.T{{N: "In", T: "BOOL", C: 0, O: 0}, {N: "Out", T: "BOOL", C: 1, O: 0}}, "BOOLS")
+		p.NewUDT([]plc.T{{N: "int", T: "INT", O: -1}, {N: "struct", T: "BOOLS", O: -1}}, "STRINSTR")
 
 		p.CreateTag("POSITION", "pos1")
 		p.CreateTag("HMM", "hmm1")
 		p.CreateTag("MHH", "mhh1")
+		p.CreateTag("BOOLS", "testBOOLS")
+		p.CreateTag("STRINSTR", "testSIS")
 	}
 
 	// nie wyświetlaj dodatkowych informacji

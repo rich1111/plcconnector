@@ -32,7 +32,7 @@ func (p *PLC) newUDT(udt []T, name string, handle int, size int) error {
 	for i := 0; i < len(udt); i++ {
 		st.d[i].Name = udt[i].N
 		st.o[udt[i].N] = i
-		if udt[i].C == 0 {
+		if udt[i].C == 0 && udt[i].T != "BOOL" {
 			udt[i].C = 1
 		}
 		st.d[i].Count = udt[i].C
@@ -44,7 +44,7 @@ func (p *PLC) newUDT(udt []T, name string, handle int, size int) error {
 			} else {
 				panic("!" + udt[i].T)
 			}
-		} else if st.d[i].Count > 1 {
+		} else if st.d[i].Count > 1 && udt[i].T != "BOOL" {
 			st.d[i].Type |= TypeArray1D
 		}
 		// fmt.Println(udt[i].T, st.d[i].Type)
@@ -55,11 +55,12 @@ func (p *PLC) newUDT(udt []T, name string, handle int, size int) error {
 		if i < len(udt)-1 {
 			typencstr.WriteRune(',')
 		}
-		if udt[i].O == 0 {
+		if udt[i].O == -1 {
 			st.d[i].offset = st.l
 			st.l += st.d[i].ElemLen() * st.d[i].Count
 		} else {
 			st.d[i].offset = udt[i].O
+			st.l = udt[i].O + st.d[i].ElemLen()
 		}
 	}
 	if handle == 0 {
@@ -89,7 +90,7 @@ func (p *PLC) addUDT(st *structData) int {
 	var buf bytes.Buffer
 
 	for _, x := range st.d {
-		if x.Count > 1 { // TODO BOOL
+		if x.Count > 1 || x.Type == TypeBOOL {
 			bwrite(&buf, uint16(x.Count))
 		} else {
 			bwrite(&buf, uint16(0))
