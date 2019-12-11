@@ -139,7 +139,10 @@ func typeLen(t uint16) uint16 {
 }
 
 func typeToString(t int) string {
-	switch t {
+	if t >= TypeStructHead {
+		return "STRUCT"
+	}
+	switch t & 0xFF {
 	case TypeBOOL:
 		return "BOOL"
 	case TypeSINT:
@@ -201,9 +204,6 @@ func typeToString(t int) string {
 	case TypeSTRINGI:
 		return "STRINGI"
 	default:
-		if t >= TypeStructHead {
-			return "STRUCT"
-		}
 		return "UNKNOWN"
 	}
 }
