@@ -709,11 +709,6 @@ func (r *req) serviceHandle() bool {
 				}
 				f[1] = transferNo
 
-				ln := uint16(binary.Size(r.resp) + binary.Size(sr) + len(dt))
-				if addcksum {
-					ln += uint16(binary.Size(in.getAttrData(7)))
-				}
-
 				r.p.debug(pos, ":", posto)
 
 				r.write(r.resp)

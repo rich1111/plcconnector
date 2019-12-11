@@ -9,10 +9,6 @@ import (
 	"time"
 )
 
-func handleUDPConnection(conn *net.UDPConn) {
-
-}
-
 func (p *PLC) handleUDPRequest(conn *net.UDPConn, dt []byte, n int, addr *net.UDPAddr) {
 	r := req{}
 	r.p = p

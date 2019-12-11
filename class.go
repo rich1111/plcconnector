@@ -31,12 +31,6 @@ func (in *Instance) SetAttr(no int, a *Tag) {
 	in.m.Unlock()
 }
 
-func (in *Instance) setAttrData(no int, data []byte) {
-	in.m.Lock()
-	in.attr[no].data = data
-	in.m.Unlock()
-}
-
 // SetAttrUINT .
 func (in *Instance) SetAttrUINT(no int, v uint16) {
 	in.m.Lock()

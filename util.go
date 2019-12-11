@@ -28,10 +28,6 @@ func htons(v uint16) uint16 {
 	return binary.LittleEndian.Uint16([]byte{byte(v >> 8), byte(v)})
 }
 
-func htonl(v uint32) uint32 {
-	return binary.LittleEndian.Uint32([]byte{byte(v >> 24), byte(v >> 16), byte(v >> 8), byte(v)})
-}
-
 func getNetIf() (uint32, []byte) {
 	ifaces, err := net.Interfaces()
 	if err == nil {
