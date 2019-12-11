@@ -841,92 +841,51 @@ func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint32, int, bool) 
 	return tgdata, tgtyp, tl, true
 }
 
-func (p *PLC) readModWriteTag(path []pathEl, orMask, andMask []uint8) bool { // FIXME false callback
-	var (
-		tag   string
-		index int
-		pi    int
-	)
-
-	if len(path) > 0 {
-		if path[0].typ == ansiExtended { // TODO better, function
-			tag = path[0].txt
-		} else if len(path) > 1 && path[0].typ == pathClass && path[0].val == SymbolClass && path[1].typ == pathInstance {
-			pi = 1
-			tag = p.symbols.inst[path[1].val].attr[1].DataString()
-		} else {
-			return false
-		}
-		if len(path) > pi+1 {
-			switch path[pi+1].typ {
-			case pathElement:
-				index = path[pi+1].val
-			}
-		}
-	} else {
-		return false
-	}
-
+func (p *PLC) readModWriteTag(path []pathEl, orMask, andMask []uint8) bool {
 	p.tMut.Lock()
-	tg, ok := p.tags[tag]
-	if ok && tg.Count >= index {
-		el := index * tg.ElemLen()
-		for i, or := range orMask {
-			tg.data[el+i] |= or
-		}
-		for i, and := range andMask {
-			tg.data[el+i] &= and
-		}
-	} else {
-		p.tMut.Unlock()
+	defer p.tMut.Unlock()
+
+	tg, tgtyp, _, copyFrom, index, err := p.parsePathEl(path)
+
+	if err != nil {
+		p.tagError(ReadModifyWrite, PathSegmentError, nil)
 		return false
 	}
-	p.tMut.Unlock()
-	// if p.callback != nil { TODO
-	// 	go p.callback(WriteTag, Success, &Tag{Name: tag, Type: int(typ), Index: index, Count: count, data: data})
-	// }
+
+	if len(tg.data) < len(orMask)+copyFrom || tgtyp == TypeBOOL {
+		p.tagError(ReadModifyWrite, TooMuchData, nil)
+		return false
+	}
+
+	for i, or := range orMask {
+		tg.data[copyFrom+i] |= or
+	}
+	for i, and := range andMask {
+		tg.data[copyFrom+i] &= and
+	}
+
+	p.tagError(ReadModifyWrite, Success, &Tag{Name: tg.Name, Type: int(tgtyp), Index: index, data: tg.data[copyFrom : copyFrom+len(orMask)]})
 	return true
 }
 
-func (p *PLC) saveTag(path []pathEl, typ uint16, count int, data []uint8, offset int) bool { // FIXME false callback
-	var (
-		tag   string
-		index int
-		pi    int
-	)
-
-	if len(path) > 0 {
-		if path[0].typ == ansiExtended { // TODO better, function
-			tag = path[0].txt
-		} else if len(path) > 1 && path[0].typ == pathClass && path[0].val == SymbolClass && path[1].typ == pathInstance {
-			pi = 1
-			tag = p.symbols.inst[path[1].val].attr[1].DataString()
-		} else {
-			return false
-		}
-		if len(path) > pi+1 {
-			switch path[pi+1].typ {
-			case pathElement:
-				index = path[pi+1].val
-			}
-		}
-	} else {
-		return false
-	}
-
+func (p *PLC) saveTag(path []pathEl, typ uint16, count int, data []uint8, offset int) bool {
 	p.tMut.Lock()
-	tg, ok := p.tags[tag]
-	index += offset / tg.ElemLen()
-	if ok && tg.Type == int(typ) && tg.Count >= index+count {
-		copy(tg.data[index*tg.ElemLen():], data)
-	} else {
-		p.tMut.Unlock()
+	defer p.tMut.Unlock()
+
+	tg, tgtyp, _, copyFrom, index, err := p.parsePathEl(path)
+
+	if err != nil {
+		p.tagError(WriteTag, PathSegmentError, nil)
 		return false
 	}
-	p.tMut.Unlock()
-	if p.callback != nil {
-		go p.callback(WriteTag, Success, &Tag{Name: tag, Type: int(typ), Index: index, Count: count, data: data})
+
+	if len(tg.data) < len(data)+copyFrom {
+		p.tagError(WriteTag, TooMuchData, nil)
+		return false
 	}
+	copy(tg.data[copyFrom:], data)
+
+	p.tagError(WriteTag, Success, &Tag{Name: tg.Name, Type: int(tgtyp), Index: index, Count: count, data: data})
 	return true
 }
 

@@ -90,6 +90,7 @@ const (
 	ServNotSup       = 0x08
 	AttrListError    = 0x0A
 	AttrNotSup       = 0x14
+	TooMuchData      = 0x15
 	ObjectNotExist   = 0x16
 	InvalidPar       = 0x20
 )
