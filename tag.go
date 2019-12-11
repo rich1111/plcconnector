@@ -747,7 +747,13 @@ func (p *PLC) CreateTag(typ string, name string) {
 	}
 }
 
-func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint32, int, bool) { // FIXME false callback
+func (p *PLC) tagError(service int, status int, tag *Tag) {
+	if p.callback != nil {
+		go p.callback(service, status, tag)
+	}
+}
+
+func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint32, int, bool) {
 
 	var (
 		tgtyp  uint32
@@ -760,93 +766,92 @@ func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint32, int, bool) 
 		tl     int
 	)
 
-	if len(path) > 0 {
-		if path[0].typ == ansiExtended { // TODO better, function
-			tag = path[0].txt
-		} else if len(path) > 1 && path[0].typ == pathClass && path[0].val == SymbolClass && path[1].typ == pathInstance {
-			pi = 1
-			tag = p.symbols.inst[path[1].val].attr[1].DataString()
-		} else {
-			return nil, 0, 0, false
-		}
-		if len(path) > pi+1 {
-			switch path[pi+1].typ {
-			case pathElement:
-				index = path[pi+1].val
-			case ansiExtended:
-				memb = path[pi+1].txt
-			}
-		}
-		if len(path) > pi+2 {
-			switch path[pi+2].typ {
-			case pathElement:
-				membi = path[pi+2].val
-			case ansiExtended:
-				memb = path[pi+2].txt
-			}
-		}
-		if len(path) > pi+3 && path[pi+3].typ == pathElement {
-			membi = path[pi+3].val
-		}
+	if len(path) == 0 {
+		p.tagError(ReadTag, PathSegmentError, nil)
+		return nil, 0, 0, false
+	}
+
+	if path[0].typ == ansiExtended {
+		tag = path[0].txt
+	} else if len(path) > 1 && path[0].typ == pathClass && path[0].val == SymbolClass && path[1].typ == pathInstance {
+		pi = 1
+		tag = p.symbols.inst[path[1].val].attr[1].DataString()
 	} else {
+		p.tagError(ReadTag, PathSegmentError, nil)
 		return nil, 0, 0, false
 	}
 
 	p.tMut.RLock()
+	defer p.tMut.RUnlock()
 	tg, ok := p.tags[tag]
 
-	if ok {
-		var (
-			copyFrom int
-			copyLen  int
-		)
-		tl = tg.Len()
-		copyFrom = index * tl
-		if memb == "" && membi == 0 {
-			tgtyp = uint32(tg.Type)
-		} else if memb != "" && tg.st != nil {
-			el := tg.st.Elem(memb)
-			if el != nil {
-				tl = el.Len()
-				copyFrom += el.offset + membi*tl
-				tgtyp = uint32(el.Type)
-			} else {
-				fmt.Println("no member", memb, "in struct", tg.Name)
-				ok = false
-			}
-		} else {
-			fmt.Println("unsupported", path)
-			ok = false
-		}
-		copyLen = int(count) * tl
+	if !ok {
+		p.tagError(ReadTag, PathSegmentError, nil)
+		return nil, 0, 0, false
+	}
 
-		if tg.st != nil && memb == "" {
-			// tgtyp |= TypeStructHead
-		} else {
-			tgtyp &= TypeType
+	if len(path) > pi+1 {
+		switch path[pi+1].typ {
+		case pathElement:
+			index = path[pi+1].val
+		case ansiExtended:
+			memb = path[pi+1].txt
 		}
+	}
+	if len(path) > pi+2 {
+		switch path[pi+2].typ {
+		case pathElement:
+			membi = path[pi+2].val
+		case ansiExtended:
+			memb = path[pi+2].txt
+		}
+	}
+	if len(path) > pi+3 && path[pi+3].typ == pathElement {
+		membi = path[pi+3].val
+	}
 
-		if ok {
-			tgdata = make([]uint8, copyLen)
-			if copyFrom+copyLen > len(tg.data) {
-				ok = false
-			} else {
-				copy(tgdata, tg.data[copyFrom:])
-			}
-			p.debug(typeToString(int(tgtyp)), tgdata)
+	var (
+		copyFrom int
+		copyLen  int
+	)
+	tl = tg.Len()
+	copyFrom = index * tl
+	if memb == "" && membi == 0 {
+		tgtyp = uint32(tg.Type)
+	} else if memb != "" && tg.st != nil {
+		el := tg.st.Elem(memb)
+		if el != nil {
+			tl = el.Len()
+			copyFrom += el.offset + membi*tl
+			tgtyp = uint32(el.Type)
+		} else {
+			fmt.Println("no member", memb, "in struct", tg.Name)
+			p.tagError(ReadTag, PathSegmentError, nil)
+			return nil, 0, 0, false
 		}
+	} else {
+		fmt.Println("unsupported", path)
+		p.tagError(ReadTag, PathSegmentError, nil)
+		return nil, 0, 0, false
 	}
-	p.tMut.RUnlock()
-	if ok {
-		if p.callback != nil {
-			go p.callback(ReadTag, Success, &Tag{Name: tag, Type: int(tgtyp), Index: index, Count: int(count), data: tgdata})
-		}
-		return tgdata, tgtyp, tl, true
+	copyLen = int(count) * tl
+
+	if tg.st != nil && memb == "" {
+		// tgtyp |= TypeStructHead
+	} else {
+		tgtyp &= TypeType
 	}
-	if p.callback != nil {
-		go p.callback(ReadTag, PathSegmentError, nil)
+
+	tgdata = make([]uint8, copyLen)
+	if copyFrom+copyLen > len(tg.data) {
+		p.tagError(ReadTag, PathSegmentError, nil)
+		return nil, 0, 0, false
 	}
-	return nil, 0, 0, false
+	copy(tgdata, tg.data[copyFrom:])
+	p.debug(typeToString(int(tgtyp)), tgdata)
+
+	p.tagError(ReadTag, Success, &Tag{Name: tag, Type: int(tgtyp), Index: index, Count: int(count), data: tgdata})
+	return tgdata, tgtyp, tl, true
 }
 
 func (p *PLC) readModWriteTag(path []pathEl, orMask, andMask []uint8) bool { // FIXME false callback
