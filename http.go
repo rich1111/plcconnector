@@ -44,7 +44,7 @@ func (p *PLC) tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 	sort.Strings(arr)
 
 	for _, n := range arr {
-		toSend.WriteString("<tr><td><a href=\"/" + n + "\">" + n + "</a></td><td>" + strconv.Itoa(p.tags[n].Count) + "</td><td>" + p.tags[n].TypeString() + "</td><td>")
+		toSend.WriteString("<tr><td><a href=\"/" + n + "\" id=\"" + n + "\">" + n + "</a></td><td>" + strconv.Itoa(p.tags[n].Count) + "</td><td>" + p.tags[n].TypeString() + "</td><td>")
 		var ascii strings.Builder
 		if p.tags[n].Type != TypeREAL && p.tags[n].Type != TypeLREAL && p.tags[n].Type != TypeBOOL {
 			ascii.Grow(p.tags[n].Count)
@@ -193,7 +193,7 @@ func tagToHTML(t *Tag) string {
 
 	ln := t.ElemLen()
 
-	toSend.WriteString("<!DOCTYPE html>\n<html><title>" + t.Name + "</title><a href=\"/\">powrót</a><h3>" + t.Name + "</h3>")
+	toSend.WriteString("<!DOCTYPE html>\n<html><title>" + t.Name + "</title><a href=\"/#" + t.Name + "\">powrót</a> <a href=\"\">odśwież</a><h3>" + t.Name + "</h3>")
 	toSend.WriteString("<table " + tableStyle + "><tr><th>N</th><th>" + t.TypeString() + "</th>")
 	if t.Type == TypeBOOL {
 		toSend.WriteString("</tr>\n")
