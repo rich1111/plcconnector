@@ -56,7 +56,7 @@ func (p *PLC) ImportJSON(file string) error {
 	in.attr[4] = TagDINT(int32(db.AC[3]), "Attr4")
 	in.attr[10] = TagDINT(int32(db.AC[4]), "Attr5")
 
-	for name, t := range db.Templates {
+	for name, t := range db.Templates { // FIXME kolejnosc tak jak w jsonie
 		var tmpl []T
 		for _, m := range t.Member {
 			var tx T
@@ -68,7 +68,7 @@ func (p *PLC) ImportJSON(file string) error {
 		}
 		p.newUDT(tmpl, name, t.Handle, t.Size)
 	}
-	for name, s := range db.Symbols {
+	for name, s := range db.Symbols { // FIXME kolejnosc tak jak w jsonie
 		var tag Tag
 		if s.Size > 0 {
 			tag.Count = s.Size

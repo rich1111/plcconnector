@@ -791,7 +791,7 @@ func (r *req) serviceHandle() bool {
 		r.write(r.resp)
 		r.write(sr)
 
-	case r.class == TemplateClass && r.protd.Service == ReadTemplate: // TODO Status 0x06
+	case r.class == TemplateClass && r.protd.Service == ReadTemplate:
 		r.p.debug("ReadTemplate")
 
 		var rd readTemplateResponse
@@ -803,8 +803,13 @@ func (r *req) serviceHandle() bool {
 		r.p.debug(rd.Offset, rd.Number)
 
 		if in := r.p.GetClassInstance(r.class, r.instance); in != nil {
+			data := in.data[rd.Offset:]
+			if len(data) > r.maxData {
+				r.resp.Status = PartialTransfer
+				data = data[:r.maxData]
+			}
 			r.write(r.resp)
-			r.write(in.data)
+			r.write(data)
 		} else {
 			r.p.debug("path unknown", r.path)
 
