@@ -811,7 +811,7 @@ func (r *req) serviceHandle() bool {
 		}
 		r.p.debug(rd.Offset, rd.Number)
 
-		if in := r.p.GetClassInstance(r.class, r.instance); in != nil {
+		if in := r.p.GetClassInstance(r.class, r.instance); in != nil && rd.Offset < uint32(len(in.data)) {
 			data := in.data[rd.Offset:]
 			if len(data) > r.maxData {
 				r.resp.Status = PartialTransfer
