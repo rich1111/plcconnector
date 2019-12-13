@@ -839,7 +839,11 @@ func (r *req) serviceHandle() bool {
 		if rtData, tagType, elLen, ok := r.p.readTag(r.path, tagCount); ok {
 			if len(rtData) > r.maxData {
 				r.resp.Status = PartialTransfer
-				rtData = rtData[:(r.maxData/elLen)*elLen]
+				if elLen > r.maxData {
+					rtData = rtData[:r.maxData]
+				} else {
+					rtData = rtData[:(r.maxData/elLen)*elLen]
+				}
 			}
 			r.write(r.resp)
 			if tagType >= TypeStructHead {
@@ -876,7 +880,11 @@ func (r *req) serviceHandle() bool {
 			rtData = rtData[tagOffset:]
 			if len(rtData) > r.maxData {
 				r.resp.Status = PartialTransfer
-				rtData = rtData[:(r.maxData/elLen)*elLen]
+				if elLen > r.maxData {
+					rtData = rtData[:r.maxData]
+				} else {
+					rtData = rtData[:(r.maxData/elLen)*elLen]
+				}
 			}
 			r.write(r.resp)
 			if tagType >= TypeStructHead {
