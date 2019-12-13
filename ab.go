@@ -83,14 +83,16 @@ func (p *PLC) Serve(host string) error {
 	sock.Control = sockControl
 	serv2, err := sock.Listen(context.Background(), "tcp", host)
 	if err != nil {
-		fmt.Println("plcconnector Serve: ", err)
 		return err
 	}
 	p.port = getPort(host)
 	serv := serv2.(*net.TCPListener)
 	go p.serveUDP(host)
 	for {
-		serv.SetDeadline(time.Now().Add(time.Second))
+		err = serv.SetDeadline(time.Now().Add(time.Second))
+		if err != nil {
+			return err
+		}
 		conn, err := serv.AcceptTCP()
 		if e, ok := err.(net.Error); ok && e.Timeout() {
 			p.closeMut.RLock()
@@ -100,13 +102,15 @@ func (p *PLC) Serve(host string) error {
 				break
 			}
 		} else if err != nil {
-			fmt.Println("plcconnector Serve: ", err)
 			return err
 		} else {
 			go p.handleRequest(conn)
 		}
 	}
-	serv.Close()
+	err = serv.Close()
+	if err != nil {
+		return err
+	}
 	p.debug("Serve shutdown")
 	p.closeWait.Signal()
 	return nil
@@ -207,7 +211,6 @@ loop:
 			break loop
 		}
 
-	command:
 		switch r.encHead.Command {
 		case ecNOP:
 			if r.eipNOP() != nil {
@@ -266,7 +269,7 @@ loop:
 			if r.rrdata.ItemCount != 2 {
 				p.debug("itemCount != 2")
 				r.encHead.Status = eipIncorrectData
-				break command
+				break
 			}
 
 			// address item
@@ -318,7 +321,7 @@ loop:
 
 			if itemserror {
 				r.encHead.Status = eipIncorrectData
-				break command
+				break
 			}
 
 			// CIP
@@ -338,17 +341,16 @@ loop:
 			r.dataLen -= 2 + len(ePath)
 
 			r.class, r.instance, r.attr, r.path, err = r.parsePath(ePath)
+			if err != nil {
+				r.resp.Status = PathSegmentError
+				r.resp.AddStatusSize = 1
+				r.write(r.resp)
+				r.write(uint16(0))
+				goto errl
+			}
 			if p.Verbose {
 				fmt.Printf("Class %X Instance %X Attr %X %v\n", r.class, r.instance, r.attr, r.path)
 			}
-			// if err != nil {
-			// 	resp.Status = PathSegmentError
-			// 	resp.AddStatusSize = 1
-
-			// 	r.write(resp)
-			// 	r.write(uint16(0))
-			// 	break command // FIXME
-			// }
 
 			if r.class == ConnManager && r.protd.Service == UnconnectedSend {
 				var usdata [4]uint8
@@ -371,6 +373,13 @@ loop:
 				r.dataLen -= 6 + len(ePath)
 
 				r.class, r.instance, r.attr, r.path, err = r.parsePath(ePath)
+				if err != nil {
+					r.resp.Status = PathSegmentError
+					r.resp.AddStatusSize = 1
+					r.write(r.resp)
+					r.write(uint16(0))
+					goto errl
+				}
 				if p.Verbose {
 					fmt.Printf("UNC SEND: Class %X Instance %X Attr %X %v\n", r.class, r.instance, r.attr, r.path)
 				}
@@ -379,7 +388,7 @@ loop:
 			if !r.serviceHandle() {
 				break loop
 			}
-
+		errl:
 			r.writeCIP(r.rrdata)
 			if cidok && r.connID != 0 {
 				r.writeCIP(itemType{Type: itConnAddress, Length: uint16(binary.Size(r.connID))})
