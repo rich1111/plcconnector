@@ -56,19 +56,37 @@ func (p *PLC) ImportJSON(file string) error {
 	in.attr[4] = TagDINT(int32(db.AC[3]), "Attr4")
 	in.attr[10] = TagDINT(int32(db.AC[4]), "Attr5")
 
-	for name, t := range db.Templates { // FIXME kolejnosc tak jak w jsonie
-		var tmpl []T
-		for _, m := range t.Member {
-			var tx T
-			tx.N = m.Name
-			tx.T = m.Type
-			tx.C = m.Size
-			tx.O = m.Offset
-			tmpl = append(tmpl, tx)
+	tt := db.Templates
+	for len(tt) > 0 {
+		newtt := make(map[string]jsTemplates)
+		for name, t := range tt {
+			var tmpl []T
+			sis := false
+			for _, m := range t.Member {
+				var tx T
+				tx.N = m.Name
+				tx.T = m.Type
+				tx.C = m.Size
+				tx.O = m.Offset
+				if m.TypeInt > TypeStruct {
+					_, ok := p.tids[m.Type]
+					if !ok {
+						sis = true
+						break
+					}
+				}
+				tmpl = append(tmpl, tx)
+			}
+			if sis {
+				newtt[name] = t
+			} else {
+				p.newUDT(tmpl, name, t.Handle, t.Size)
+			}
 		}
-		p.newUDT(tmpl, name, t.Handle, t.Size)
+		tt = newtt
 	}
-	for name, s := range db.Symbols { // FIXME kolejnosc tak jak w jsonie
+
+	for name, s := range db.Symbols {
 		var tag Tag
 		if s.Size > 0 {
 			tag.Count = s.Size
@@ -82,7 +100,7 @@ func (p *PLC) ImportJSON(file string) error {
 		} else {
 			st, ok := p.tids[s.Type]
 			if !ok {
-				panic("")
+				panic("symbols " + s.Type)
 			}
 			tag.st = &st
 			tag.Type = int(st.h) | TypeStructHead

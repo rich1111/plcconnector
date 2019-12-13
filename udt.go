@@ -37,6 +37,9 @@ func (p *PLC) newUDT(udt []T, name string, handle int, size int) error {
 		}
 		st.d[i].Count = udt[i].C
 		st.d[i].Type = p.stringToType(udt[i].T)
+		if st.d[i].Type == 0 {
+			panic("!" + udt[i].T)
+		}
 		if st.d[i].Type >= TypeStructHead {
 			ste, ok := p.tids[udt[i].T]
 			if ok {
@@ -96,11 +99,11 @@ func (p *PLC) addUDT(st *structData) int {
 			bwrite(&buf, uint16(0))
 		}
 		if x.Type >= TypeStructHead {
-			if x.st.i > 1 {
-				bwrite(&buf, uint16(x.st.i|TypeStruct|TypeArray1D))
-			} else {
-				bwrite(&buf, uint16(x.st.i|TypeStruct))
-			}
+			// if x.st.i > 1 {
+			// 	bwrite(&buf, uint16(x.st.i|TypeStruct|TypeArray1D))
+			// } else {
+			bwrite(&buf, uint16(x.st.i|TypeStruct))
+			// }
 		} else {
 			bwrite(&buf, uint16(x.Type)) // member type
 		}
@@ -125,6 +128,7 @@ func (p *PLC) addUDT(st *structData) int {
 
 	p.tMut.Lock()
 	p.template.SetInstance(st.i, tp)
+	p.template.SetInstance(int(st.h), tp)
 	p.tMut.Unlock()
 	return st.i
 }
