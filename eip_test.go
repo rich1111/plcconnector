@@ -118,7 +118,7 @@ func Test_constructPath(t *testing.T) {
 		{"11", args{"tag[41].2"}, []uint8{0x91, 3, 't', 'a', 'g', 0, 0x28, 41}},
 		{"12", args{"tag3.count"}, []uint8{0x91, 4, 't', 'a', 'g', '3', 0x91, 5, 'c', 'o', 'u', 'n', 't', 0}},
 		{"13", args{"tag3[60000].count"}, []uint8{0x91, 4, 't', 'a', 'g', '3', 0x29, 0, 0x60, 0xEA, 0x91, 5, 'c', 'o', 'u', 'n', 't', 0}},
-		{"13", args{"tag3[70000].count"}, nil},
+		{"13", args{"tag3[70000].count"}, []uint8{0x91, 4, 't', 'a', 'g', '3', 0x2A, 0, 112, 17, 1, 0, 0x91, 5, 'c', 'o', 'u', 'n', 't', 0}},
 		{"14", args{"tag.count[712]"}, []uint8{0x91, 3, 't', 'a', 'g', 0, 0x91, 5, 'c', 'o', 'u', 'n', 't', 0, 0x29, 0, 0xC8, 2}},
 		{"15", args{"tag[6].count[7]"}, []uint8{0x91, 3, 't', 'a', 'g', 0, 0x28, 6, 0x91, 5, 'c', 'o', 'u', 'n', 't', 0, 0x28, 7}},
 	}
