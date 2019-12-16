@@ -137,7 +137,7 @@ func constructPath(p []pathEl) []uint8 {
 			if len(byt)&1 == 1 {
 				b = append(b, 0)
 			}
-		case pathElement: // 32 bit?
+		case pathElement:
 			if e.val > 65535 {
 				b = append(b, []uint8{pathLogical | pathElement | path32, 0, uint8(e.val), uint8(e.val >> 8), uint8(e.val >> 16), uint8(e.val >> 24)}...)
 			} else if e.val > 255 {

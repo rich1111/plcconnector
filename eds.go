@@ -227,6 +227,11 @@ func (p *PLC) loadEDS(fn string) error {
 	in.attr[9] = TagUSINT(1, "FileSaveParameters") // BYTE
 	in.attr[10] = TagUSINT(1, "FileType")          // read only
 
+	dir := []uint8{0xC8, 0x00}
+	dir = append(dir, in.attr[2].data...)
+	dir = append(dir, in.attr[4].data...)
+	p.Class[FileClass].inst[0].attr[32] = &Tag{Name: "Directory", data: dir}
+
 	p.Class[FileClass].SetInstance(0xC8, in)
 
 	p.Class[0xAC] = NewClass("AC", 0) // unknown class, values from 1756-pm020_-en-p.pdf p. 57
