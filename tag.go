@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"strings"
 )
 
 type structData struct {
@@ -770,7 +771,12 @@ func (p *PLC) parsePathEl(path []pathEl) (*Tag, uint32, int, int, int, error) {
 	}
 
 	if path[0].typ == ansiExtended {
-		tag = path[0].txt
+		if strings.HasPrefix(path[0].txt, "Program:") && len(path) > 1 && path[1].typ == ansiExtended {
+			tag = path[0].txt + "." + path[1].txt
+			pi = 2
+		} else {
+			tag = path[0].txt
+		}
 	} else if len(path) > 1 && path[0].typ == pathClass && path[0].val == SymbolClass && path[1].typ == pathInstance {
 		pi = 2
 		tag = p.symbols.inst[path[1].val].attr[1].DataString()
