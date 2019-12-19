@@ -941,12 +941,19 @@ func (r *req) serviceHandle() bool {
 		if err != nil {
 			return false
 		}
+		if tagType == 0x02A0 {
+			err = r.read(&tagType)
+			if err != nil {
+				return false
+			}
+			r.dataLen -= 2
+		}
 		err = r.read(&tagCount)
 		if err != nil {
 			return false
 		}
 
-		wrData := make([]uint8, typeLen(tagType)*tagCount)
+		wrData := make([]uint8, r.dataLen-4)
 		err = r.read(wrData)
 		if err != nil {
 			return false
@@ -974,6 +981,13 @@ func (r *req) serviceHandle() bool {
 		err := r.read(&tagType)
 		if err != nil {
 			return false
+		}
+		if tagType == 0x02A0 {
+			err = r.read(&tagType)
+			if err != nil {
+				return false
+			}
+			r.dataLen -= 2
 		}
 		err = r.read(&tagCount)
 		if err != nil {
