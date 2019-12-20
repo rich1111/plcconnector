@@ -74,9 +74,11 @@ func parsePath(p string) []pathEl {
 			noint, _ := strconv.Atoi(no)
 			e = append(e, pathEl{typ: pathElement, val: noint})
 			no = ""
-		case unicode.IsDigit(t):
+		case unicode.IsDigit(t) || t == ' ':
 			if inName {
-				if name == "" && bit == "" {
+				if t == ' ' {
+					return nil
+				} else if name == "" && bit == "" {
 					if last == '.' {
 						inBit = true
 						bit += string(t)
