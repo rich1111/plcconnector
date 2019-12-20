@@ -75,6 +75,13 @@ func parsePath(p string) []pathEl {
 			noint, _ := strconv.Atoi(strings.TrimSpace(no))
 			e = append(e, pathEl{typ: pathElement, val: noint})
 			no = ""
+		case t == ',':
+			if inName || no == "" {
+				return nil
+			}
+			noint, _ := strconv.Atoi(strings.TrimSpace(no))
+			e = append(e, pathEl{typ: pathElement, val: noint})
+			no = ""
 		case unicode.IsDigit(t) || t == ' ':
 			if inName {
 				if t == ' ' {
