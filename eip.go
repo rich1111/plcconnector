@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math/rand"
 	"strconv"
+	"strings"
 	"unicode"
 )
 
@@ -71,7 +72,7 @@ func parsePath(p string) []pathEl {
 				return nil
 			}
 			inName = true
-			noint, _ := strconv.Atoi(no)
+			noint, _ := strconv.Atoi(strings.TrimSpace(no))
 			e = append(e, pathEl{typ: pathElement, val: noint})
 			no = ""
 		case unicode.IsDigit(t) || t == ' ':
