@@ -68,7 +68,7 @@ func parsePath(p string) []pathEl {
 				name = ""
 			}
 		case t == ']':
-			if no == "" {
+			if strings.TrimSpace(no) == "" {
 				return nil
 			}
 			inName = true
@@ -76,7 +76,7 @@ func parsePath(p string) []pathEl {
 			e = append(e, pathEl{typ: pathElement, val: noint})
 			no = ""
 		case t == ',':
-			if inName || no == "" {
+			if inName || strings.TrimSpace(no) == "" {
 				return nil
 			}
 			noint, _ := strconv.Atoi(strings.TrimSpace(no))
