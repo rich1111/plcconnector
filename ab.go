@@ -477,6 +477,7 @@ func (r *req) serviceHandle() bool {
 		newBuf := new(bytes.Buffer)
 		r.writeBuf = newBuf
 
+		olddl := r.dataLen
 		for i := range svs {
 			err = r.read(&r.protd)
 			if err != nil {
@@ -491,7 +492,12 @@ func (r *req) serviceHandle() bool {
 			if err != nil {
 				return false
 			}
-			// r.dataLen -= 2 + len(ePath) // FIXME
+			if i+1 < len(svs) {
+				r.dataLen = int(svs[i+1] - svs[i])
+			} else {
+				r.dataLen = olddl - int(svs[i])
+			}
+			r.dataLen -= 2 + len(ePath)
 
 			r.class, r.instance, r.attr, r.path, err = r.parsePath(ePath)
 			if r.p.Verbose {
