@@ -22,6 +22,7 @@ const (
 	WriteTagFrag    = 0x53
 	ForwardOpen     = 0x54
 	GetInstAttrList = 0x55
+	LargeForwOpen   = 0x5B
 )
 
 // Classes
@@ -196,6 +197,23 @@ type forwardOpenData struct {
 	OTConnPar              uint16
 	TORPI                  uint32
 	TOConnPar              uint16
+	TransportType          uint8
+	ConnPathSize           uint8
+}
+
+type largeForwardOpenData struct {
+	TimeOut                uint16
+	OTConnectionID         uint32
+	TOConnectionID         uint32
+	ConnSerialNumber       uint16
+	VendorID               uint16
+	OriginatorSerialNumber uint32
+	ConnTimeoutMult        uint8
+	_                      [3]uint8
+	OTRPI                  uint32
+	OTConnPar              uint32
+	TORPI                  uint32
+	TOConnPar              uint32
 	TransportType          uint8
 	ConnPathSize           uint8
 }

@@ -136,6 +136,7 @@ type req struct {
 	file     map[int]*[3]uint8
 	instance int
 	maxData  int
+	maxFO    int
 	p        *PLC
 	path     []pathEl
 	protd    protocolData
@@ -186,6 +187,7 @@ func (p *PLC) handleRequest(conn net.Conn) {
 	r.readBuf = bufio.NewReader(conn)
 	r.writeBuf = new(bytes.Buffer)
 	r.wrCIPBuf = new(bytes.Buffer)
+	r.maxFO = 472
 
 loop:
 	for {
@@ -300,13 +302,13 @@ loop:
 				break loop
 			}
 			r.dataLen = int(item.Length)
-			r.maxData = 65000
+			r.maxData = 472
 			if item.Type == itConnData {
 				err = r.read(&protSeqCount)
 				if err != nil {
 					break loop
 				}
-				r.maxData = 472 // FIXME read from forward open
+				r.maxData = r.maxFO
 				r.dataLen -= 2
 				cidok = true
 			} else if item.Type != itUnconnData {
@@ -775,6 +777,39 @@ func (r *req) serviceHandle() bool {
 		sr.AppReplySize = 0
 
 		r.connID = fodata.TOConnectionID
+		r.maxFO = int(fodata.TOConnPar&0x1FF) - 32
+
+		r.write(r.resp)
+		r.write(sr)
+
+	case r.class == ConnManager && r.protd.Service == LargeForwOpen:
+		r.p.debug("LargeForwardOpen")
+
+		var (
+			fodata largeForwardOpenData
+			sr     forwardOpenResponse
+		)
+		err := r.read(&fodata)
+		if err != nil {
+			return false
+		}
+		connPath := make([]uint8, fodata.ConnPathSize*2)
+		err = r.read(&connPath)
+		if err != nil {
+			return false
+		}
+
+		sr.OTConnectionID = rand.Uint32()
+		sr.TOConnectionID = fodata.TOConnectionID
+		sr.ConnSerialNumber = fodata.ConnSerialNumber
+		sr.VendorID = fodata.VendorID
+		sr.OriginatorSerialNumber = fodata.OriginatorSerialNumber
+		sr.OTAPI = fodata.OTRPI
+		sr.TOAPI = fodata.TORPI
+		sr.AppReplySize = 0
+
+		r.connID = fodata.TOConnectionID
+		r.maxFO = int(fodata.TOConnPar&0xFFFF) - 32
 
 		r.write(r.resp)
 		r.write(sr)
