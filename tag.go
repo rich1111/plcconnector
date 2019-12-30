@@ -742,11 +742,19 @@ func (p *PLC) CreateTag(typ string, name string) {
 	if ok {
 		t.st = &st
 		t.Type = TypeStructHead | int(t.st.h)
-		t.Name = name
 		t.Count = 1
 		t.data = make([]uint8, t.st.l)
-		p.AddTag(t)
+	} else {
+		udt := udtFromString(typ)
+		if udt == nil || len(udt) != 1 {
+			return
+		}
+		t.Type = p.stringToType(udt[0].T)
+		t.Count = udt[0].C
+		t.data = make([]uint8, t.Count)
 	}
+	t.Name = name
+	p.AddTag(t)
 }
 
 func (p *PLC) tagError(service int, status int, tag *Tag) {

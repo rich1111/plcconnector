@@ -3,15 +3,19 @@ package plcconnector
 import (
 	"bytes"
 	"reflect"
+	"regexp"
 	"strconv"
+	"strings"
 )
 
 // T .
 type T struct {
-	N string
-	T string
-	C int
-	O int
+	N  string // Name
+	T  string // Type
+	C  int    // Count
+	C2 int    // Count 2D
+	C3 int    // Count 3D
+	O  int    // Offset
 }
 
 // NewUDT .
@@ -166,4 +170,34 @@ func (p *PLC) structHelper(a *Tag, t reflect.Type, fs int, ln int) {
 	a.Type = TypeStructHead | int(a.st.h)
 	a.st.i = p.addUDT(a.st)
 	// fmt.Printf("%v = 0x%X (%d)\n", typencstr.String(), a.st.h, a.st.h)
+}
+
+// INT name[1, 2, 3]
+//   1    2 3  4  5
+var udtr = regexp.MustCompile(`(\w+)\s*(\w*)\s*\[*\s*(\d*)\s*,*\s*(\d*)\s*,*\s*(\d*)\s*\]*`)
+
+func udtFromString(udt string) []T {
+	t := []T{}
+
+	if !strings.HasPrefix(udt, "DATATYPE") {
+		sb := udtr.FindStringSubmatch(udt)
+		tn := T{}
+		tn.T = sb[1]
+		i, err := strconv.Atoi(sb[3])
+		if err == nil {
+			tn.C = i
+		}
+		i, err = strconv.Atoi(sb[4])
+		if err == nil {
+			tn.C2 = i
+		}
+		i, err = strconv.Atoi(sb[5])
+		if err == nil {
+			tn.C3 = i
+		}
+
+		t = append(t, tn)
+	}
+
+	return t
 }

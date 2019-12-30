@@ -134,6 +134,9 @@ func main() {
 		p.CreateTag("MHH", "mhh1")
 		p.CreateTag("BOOLS", "testBOOLS")
 		p.CreateTag("STRINSTR", "testSIS")
+
+		p.CreateTag("INT[4,4]", "array2D")
+		p.CreateTag("INT[4,4,4]", "array3D")
 	}
 
 	// nie wyświetlaj dodatkowych informacji
