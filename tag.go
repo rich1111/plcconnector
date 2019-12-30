@@ -23,7 +23,7 @@ type Tag struct {
 	Name  string
 	Type  int
 	Index int
-	Count int
+	Dim   [3]int
 
 	data   []uint8
 	st     *structData
@@ -36,6 +36,11 @@ func (st structData) Elem(n string) *Tag {
 		return nil
 	}
 	return &st.d[i]
+}
+
+// Dims .
+func (t Tag) Dims() int {
+	return one(t.Dim[0]) * one(t.Dim[1]) * one(t.Dim[2])
 }
 
 // Len .
@@ -71,7 +76,6 @@ func (t Tag) TypeString() string {
 func TagBOOL(v bool, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Count = 1
 	a.Type = TypeBOOL
 	if v {
 		a.data = []byte{0xFF}
@@ -85,7 +89,7 @@ func TagBOOL(v bool, n string) *Tag {
 func TagArrayBool(v []bool, c int, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Count = c
+	a.Dim[0] = c
 	a.Type = TypeBOOL
 	a.data = make([]byte, c)
 	for i, x := range v {
@@ -100,7 +104,6 @@ func TagArrayBool(v []bool, c int, n string) *Tag {
 func TagSINT(v int8, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Count = 1
 	a.Type = TypeSINT
 	a.data = []byte{uint8(v)}
 	return &a
@@ -110,7 +113,7 @@ func TagSINT(v int8, n string) *Tag {
 func TagArraySINT(v []int8, c int, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Count = c
+	a.Dim[0] = c
 	a.Type = TypeSINT
 	a.data = make([]byte, c)
 	for i := 0; i < c; i++ {
@@ -123,7 +126,6 @@ func TagArraySINT(v []int8, c int, n string) *Tag {
 func TagUSINT(v uint8, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Count = 1
 	a.Type = TypeUSINT
 	a.data = []byte{v}
 	return &a
@@ -133,7 +135,7 @@ func TagUSINT(v uint8, n string) *Tag {
 func TagArrayUSINT(v []uint8, c int, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Count = c
+	a.Dim[0] = c
 	a.Type = TypeUSINT
 	a.data = make([]byte, c)
 	for i := 0; i < c; i++ {
@@ -146,7 +148,6 @@ func TagArrayUSINT(v []uint8, c int, n string) *Tag {
 func TagINT(v int16, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Count = 1
 	a.Type = TypeINT
 	a.data = make([]byte, 2)
 	binary.LittleEndian.PutUint16(a.data, uint16(v))
@@ -157,7 +158,7 @@ func TagINT(v int16, n string) *Tag {
 func TagArrayINT(v []int16, c int, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Count = c
+	a.Dim[0] = c
 	a.Type = TypeINT
 	a.data = make([]byte, 2*c)
 	for i := 0; i < c; i++ {
@@ -170,7 +171,6 @@ func TagArrayINT(v []int16, c int, n string) *Tag {
 func TagUINT(v uint16, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Count = 1
 	a.Type = TypeUINT
 	a.data = make([]byte, 2)
 	binary.LittleEndian.PutUint16(a.data, v)
@@ -181,7 +181,7 @@ func TagUINT(v uint16, n string) *Tag {
 func TagArrayUINT(v []uint16, c int, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Count = c
+	a.Dim[0] = c
 	a.Type = TypeUINT
 	a.data = make([]byte, 2*c)
 	for i := 0; i < c; i++ {
@@ -194,7 +194,6 @@ func TagArrayUINT(v []uint16, c int, n string) *Tag {
 func TagDINT(v int32, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Count = 1
 	a.Type = TypeDINT
 	a.data = make([]byte, 4)
 	binary.LittleEndian.PutUint32(a.data, uint32(v))
@@ -205,7 +204,7 @@ func TagDINT(v int32, n string) *Tag {
 func TagArrayDINT(v []int32, c int, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Count = c
+	a.Dim[0] = c
 	a.Type = TypeDINT
 	a.data = make([]byte, 4*c)
 	for i := 0; i < c; i++ {
@@ -218,7 +217,6 @@ func TagArrayDINT(v []int32, c int, n string) *Tag {
 func TagUDINT(v uint32, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Count = 1
 	a.Type = TypeUDINT
 	a.data = make([]byte, 4)
 	binary.LittleEndian.PutUint32(a.data, v)
@@ -229,7 +227,7 @@ func TagUDINT(v uint32, n string) *Tag {
 func TagArrayUDINT(v []uint32, c int, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Count = c
+	a.Dim[0] = c
 	a.Type = TypeUDINT
 	a.data = make([]byte, 4*c)
 	for i := 0; i < c; i++ {
@@ -242,7 +240,6 @@ func TagArrayUDINT(v []uint32, c int, n string) *Tag {
 func TagLINT(v int64, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Count = 1
 	a.Type = TypeLINT
 	a.data = make([]byte, 8)
 	binary.LittleEndian.PutUint64(a.data, uint64(v))
@@ -253,7 +250,7 @@ func TagLINT(v int64, n string) *Tag {
 func TagArrayLINT(v []int64, c int, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Count = c
+	a.Dim[0] = c
 	a.Type = TypeLINT
 	a.data = make([]byte, 8*c)
 	for i := 0; i < c; i++ {
@@ -266,7 +263,6 @@ func TagArrayLINT(v []int64, c int, n string) *Tag {
 func TagULINT(v uint64, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Count = 1
 	a.Type = TypeULINT
 	a.data = make([]byte, 8)
 	binary.LittleEndian.PutUint64(a.data, v)
@@ -277,7 +273,7 @@ func TagULINT(v uint64, n string) *Tag {
 func TagArrayULINT(v []uint64, c int, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Count = c
+	a.Dim[0] = c
 	a.Type = TypeULINT
 	a.data = make([]byte, 8*c)
 	for i := 0; i < c; i++ {
@@ -290,7 +286,6 @@ func TagArrayULINT(v []uint64, c int, n string) *Tag {
 func TagREAL(v float32, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Count = 1
 	a.Type = TypeREAL
 	a.data = make([]byte, 4)
 	binary.LittleEndian.PutUint32(a.data, math.Float32bits(v))
@@ -301,7 +296,7 @@ func TagREAL(v float32, n string) *Tag {
 func TagArrayREAL(v []float32, c int, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Count = c
+	a.Dim[0] = c
 	a.Type = TypeREAL
 	a.data = make([]byte, 4*c)
 	for i := 0; i < c; i++ {
@@ -314,7 +309,6 @@ func TagArrayREAL(v []float32, c int, n string) *Tag {
 func TagLREAL(v float64, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Count = 1
 	a.Type = TypeLREAL
 	a.data = make([]byte, 8)
 	binary.LittleEndian.PutUint64(a.data, math.Float64bits(v))
@@ -325,7 +319,7 @@ func TagLREAL(v float64, n string) *Tag {
 func TagArrayLREAL(v []float64, c int, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Count = c
+	a.Dim[0] = c
 	a.Type = TypeLREAL
 	a.data = make([]byte, 8*c)
 	for i := 0; i < c; i++ {
@@ -338,7 +332,6 @@ func TagArrayLREAL(v []float64, c int, n string) *Tag {
 func TagString(v string, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Count = 1
 	a.Type = TypeSTRING
 	a.data = []byte{byte(len(v)), byte(len(v) >> 8)}
 	a.data = append(a.data, []byte(v)...)
@@ -349,7 +342,6 @@ func TagString(v string, n string) *Tag {
 func TagShortString(v string, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Count = 1
 	a.Type = TypeSHORTSTRING
 	a.data = []byte{byte(len(v))}
 	a.data = append(a.data, []byte(v)...)
@@ -360,7 +352,6 @@ func TagShortString(v string, n string) *Tag {
 func TagStringI(v string, n string) *Tag {
 	var a Tag
 	a.Name = n
-	a.Count = 1
 	a.Type = TypeSTRINGI
 	a.data = []byte{1, 'e', 'n', 'g', TypeSHORTSTRING, 4, 0, byte(len(v))}
 	if len(v) > 255 {
@@ -643,7 +634,7 @@ func (t *Tag) DataBytes() []byte {
 
 // DataBOOL returns array of BOOL.
 func (t *Tag) DataBOOL() []bool {
-	ret := make([]bool, 0, t.Count)
+	ret := make([]bool, 0, t.Dims())
 	for i := 0; i < len(t.data); i++ {
 		tmp := false
 		if t.data[i] != 0 {
@@ -656,7 +647,7 @@ func (t *Tag) DataBOOL() []bool {
 
 // DataSINT returns array of int8.
 func (t *Tag) DataSINT() []int8 {
-	ret := make([]int8, 0, t.Count)
+	ret := make([]int8, 0, t.Dims())
 	for i := 0; i < len(t.data); i++ {
 		ret = append(ret, int8(t.data[i]))
 	}
@@ -665,7 +656,7 @@ func (t *Tag) DataSINT() []int8 {
 
 // DataINT returns array of int16.
 func (t *Tag) DataINT() []int16 {
-	ret := make([]int16, 0, t.Count)
+	ret := make([]int16, 0, t.Dims())
 	for i := 0; i < len(t.data); i += 2 {
 		tmp := int16(t.data[i])
 		tmp += int16(t.data[i+1]) << 8
@@ -676,7 +667,7 @@ func (t *Tag) DataINT() []int16 {
 
 // DataDINT returns array of int32.
 func (t *Tag) DataDINT() []int32 {
-	ret := make([]int32, 0, t.Count)
+	ret := make([]int32, 0, t.Dims())
 	for i := 0; i < len(t.data); i += 4 {
 		tmp := int32(t.data[i])
 		tmp += int32(t.data[i+1]) << 8
@@ -689,7 +680,7 @@ func (t *Tag) DataDINT() []int32 {
 
 // DataREAL returns array of float32.
 func (t *Tag) DataREAL() []float32 {
-	ret := make([]float32, 0, t.Count)
+	ret := make([]float32, 0, t.Dims())
 	for i := 0; i < len(t.data); i += 4 {
 		tmp := uint32(t.data[i])
 		tmp += uint32(t.data[i+1]) << 8
@@ -707,7 +698,7 @@ func (t *Tag) DataDWORD() []int32 {
 
 // DataLINT returns array of int64.
 func (t *Tag) DataLINT() []int64 {
-	ret := make([]int64, 0, t.Count)
+	ret := make([]int64, 0, t.Dims())
 	for i := 0; i < len(t.data); i += 8 {
 		tmp := int64(t.data[i])
 		tmp += int64(t.data[i+1]) << 8
@@ -742,7 +733,6 @@ func (p *PLC) CreateTag(typ string, name string) {
 	if ok {
 		t.st = &st
 		t.Type = TypeStructHead | int(t.st.h)
-		t.Count = 1
 		t.data = make([]uint8, t.st.l)
 	} else {
 		udt := udtFromString(typ)
@@ -750,8 +740,8 @@ func (p *PLC) CreateTag(typ string, name string) {
 			return
 		}
 		t.Type = p.stringToType(udt[0].T)
-		t.Count = udt[0].C
-		t.data = make([]uint8, t.Count)
+		t.Dim[0] = udt[0].C
+		t.data = make([]uint8, t.Dims())
 	}
 	t.Name = name
 	p.AddTag(t)
@@ -824,7 +814,7 @@ func (p *PLC) parsePathEl(path []pathEl) (*Tag, uint32, int, int, int, error) {
 			copyFrom += el.offset
 			tgtyp = uint32(el.Type)
 			if tgtyp == TypeBOOL {
-				tl = el.Count
+				tl = el.Dim[0]
 			}
 			tgc = el
 		}
@@ -869,7 +859,7 @@ func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint32, int, bool) 
 		copy(tgdata, tg.data[copyFrom:])
 	}
 
-	p.tagError(ReadTag, Success, &Tag{Name: tg.Name, Type: int(tgtyp), Index: index, Count: int(count), data: tgdata})
+	p.tagError(ReadTag, Success, &Tag{Name: tg.Name, Type: int(tgtyp), Index: index, data: tgdata})
 	return tgdata, tgtyp, tl, true
 }
 
@@ -928,19 +918,22 @@ func (p *PLC) saveTag(path []pathEl, typ uint16, count int, data []uint8, offset
 		copy(tg.data[copyFrom+offset:], data)
 	}
 
-	p.tagError(WriteTag, Success, &Tag{Name: tg.Name, Type: int(tgtyp), Index: index, Count: count, data: data})
+	p.tagError(WriteTag, Success, &Tag{Name: tg.Name, Type: int(tgtyp), Index: index, data: data})
 	return true
 }
 
 func (p *PLC) addTag(t Tag, instance int) {
 	if t.data == nil {
-		size := uint16(t.ElemLen()) * uint16(t.Count)
-		t.data = make([]uint8, size)
+		t.data = make([]uint8, t.ElemLen()*t.Dims())
 	}
 	in := NewInstance(8)
 	in.attr[1] = TagString(t.Name, "SymbolName")
 	typ := uint16(t.Type)
-	if t.Count > 1 {
+	if t.Dim[2] > 0 {
+		typ |= TypeArray3D
+	} else if t.Dim[1] > 0 {
+		typ |= TypeArray2D
+	} else if t.Dim[0] > 0 {
 		typ |= TypeArray1D
 	}
 	if t.Type >= TypeStructHead {
@@ -949,11 +942,9 @@ func (p *PLC) addTag(t Tag, instance int) {
 		in.attr[2] = TagUINT(typ, "SymbolType")
 	}
 	in.attr[7] = TagUINT(uint16(t.ElemLen()), "BaseTypeSize")
-	if t.Count > 1 {
-		in.attr[8] = &Tag{Name: "Dimensions", data: []uint8{uint8(t.Count), uint8(t.Count >> 8), uint8(t.Count >> 16), uint8(t.Count >> 24), 0, 0, 0, 0, 0, 0, 0, 0}}
-	} else {
-		in.attr[8] = &Tag{Name: "Dimensions", data: []uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
-	}
+	in.attr[8] = &Tag{Name: "Dimensions", data: []uint8{uint8(t.Dim[0]), uint8(t.Dim[0] >> 8), uint8(t.Dim[0] >> 16), uint8(t.Dim[0] >> 24),
+		uint8(t.Dim[1]), uint8(t.Dim[1] >> 8), uint8(t.Dim[1] >> 16), uint8(t.Dim[1] >> 24),
+		uint8(t.Dim[2]), uint8(t.Dim[2] >> 8), uint8(t.Dim[2] >> 16), uint8(t.Dim[2] >> 24)}}
 	p.tMut.Lock()
 	if instance == -1 {
 		p.symbols.SetInstance(p.symbols.lastInst+1, in)

@@ -269,7 +269,7 @@ func (c *Client) ReadTag(tag string, count int) (*Tag, error) {
 
 	c.wr.Reset()
 	c.rd.Reset(c.c)
-	return &Tag{Name: tag, Type: int(t), Count: count, data: d}, nil
+	return &Tag{Name: tag, Type: int(t), data: d}, nil
 }
 
 func (c *Client) readHead() (int, int, error) {

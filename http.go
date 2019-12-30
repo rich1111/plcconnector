@@ -44,10 +44,10 @@ func (p *PLC) tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 	sort.Strings(arr)
 
 	for _, n := range arr {
-		toSend.WriteString("<tr><td><a href=\"/" + n + "\" id=\"" + n + "\">" + n + "</a></td><td>" + strconv.Itoa(p.tags[n].Count) + "</td><td>" + p.tags[n].TypeString() + "</td><td>")
+		toSend.WriteString("<tr><td><a href=\"/" + n + "\" id=\"" + n + "\">" + n + "</a></td><td>" + strconv.Itoa(one(p.tags[n].Dim[0])) + "</td><td>" + p.tags[n].TypeString() + "</td><td>")
 		var ascii strings.Builder
 		if p.tags[n].Type != TypeREAL && p.tags[n].Type != TypeLREAL && p.tags[n].Type != TypeBOOL {
-			ascii.Grow(p.tags[n].Count)
+			ascii.Grow(p.tags[n].Dims())
 			ln := p.tags[n].ElemLen()
 			startI := 0
 			if p.tags[n].Type == TypeSTRING {
@@ -102,7 +102,7 @@ type tagJSON struct {
 
 func tagToJSON(t *Tag) string {
 	var tj tagJSON
-	tj.Count = int(t.Count)
+	tj.Count = one(t.Dim[0])
 	ln := t.ElemLen()
 	for i := 0; i < len(t.data); i += ln {
 		tmp := int64(t.data[i])

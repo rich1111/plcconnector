@@ -88,15 +88,11 @@ func (p *PLC) ImportJSON(file string) error {
 
 	for name, s := range db.Symbols {
 		var tag Tag
-		if s.Size > 0 {
-			tag.Count = s.Size
-		} else {
-			tag.Count = 1
-		}
+		tag.Dim[0] = s.Size
 		tag.Name = name
 		if s.TypeInt < TypeStruct {
 			tag.Type = s.TypeInt & TypeType
-			tag.data = make([]uint8, s.TypeSize*tag.Count)
+			tag.data = make([]uint8, s.TypeSize*tag.Dims())
 		} else {
 			st, ok := p.tids[s.Type]
 			if !ok {
@@ -104,7 +100,7 @@ func (p *PLC) ImportJSON(file string) error {
 			}
 			tag.st = &st
 			tag.Type = int(st.h) | TypeStructHead
-			tag.data = make([]uint8, st.l*tag.Count)
+			tag.data = make([]uint8, st.l*tag.Dims())
 		}
 		p.addTag(tag, s.Instance)
 	}

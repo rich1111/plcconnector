@@ -39,7 +39,9 @@ func (p *PLC) newUDT(udt []T, name string, handle int, size int) error {
 		if udt[i].C == 0 && udt[i].T != "BOOL" {
 			udt[i].C = 1
 		}
-		st.d[i].Count = udt[i].C
+		st.d[i].Dim[0] = udt[i].C
+		st.d[i].Dim[1] = udt[i].C2
+		st.d[i].Dim[2] = udt[i].C3
 		st.d[i].Type = p.stringToType(udt[i].T)
 		if st.d[i].Type == 0 {
 			panic("!" + udt[i].T)
@@ -51,20 +53,24 @@ func (p *PLC) newUDT(udt []T, name string, handle int, size int) error {
 			} else {
 				panic("!" + udt[i].T)
 			}
-		} else if st.d[i].Count > 1 && udt[i].T != "BOOL" {
+		} else if st.d[i].Dim[2] > 0 {
+			st.d[i].Type |= TypeArray3D
+		} else if st.d[i].Dim[1] > 0 {
+			st.d[i].Type |= TypeArray2D
+		} else if st.d[i].Dim[0] > 0 && udt[i].T != "BOOL" {
 			st.d[i].Type |= TypeArray1D
 		}
 		// fmt.Println(udt[i].T, st.d[i].Type)
 		typencstr.WriteString(udt[i].T)
 		if st.d[i].Type&TypeArray3D > 0 {
-			typencstr.WriteString("[" + strconv.Itoa(st.d[i].Count) + "]")
+			typencstr.WriteString("[" + strconv.Itoa(st.d[i].Dims()) + "]") // FIXME [1,2,2]
 		}
 		if i < len(udt)-1 {
 			typencstr.WriteRune(',')
 		}
 		if udt[i].O == -1 {
 			st.d[i].offset = st.l
-			st.l += st.d[i].ElemLen() * st.d[i].Count
+			st.l += st.d[i].ElemLen() * st.d[i].Dims()
 		} else {
 			st.d[i].offset = udt[i].O
 			st.l = udt[i].O + st.d[i].ElemLen()
@@ -97,17 +103,9 @@ func (p *PLC) addUDT(st *structData) int {
 	var buf bytes.Buffer
 
 	for _, x := range st.d {
-		if x.Count > 1 || x.Type == TypeBOOL {
-			bwrite(&buf, uint16(x.Count))
-		} else {
-			bwrite(&buf, uint16(0))
-		}
+		bwrite(&buf, uint16(x.Dim[0]))
 		if x.Type >= TypeStructHead {
-			// if x.st.i > 1 {
-			// 	bwrite(&buf, uint16(x.st.i|TypeStruct|TypeArray1D))
-			// } else {
 			bwrite(&buf, uint16(x.st.i|TypeStruct))
-			// }
 		} else {
 			bwrite(&buf, uint16(x.Type)) // member type
 		}
@@ -139,7 +137,7 @@ func (p *PLC) addUDT(st *structData) int {
 
 func (p *PLC) structHelper(a *Tag, t reflect.Type, fs int, ln int) {
 	var typencstr bytes.Buffer
-	a.Count = ln
+	a.Dim[0] = ln
 	a.st = new(structData)
 	a.st.o = make(map[string]int)
 	a.st.n = t.Name()
@@ -150,21 +148,20 @@ func (p *PLC) structHelper(a *Tag, t reflect.Type, fs int, ln int) {
 		a.st.d[i].Name = t.Field(i).Name
 		a.st.o[t.Field(i).Name] = i
 		e := t.Field(i).Type
-		a.st.d[i].Count = 1
 		a.st.d[i].Type = kindToType(e.Kind())
 		if a.st.d[i].Type == TypeArray1D {
-			a.st.d[i].Count = e.Len()
+			a.st.d[i].Dim[0] = e.Len()
 			a.st.d[i].Type = TypeArray1D | kindToType(e.Elem().Kind())
 		}
 		typencstr.WriteString(typeToString(a.st.d[i].Type & TypeType))
 		if a.st.d[i].Type&TypeArray3D > 0 {
-			typencstr.WriteString("[" + strconv.Itoa(a.st.d[i].Count) + "]")
+			typencstr.WriteString("[" + strconv.Itoa(a.st.d[i].Dims()) + "]") // FIXME [1,2,2]
 		}
 		if i < fs-1 {
 			typencstr.WriteRune(',')
 		}
 		a.st.d[i].offset = a.st.l
-		a.st.l += a.st.d[i].ElemLen() * a.st.d[i].Count
+		a.st.l += a.st.d[i].ElemLen() * a.st.d[i].Dims()
 	}
 	a.st.h = crc16(typencstr.Bytes())
 	a.Type = TypeStructHead | int(a.st.h)

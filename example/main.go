@@ -30,7 +30,7 @@ func call(service int, status int, tag *plc.Tag) {
 		fmt.Println("unknown status")
 	}
 	if (service == plc.ReadTag || service == plc.WriteTag) && tag != nil {
-		fmt.Println(tag.Name, tag.Count)
+		fmt.Println(tag.Name, tag.Dim)
 		switch tag.Type {
 		case plc.TypeBOOL:
 			fmt.Println("BOOL type", tag.DataBOOL())

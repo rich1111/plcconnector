@@ -9,6 +9,13 @@ import (
 	"strings"
 )
 
+func one(x int) int {
+	if x <= 0 {
+		return 1
+	}
+	return x
+}
+
 func bread(rd io.Reader, data interface{}) error {
 	err := binary.Read(rd, binary.LittleEndian, data)
 	if err != nil {
