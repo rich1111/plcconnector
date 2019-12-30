@@ -741,6 +741,8 @@ func (p *PLC) CreateTag(typ string, name string) {
 		}
 		t.Type = p.stringToType(udt[0].T)
 		t.Dim[0] = udt[0].C
+		t.Dim[1] = udt[0].C2
+		t.Dim[2] = udt[0].C3
 		t.data = make([]uint8, t.Dims())
 	}
 	t.Name = name
