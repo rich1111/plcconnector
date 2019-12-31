@@ -334,6 +334,7 @@ loop:
 
 			r.resp.Service = r.protd.Service + 128
 			r.resp.Status = Success
+			r.resp.AddStatusSize = 0
 
 			ePath := make([]uint8, r.protd.PathSize*2)
 			err = r.read(&ePath)
