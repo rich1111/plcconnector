@@ -37,9 +37,6 @@ func (p *PLC) newUDT(udt []udtT, name string, handle int, size int) error {
 	for i := 0; i < len(udt); i++ {
 		st.d[i].Name = udt[i].N
 		st.o[udt[i].N] = i
-		if udt[i].C == 0 && udt[i].T != "BOOL" {
-			udt[i].C = 1
-		}
 		st.d[i].Dim[0] = udt[i].C
 		st.d[i].Dim[1] = udt[i].C2
 		st.d[i].Dim[2] = udt[i].C3
@@ -64,7 +61,7 @@ func (p *PLC) newUDT(udt []udtT, name string, handle int, size int) error {
 		// fmt.Println(udt[i].T, st.d[i].Type)
 		typencstr.WriteString(udt[i].T)
 		if st.d[i].Type&TypeArray3D > 0 {
-			typencstr.WriteString("[" + strconv.Itoa(st.d[i].Dims()) + "]") // FIXME [1,2,2]
+			typencstr.WriteString(st.d[i].DimString())
 		}
 		if i < len(udt)-1 {
 			typencstr.WriteRune(',')
@@ -156,7 +153,7 @@ func (p *PLC) structHelper(a *Tag, t reflect.Type, fs int, ln int) {
 		}
 		typencstr.WriteString(typeToString(a.st.d[i].Type & TypeType))
 		if a.st.d[i].Type&TypeArray3D > 0 {
-			typencstr.WriteString("[" + strconv.Itoa(a.st.d[i].Dims()) + "]") // FIXME [1,2,2]
+			typencstr.WriteString(a.st.d[i].DimString())
 		}
 		if i < fs-1 {
 			typencstr.WriteRune(',')

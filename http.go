@@ -32,7 +32,7 @@ func (p *PLC) tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 
 	var toSend strings.Builder
 
-	toSend.WriteString("<!DOCTYPE html>\n<html><title>" + p.Name + "</title><h3>" + p.Name + "</h3><p>Wersja biblioteki: 2019.12</p>\n<table " + tableStyle + "><tr><th>Nazwa</th><th>Rozmiar</th><th>Typ</th><th>ASCII</th></tr>\n")
+	toSend.WriteString("<!DOCTYPE html>\n<html><title>" + p.Name + "</title><h3>" + p.Name + "</h3><p>Wersja biblioteki: 2019.12</p>\n<table " + tableStyle + "><tr><th>Nazwa</th><th>Tablica</th><th>Rozmiar</th><th>Typ</th><th>ASCII</th></tr>\n")
 
 	p.tMut.RLock()
 	arr := make([]string, 0, len(p.tags))
@@ -44,7 +44,7 @@ func (p *PLC) tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 	sort.Strings(arr)
 
 	for _, n := range arr {
-		toSend.WriteString("<tr><td><a href=\"/" + n + "\" id=\"" + n + "\">" + n + "</a></td><td>" + strconv.Itoa(one(p.tags[n].Dim[0])) + "</td><td>" + p.tags[n].TypeString() + "</td><td>")
+		toSend.WriteString("<tr><td><a href=\"/" + n + "\" id=\"" + n + "\">" + n + "</a></td><td>" + p.tags[n].DimString() + "</td><td>" + strconv.Itoa(p.tags[n].Dims()*p.tags[n].Len()) + " B</td><td>" + p.tags[n].TypeString() + "</td><td>")
 		var ascii strings.Builder
 		if p.tags[n].Type != TypeREAL && p.tags[n].Type != TypeLREAL && p.tags[n].Type != TypeBOOL {
 			ascii.Grow(p.tags[n].Dims())

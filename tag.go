@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -41,6 +42,26 @@ func (st structData) Elem(n string) *Tag {
 // Dims .
 func (t Tag) Dims() int {
 	return one(t.Dim[0]) * one(t.Dim[1]) * one(t.Dim[2])
+}
+
+// DimString .
+func (t Tag) DimString() string {
+	if t.Dim[0] == 0 {
+		return "nie"
+	}
+	var r strings.Builder
+	r.WriteRune('[')
+	r.WriteString(strconv.Itoa(t.Dim[0]))
+	if t.Dim[1] > 0 {
+		r.WriteRune(',')
+		r.WriteString(strconv.Itoa(t.Dim[1]))
+		if t.Dim[2] > 0 {
+			r.WriteRune(',')
+			r.WriteString(strconv.Itoa(t.Dim[2]))
+		}
+	}
+	r.WriteRune(']')
+	return r.String()
 }
 
 // Len .
