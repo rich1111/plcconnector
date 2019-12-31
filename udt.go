@@ -6,10 +6,10 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
-// T .
-type T struct {
+type udtT struct {
 	N  string // Name
 	T  string // Type
 	C  int    // Count
@@ -19,12 +19,13 @@ type T struct {
 }
 
 // NewUDT .
-func (p *PLC) NewUDT(udt []T, name string) error {
-	p.newUDT(udt, name, 0, 0)
+func (p *PLC) NewUDT(udt string) error {
+	u, n := udtFromString(udt)
+	p.newUDT(u, n, 0, 0)
 	return nil
 }
 
-func (p *PLC) newUDT(udt []T, name string, handle int, size int) error {
+func (p *PLC) newUDT(udt []udtT, name string, handle int, size int) error {
 	var typencstr bytes.Buffer
 	st := new(structData)
 	st.o = make(map[string]int)
@@ -173,13 +174,63 @@ func (p *PLC) structHelper(a *Tag, t reflect.Type, fs int, ln int) {
 //   1    2 3  4  5
 var udtr = regexp.MustCompile(`(\w+)\s*(\w*)\s*\[*\s*(\d*)\s*,*\s*(\d*)\s*,*\s*(\d*)\s*\]*`)
 
-func udtFromString(udt string) []T {
-	t := []T{}
+func udtFromString(udt string) ([]udtT, string) {
+	t := []udtT{}
 
 	if !strings.HasPrefix(udt, "DATATYPE") {
 		sb := udtr.FindStringSubmatch(udt)
-		tn := T{}
+		tn := udtT{}
 		tn.T = sb[1]
+		i, err := strconv.Atoi(sb[3])
+		if err == nil {
+			tn.C = i
+		}
+		i, err = strconv.Atoi(sb[4])
+		if err == nil {
+			tn.C2 = i
+		}
+		i, err = strconv.Atoi(sb[5])
+		if err == nil {
+			tn.C3 = i
+		}
+
+		t = append(t, tn)
+		return t, ""
+	}
+	u := strings.FieldsFunc(udt, func(r rune) bool {
+		if unicode.IsSpace(r) || r == ';' || r == '(' || r == ')' {
+			return true
+		}
+		return false
+	})
+	name := u[1]
+	u = u[2:]
+	booli := 0
+	for i := 0; i < len(u); i += 2 {
+		if u[i] == "END_DATATYPE" {
+			break
+		}
+		if u[i] == "FamilyType" || u[i] == "Radix" {
+			i++
+			continue
+		}
+		if strings.HasPrefix(u[i], "FamilyType") || strings.HasPrefix(u[i], "Radix") || strings.HasPrefix(u[i], ":=") {
+			i--
+			continue
+		}
+
+		str := u[i] + " " + u[i+1]
+
+		sb := udtr.FindStringSubmatch(str)
+		tn := udtT{}
+		tn.N = sb[2]
+		tn.T = sb[1]
+		if tn.T == "BOOL" {
+			tn.C = booli
+			booli++ // FIXME > 8
+		} else {
+			tn.O = -1
+		}
 		i, err := strconv.Atoi(sb[3])
 		if err == nil {
 			tn.C = i
@@ -196,5 +247,5 @@ func udtFromString(udt string) []T {
 		t = append(t, tn)
 	}
 
-	return t
+	return t, name
 }

@@ -5,6 +5,8 @@ import (
 	"testing"
 )
 
+const t0 = `DATATYPE POSITION DINT x;DINT y;END_DATATYPE`
+
 const t1 = `DATATYPE POSITION
 	DINT x;
 	DINT y;
@@ -14,6 +16,8 @@ const t2 = `DATATYPE HMM (FamilyType := NoFamily)
 	POSITION sprites[8];
 	LINT money;
 END_DATATYPE`
+
+const t2b = `DATATYPE HMM(FamilyType:=NoFamily)POSITION sprites[8];LINT money;END_DATATYPE`
 
 const t3 = `DATATYPE POSITION3D (FamilyType := NoFamily)
 	DINT x;
@@ -51,27 +55,30 @@ END_DATATYPE`
 
 func Test_udtFromString(t *testing.T) {
 	tests := []struct {
-		name string
-		args string
-		want []T
+		name     string
+		args     string
+		want     []udtT
+		wantname string
 	}{
-		{"01", "INT", []T{{T: "INT"}}},
-		{"01", "INT[4]", []T{{T: "INT", C: 4}}},
-		{"01", "INT[4,4]", []T{{T: "INT", C: 4, C2: 4}}},
-		{"01", "INT[4,4,4]", []T{{T: "INT", C: 4, C2: 4, C3: 4}}},
+		{"01", "INT", []udtT{{T: "INT"}}, ""},
+		{"01", "INT[4]", []udtT{{T: "INT", C: 4}}, ""},
+		{"01", "INT[4,4]", []udtT{{T: "INT", C: 4, C2: 4}}, ""},
+		{"01", "INT[4,4,4]", []udtT{{T: "INT", C: 4, C2: 4, C3: 4}}, ""},
 
-		{"01", t1, []T{{N: "x", T: "DINT", O: -1}, {N: "y", T: "DINT", O: -1}}},
-		{"01", t2, []T{{N: "sprites", T: "POSITION", C: 8, O: -1}, {N: "money", T: "LINT", O: -1}}},
-		{"01", t3, []T{{N: "x", T: "DINT", O: -1}, {N: "y", T: "DINT", O: -1}, {N: "z", T: "DINT", O: -1}}},
-		{"01", t4, []T{{N: "objects", T: "POSITION3D", C: 2, O: -1}, {N: "lives", T: "SINT", O: -1}}},
-		{"01", t5, []T{{N: "In", T: "BOOL", C: 0, O: 0}, {N: "Out", T: "BOOL", C: 1, O: 0}}},
-		{"01", t6, []T{{N: "int", T: "INT", O: -1}, {N: "struct", T: "BOOLS", O: -1}}},
-		{"01", t7, []T{{T: "INT"}}},
-		{"01", t8, []T{{T: "INT"}}},
+		{"01", t0, []udtT{{N: "x", T: "DINT", O: -1}, {N: "y", T: "DINT", O: -1}}, "POSITION"},
+		{"01", t1, []udtT{{N: "x", T: "DINT", O: -1}, {N: "y", T: "DINT", O: -1}}, "POSITION"},
+		{"01", t2, []udtT{{N: "sprites", T: "POSITION", C: 8, O: -1}, {N: "money", T: "LINT", O: -1}}, "HMM"},
+		{"01", t2b, []udtT{{N: "sprites", T: "POSITION", C: 8, O: -1}, {N: "money", T: "LINT", O: -1}}, "HMM"},
+		{"01", t3, []udtT{{N: "x", T: "DINT", O: -1}, {N: "y", T: "DINT", O: -1}, {N: "z", T: "DINT", O: -1}}, "POSITION3D"},
+		{"01", t4, []udtT{{N: "objects", T: "POSITION3D", C: 2, O: -1}, {N: "lives", T: "SINT", O: -1}}, "MHH"},
+		{"01", t5, []udtT{{N: "In", T: "BOOL", C: 0, O: 0}, {N: "Out", T: "BOOL", C: 1, O: 0}}, "BOOLS"},
+		{"01", t6, []udtT{{N: "int", T: "INT", O: -1}, {N: "struct", T: "BOOLS", O: -1}}, "STRINSTR"},
+		{"01", t7, []udtT{{N: "U2A", T: "DINT", O: -1}, {N: "U2B", T: "SINT", C: 3, O: -1}, {N: "U2C", T: "UDT3", O: -1}, {N: "U2D", T: "UDT3", C: 2, O: -1}}, "UDT2"},
+		{"01", t8, []udtT{{N: "A", T: "SINT", C: 3, O: -1}, {N: "B", T: "SINT", C: 3, C2: 3, O: -1}, {N: "C", T: "SINT", C: 3, C2: 3, C3: 3, O: -1}}, "MULTI"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := udtFromString(tt.args); !reflect.DeepEqual(got, tt.want) {
+			if got, gotname := udtFromString(tt.args); !reflect.DeepEqual(got, tt.want) || gotname != tt.wantname {
 				t.Errorf("udtFromString() = %v, want %v", got, tt.want)
 			}
 		})

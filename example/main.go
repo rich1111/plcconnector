@@ -121,13 +121,13 @@ func main() {
 		p.NewTag([4]structTest2{{ala: 5.5, kot: -111, pies: [8]int8{0, 1, 2, 3, 4, 5, 6, 7}},
 			{ala: -5.5, kot: 111, pies: [8]int8{8, 9, 10, 11, 12, 13, 14, 15}}}, "testSTRUCT3")
 
-		p.NewUDT([]plc.T{{N: "x", T: "DINT", O: -1}, {N: "y", T: "DINT", O: -1}}, "POSITION")
-		p.NewUDT([]plc.T{{N: "sprites", T: "POSITION", C: 8, O: -1}, {N: "money", T: "LINT", O: -1}}, "HMM")
-		p.NewUDT([]plc.T{{N: "x", T: "DINT", O: -1}, {N: "y", T: "DINT", O: -1}, {N: "z", T: "DINT", O: -1}}, "POSITION3D")
-		p.NewUDT([]plc.T{{N: "objects", T: "POSITION3D", C: 2, O: -1}, {N: "lives", T: "SINT", O: -1}}, "MHH")
+		p.NewUDT("DATATYPE POSITION DINT x; DINT y; END_DATATYPE")
+		p.NewUDT("DATATYPE HMM (FamilyType := NoFamily) POSITION sprites[8]; LINT money; END_DATATYPE")
+		p.NewUDT("DATATYPE POSITION3D (FamilyType := NoFamily) DINT x; DINT y; DINT z; END_DATATYPE")
+		p.NewUDT("DATATYPE MHH (FamilyType := NoFamily) POSITION3D objects[2]; SINT lives; END_DATATYPE")
 
-		p.NewUDT([]plc.T{{N: "In", T: "BOOL", C: 0, O: 0}, {N: "Out", T: "BOOL", C: 1, O: 0}}, "BOOLS")
-		p.NewUDT([]plc.T{{N: "int", T: "INT", O: -1}, {N: "struct", T: "BOOLS", O: -1}}, "STRINSTR")
+		p.NewUDT("DATATYPE BOOLS (FamilyType := NoFamily) BOOL In; BOOL Out; END_DATATYPE")
+		p.NewUDT("DATATYPE STRINSTR (FamilyType := NoFamily) INT int; BOOLS struct; END_DATATYPE")
 
 		p.CreateTag("POSITION", "pos1")
 		p.CreateTag("HMM", "hmm1")

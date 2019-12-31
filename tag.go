@@ -735,9 +735,13 @@ func (p *PLC) CreateTag(typ string, name string) {
 		t.Type = TypeStructHead | int(t.st.h)
 		t.data = make([]uint8, t.st.l)
 	} else {
-		udt := udtFromString(typ)
-		if udt == nil || len(udt) != 1 {
+		udt, n := udtFromString(typ)
+		if udt == nil {
 			return
+		}
+		if n != "" {
+			p.newUDT(udt, n, 0, 0)
+			name = n
 		}
 		t.Type = p.stringToType(udt[0].T)
 		t.Dim[0] = udt[0].C

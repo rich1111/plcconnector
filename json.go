@@ -60,10 +60,10 @@ func (p *PLC) ImportJSON(file string) error {
 	for len(tt) > 0 {
 		newtt := make(map[string]jsTemplates)
 		for name, t := range tt {
-			var tmpl []T
+			var tmpl []udtT
 			sis := false
 			for _, m := range t.Member {
-				var tx T
+				var tx udtT
 				tx.N = m.Name
 				tx.T = m.Type
 				tx.C = m.Size
