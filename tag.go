@@ -743,7 +743,7 @@ func (p *PLC) CreateTag(typ string, name string) {
 		t.Dim[0] = udt[0].C
 		t.Dim[1] = udt[0].C2
 		t.Dim[2] = udt[0].C3
-		t.data = make([]uint8, t.Dims())
+		t.data = make([]uint8, t.Dims()*t.Len())
 	}
 	t.Name = name
 	p.AddTag(t)
@@ -764,6 +764,7 @@ func (p *PLC) parsePathEl(path []pathEl) (*Tag, uint32, int, int, int, error) {
 		tag      string
 		tgtyp    uint32
 		tl       int
+		arri     = 0
 	)
 
 	if len(path) == 0 {
@@ -799,9 +800,20 @@ func (p *PLC) parsePathEl(path []pathEl) (*Tag, uint32, int, int, int, error) {
 	tgc := tg
 	for i := pi; i < len(path); i++ {
 		switch path[i].typ {
-		case pathElement: // TODO: test 2d, 3d array
+		case pathElement:
 			index = path[i].val
-			copyFrom += index * tl
+			if arri > 2 || index > tgc.Dim[arri] {
+				return nil, 0, 0, 0, 0, errors.New("path index too big")
+			}
+			switch arri {
+			case 0:
+				copyFrom += index * one(tgc.Dim[1]) * one(tgc.Dim[2]) * tl
+			case 1:
+				copyFrom += index * one(tgc.Dim[2]) * tl
+			case 2:
+				copyFrom += index * tl
+			}
+			arri++
 		case ansiExtended:
 			if tgc.st == nil {
 				return nil, 0, 0, 0, 0, errors.New("path tag is not a struct")
@@ -819,6 +831,7 @@ func (p *PLC) parsePathEl(path []pathEl) (*Tag, uint32, int, int, int, error) {
 				tl = el.Dim[0]
 			}
 			tgc = el
+			arri = 0
 		}
 	}
 
