@@ -194,7 +194,11 @@ func tagToHTML(t *Tag) string {
 	ln := t.ElemLen()
 
 	toSend.WriteString("<!DOCTYPE html>\n<html><title>" + t.Name + "</title><a href=\"/#" + t.Name + "\">powrót</a> <a href=\"\">odśwież</a><h3>" + t.Name + "</h3>")
-	toSend.WriteString("<table " + tableStyle + "><tr><th>N</th><th>" + t.TypeString() + "</th>")
+	if t.Dim[0] > 0 {
+		toSend.WriteString("<table " + tableStyle + "><tr><th>N</th><th>" + t.TypeString() + "</th>")
+	} else {
+		toSend.WriteString("<table " + tableStyle + "><tr><th>" + t.TypeString() + "</th>")
+	}
 	if t.Type == TypeBOOL {
 		toSend.WriteString("</tr>\n")
 	} else if t.Type == TypeREAL || t.Type == TypeLREAL {
@@ -245,6 +249,9 @@ func tagToHTML(t *Tag) string {
 		case TypeULINT:
 			err = binary.Write(buf, binary.BigEndian, uint64(tmp))
 		}
+		if t.Dim[0] > 0 {
+			toSend.WriteString(fmt.Sprintf("<td>%s</td>", t.NString(n)))
+		}
 		if t.Type != TypeREAL && t.Type != TypeLREAL && t.Type != TypeBOOL {
 			ascii := ""
 			if err == nil {
@@ -255,16 +262,16 @@ func tagToHTML(t *Tag) string {
 				ascii = asciiCode(uint8(tmp))
 			}
 			if t.Type == TypeULINT {
-				toSend.WriteString(fmt.Sprintf("<td>%d</td><td>%v</td><td>%v</td><td>%v</td><td>%v</td></tr>\n", n, uint64(tmp), hx, ascii, bin))
+				toSend.WriteString(fmt.Sprintf("<td>%v</td><td>%v</td><td>%v</td><td>%v</td></tr>\n", uint64(tmp), hx, ascii, bin))
 			} else {
-				toSend.WriteString(fmt.Sprintf("<td>%d</td><td>%v</td><td>%v</td><td>%v</td><td>%v</td></tr>\n", n, tmp, hx, ascii, bin))
+				toSend.WriteString(fmt.Sprintf("<td>%v</td><td>%v</td><td>%v</td><td>%v</td></tr>\n", tmp, hx, ascii, bin))
 			}
 		} else if t.Type == TypeBOOL {
-			toSend.WriteString(fmt.Sprintf("<td>%d</td><td>%v</td></tr>\n", n, tmp))
+			toSend.WriteString(fmt.Sprintf("<td>%v</td></tr>\n", tmp))
 		} else if t.Type == TypeREAL {
-			toSend.WriteString(fmt.Sprintf("<td>%d</td>%s</tr>\n", n, float32ToString(uint32(tmp))))
+			toSend.WriteString(fmt.Sprintf("%s</tr>\n", float32ToString(uint32(tmp))))
 		} else if t.Type == TypeLREAL {
-			toSend.WriteString(fmt.Sprintf("<td>%d</td>%s</tr>\n", n, float64ToString(uint64(tmp))))
+			toSend.WriteString(fmt.Sprintf("%s</tr>\n", float64ToString(uint64(tmp))))
 		}
 		n++
 	}

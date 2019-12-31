@@ -64,6 +64,17 @@ func (t Tag) DimString() string {
 	return r.String()
 }
 
+// NString .
+func (t Tag) NString(n int) string {
+	if t.Dim[1] == 0 {
+		return strconv.Itoa(n)
+	}
+	if t.Dim[2] == 0 {
+		return "[" + strconv.Itoa(n/t.Dim[1]) + "," + strconv.Itoa(n%t.Dim[1]) + "]"
+	}
+	return "[" + strconv.Itoa(n/(t.Dim[1]*t.Dim[2])) + "," + strconv.Itoa((n/t.Dim[2])%t.Dim[1]) + "," + strconv.Itoa(n%t.Dim[2]) + "]"
+}
+
 // Len .
 func (t Tag) Len() int {
 	if t.Type >= TypeStructHead {

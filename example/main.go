@@ -137,6 +137,12 @@ func main() {
 
 		p.CreateTag("INT[4,4]", "array2D")
 		p.CreateTag("INT[4,4,4]", "array3D")
+
+		p.CreateTag("INT[2,4]", "array2D_2")
+		p.CreateTag("INT[2,4,8]", "array3D_2")
+
+		p.CreateTag("INT[4,2]", "array2D_3")
+		p.CreateTag("INT[8,2,4]", "array3D_3")
 	}
 
 	// nie wyświetlaj dodatkowych informacji
