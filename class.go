@@ -41,7 +41,7 @@ func (in *Instance) SetAttrUINT(no int, v uint16) {
 func (in *Instance) getAttrData(no int) []byte {
 	in.m.RLock()
 	defer in.m.RUnlock()
-	return in.attr[no].data
+	return in.attr[no].DataBytes()
 }
 
 func (in *Instance) getAttrAll() []byte {
@@ -50,13 +50,13 @@ func (in *Instance) getAttrAll() []byte {
 	if in.getall != nil {
 		for _, a := range in.getall {
 			if in.attr[a] != nil {
-				buf.Write(in.attr[a].data)
+				buf.Write(in.attr[a].DataBytes())
 			}
 		}
 	} else {
 		for a := 1; a < len(in.attr); a++ {
 			if in.attr[a] != nil {
-				buf.Write(in.attr[a].data)
+				buf.Write(in.attr[a].DataBytes())
 			}
 		}
 	}
@@ -69,7 +69,7 @@ func (in *Instance) getAttrList(list []int) []byte {
 	in.m.RLock()
 	for _, a := range list {
 		if in.attr[a] != nil {
-			buf.Write(in.attr[a].data)
+			buf.Write(in.attr[a].DataBytes())
 		}
 	}
 	in.m.RUnlock()

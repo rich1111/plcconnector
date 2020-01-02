@@ -29,6 +29,7 @@ type Tag struct {
 	data   []uint8
 	st     *structData
 	offset int
+	getter func() []uint8
 }
 
 func (st structData) Elem(n string) *Tag {
@@ -661,6 +662,9 @@ func kindToType(k reflect.Kind) int {
 
 // DataBytes returns array of bytes.
 func (t *Tag) DataBytes() []byte {
+	if t.getter != nil {
+		return t.getter()
+	}
 	return t.data
 }
 

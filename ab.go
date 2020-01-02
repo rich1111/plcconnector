@@ -561,7 +561,7 @@ func (r *req) serviceHandle() bool {
 					r.p.debug(in.attr[i].Name)
 					st = Success
 					bwrite(&buf, st)
-					bwrite(&buf, in.attr[i].data)
+					bwrite(&buf, in.attr[i].DataBytes())
 				} else {
 					r.resp.Status = AttrListError
 					st = AttrNotSup
@@ -613,7 +613,7 @@ func (r *req) serviceHandle() bool {
 				ln := len(in.attr)
 				for _, i := range attr {
 					if int(i) < ln && in.attr[i] != nil {
-						bwrite(&buf, in.attr[i].data)
+						bwrite(&buf, in.attr[i].DataBytes())
 					} else { // FIXME break
 						r.resp.Status = AttrListError
 					}
@@ -652,7 +652,7 @@ func (r *req) serviceHandle() bool {
 		if in != nil && aok {
 			r.p.debug(at.Name)
 			r.write(r.resp)
-			r.write(at.data)
+			r.write(at.DataBytes())
 		} else {
 			r.p.debug("path unknown", r.path)
 			if r.class == FileClass {

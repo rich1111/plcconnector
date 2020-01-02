@@ -3,12 +3,14 @@ package plcconnector
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -248,6 +250,24 @@ func (p *PLC) loadEDS(fn string) error {
 
 	p.Class[TemplateClass] = NewClass("Template", 0)
 	p.template = p.Class[TemplateClass]
+
+	p.Class[ClockClass] = NewClass("Clock", 0)
+	in = NewInstance(11)
+	in.attr[6] = TagULINT(0, "UTSTime")
+	in.attr[6].getter = func() []uint8 {
+		x := make([]uint8, 8)
+		binary.LittleEndian.PutUint64(x, uint64(time.Now().UnixNano()/1000))
+		return x
+	}
+	in.attr[11] = TagULINT(0, "LocalTime")
+	in.attr[11].getter = func() []uint8 {
+		x := make([]uint8, 8)
+		t := time.Now()
+		_, off := t.Zone()
+		binary.LittleEndian.PutUint64(x, uint64((t.UnixNano()/1000)+int64(off)*1_000_000))
+		return x
+	}
+	p.Class[ClockClass].SetInstance(1, in)
 
 	p.Class[PortClass] = NewClass("Port", 9)
 	p.Class[PortClass].inst[0].attr[8] = TagUINT(1, "EntryPort")

@@ -34,6 +34,7 @@ const (
 
 	SymbolClass   = 0x6B
 	TemplateClass = 0x6C
+	ClockClass    = 0x8B
 
 	PortClass     = 0xF4
 	TCPClass      = 0xF5
