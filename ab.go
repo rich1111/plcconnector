@@ -584,6 +584,63 @@ func (r *req) serviceHandle() bool {
 			r.write(r.resp)
 		}
 
+	case r.protd.Service == SetAttrList:
+		r.p.debug("SetAttributesList")
+		var (
+			attr  uint16
+			count uint16
+			buf   bytes.Buffer
+			st    uint16
+		)
+
+		err := r.read(&count)
+		if err != nil {
+			return false
+		}
+
+		in := r.p.GetClassInstance(r.class, r.instance)
+		if in != nil {
+			in.m.RLock()
+			ln := len(in.attr)
+			for i := uint16(0); i < count; i++ {
+				err := r.read(&attr)
+				if err != nil {
+					return false
+				}
+				bwrite(&buf, attr)
+				if int(attr) < ln && in.attr[attr] != nil {
+					r.p.debug(in.attr[attr].Name)
+					wrData := make([]uint8, len(in.attr[attr].data))
+					err := r.read(wrData)
+					if err != nil {
+						return false
+					}
+					st = Success
+					if !in.attr[attr].SetDataBytes(wrData) {
+						r.resp.Status = AttrListError
+						st = PrivilegeViol
+					}
+				} else {
+					r.resp.Status = AttrListError
+					st = AttrNotSup
+				}
+				bwrite(&buf, st)
+			}
+			in.m.RUnlock()
+
+			r.write(r.resp)
+			r.write(count)
+			r.write(buf.Bytes())
+		} else {
+			r.p.debug("path unknown", r.path)
+			if r.class == FileClass {
+				r.resp.Status = ObjectNotExist
+			} else {
+				r.resp.Status = PathUnknown
+			}
+			r.write(r.resp)
+		}
+
 	case r.protd.Service == GetInstAttrList:
 		r.p.debug("GetInstanceAttributesList")
 		var (
