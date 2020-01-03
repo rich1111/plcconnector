@@ -32,6 +32,7 @@ type PLC struct {
 	tidLast   int
 	tMut      sync.RWMutex
 	tags      map[string]*Tag
+	timOff    time.Duration
 
 	Class       map[int]*Class
 	DumpNetwork bool // enables dumping network packets
@@ -662,6 +663,48 @@ func (r *req) serviceHandle() bool {
 			}
 			r.write(r.resp)
 		}
+
+	case r.protd.Service == SetAttr:
+		r.p.debug("SetAttributesSingle")
+
+		var (
+			aok bool
+			at  *Tag
+		)
+
+		wrData := make([]uint8, r.dataLen)
+		err := r.read(wrData)
+		if err != nil {
+			return false
+		}
+
+		in := r.p.GetClassInstance(r.class, r.instance)
+		if in != nil {
+			in.m.RLock()
+			if r.attr < len(in.attr) {
+				at = in.attr[r.attr]
+				if at != nil {
+					aok = true
+				}
+			}
+			in.m.RUnlock()
+		}
+		r.resp.Service = r.protd.Service + 128
+
+		if in != nil && aok {
+			r.p.debug(at.Name)
+			if !at.SetDataBytes(wrData) {
+				r.resp.Status = PrivilegeViol
+			}
+		} else {
+			r.p.debug("path unknown", r.path)
+			if r.class == FileClass {
+				r.resp.Status = ObjectNotExist
+			} else {
+				r.resp.Status = PathUnknown
+			}
+		}
+		r.write(r.resp)
 
 	case r.class == FileClass && r.protd.Service == InititateUpload:
 		r.p.debug("InititateUpload")

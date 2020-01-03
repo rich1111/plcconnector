@@ -256,13 +256,22 @@ func (p *PLC) loadEDS(fn string) error {
 	in.attr[6] = TagULINT(0, "UTSTime")
 	in.attr[6].getter = func() []uint8 {
 		x := make([]uint8, 8)
-		binary.LittleEndian.PutUint64(x, uint64(time.Now().UnixNano()/1000))
+		binary.LittleEndian.PutUint64(x, uint64(time.Now().Add(p.timOff).UnixNano()/1000))
 		return x
+	}
+	in.attr[6].write = true
+	in.attr[6].setter = func(dt []uint8) bool {
+		if len(dt) != 8 {
+			return false
+		}
+		x := int64(binary.LittleEndian.Uint64(dt))
+		p.timOff = -time.Now().Sub(time.Unix(x/1_000_000, x%1_000_000))
+		return true
 	}
 	in.attr[11] = TagULINT(0, "LocalTime")
 	in.attr[11].getter = func() []uint8 {
 		x := make([]uint8, 8)
-		t := time.Now()
+		t := time.Now().Add(p.timOff)
 		_, off := t.Zone()
 		binary.LittleEndian.PutUint64(x, uint64((t.UnixNano()/1000)+int64(off)*1_000_000))
 		return x

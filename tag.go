@@ -29,7 +29,9 @@ type Tag struct {
 	data   []uint8
 	st     *structData
 	offset int
+	write  bool // TODO mutex
 	getter func() []uint8
+	setter func([]uint8) bool
 }
 
 func (st structData) Elem(n string) *Tag {
@@ -658,6 +660,21 @@ func kindToType(k reflect.Kind) int {
 	default:
 		panic("unsupported kind type " + k.String())
 	}
+}
+
+// SetDataBytes .
+func (t *Tag) SetDataBytes(dt []byte) bool {
+	if !t.write {
+		return false
+	}
+	if t.setter != nil {
+		return t.setter(dt)
+	}
+	if len(dt) > len(t.data) {
+		return false
+	}
+	copy(t.data, dt)
+	return true
 }
 
 // DataBytes returns array of bytes.

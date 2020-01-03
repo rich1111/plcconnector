@@ -4,10 +4,13 @@ package plcconnector
 const (
 	// Common
 	GetAttrAll  = 0x01
+	SetAttrAll  = 0x02
 	GetAttrList = 0x03
+	SetAttrList = 0x04
 	Reset       = 0x05
 	MultiServ   = 0x0A
 	GetAttr     = 0x0E
+	SetAttr     = 0x10
 
 	// Class Specific
 	InititateUpload = 0x4B
@@ -91,6 +94,7 @@ const (
 	PartialTransfer  = 0x06
 	ServNotSup       = 0x08
 	AttrListError    = 0x0A
+	PrivilegeViol    = 0x0F
 	AttrNotSup       = 0x14
 	TooMuchData      = 0x15
 	ObjectNotExist   = 0x16
