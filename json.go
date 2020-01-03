@@ -112,3 +112,36 @@ func (p *PLC) ImportJSON(file string) error {
 	}
 	return nil
 }
+
+type memJS struct {
+	Rx   []uint8 `json:"rx"`
+	Read bool    `json:"read"`
+}
+
+// ImportMemoryJSON .
+func (p *PLC) ImportMemoryJSON(file string) error {
+	data, err := ioutil.ReadFile(file)
+	if err != nil {
+		return err
+	}
+	db := make(map[string]memJS)
+	err = json.Unmarshal(data, &db)
+	if err != nil {
+		return err
+	}
+	for n, c := range db {
+		tag, ok := p.tags[n]
+		if !ok {
+			return errors.New("no tag " + n)
+		}
+		tag.prot = !c.Read
+		if c.Read {
+			if len(c.Rx) != len(tag.data) {
+				return errors.New("data length mismatch " + n)
+			}
+			copy(tag.data, c.Rx)
+		}
+	}
+
+	return nil
+}

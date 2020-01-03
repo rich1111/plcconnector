@@ -29,6 +29,7 @@ type Tag struct {
 	data   []uint8
 	st     *structData
 	offset int
+	prot   bool
 	write  bool // TODO mutex
 	getter func() []uint8
 	setter func([]uint8) bool

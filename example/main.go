@@ -92,6 +92,13 @@ func main() {
 			fmt.Println(err)
 			return
 		}
+		if len(os.Args) >= 4 {
+			err = p.ImportMemoryJSON(os.Args[3])
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+		}
 	} else {
 		p.NewTag([4]bool{false, true}, "testBOOL")
 
