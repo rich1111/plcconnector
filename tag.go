@@ -51,7 +51,7 @@ func (t Tag) Dims() int {
 // DimString .
 func (t Tag) DimString() string {
 	if t.Dim[0] == 0 {
-		return "nie"
+		return "-"
 	}
 	var r strings.Builder
 	r.WriteRune('[')

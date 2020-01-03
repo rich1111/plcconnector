@@ -16,6 +16,13 @@ func one(x int) int {
 	return x
 }
 
+func iif(x bool, a string, b string) string {
+	if x {
+		return a
+	}
+	return b
+}
+
 func bread(rd io.Reader, data interface{}) error {
 	err := binary.Read(rd, binary.LittleEndian, data)
 	if err != nil {

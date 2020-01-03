@@ -21,9 +21,30 @@ import (
 	"time"
 )
 
-const (
-	tableStyle = "style='font-family:\"Courier New\", Courier, monospace; border-spacing: 20px 0;'"
-)
+const mainCSS = `
+:root {
+	--hide: none;
+}
+.pr {
+	display: var(--hide);
+}
+table {
+	font-family: "Courier New", Courier, monospace;
+	border-spacing: 20px 0;
+	text-align: left;
+}
+`
+
+const mainJS = `
+<script>
+document.addEventListener("DOMContentLoaded", function(e) {
+	var b = document.getElementById("showbtn");
+	b.addEventListener("click", function(e){
+		document.documentElement.style.setProperty('--hide', b.checked ? 'table-row' : 'none');
+	});
+});
+</script>
+`
 
 func (p *PLC) tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
@@ -32,7 +53,7 @@ func (p *PLC) tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 
 	var toSend strings.Builder
 
-	toSend.WriteString("<!DOCTYPE html>\n<html><title>" + p.Name + "</title><h3>" + p.Name + "</h3><p>Wersja biblioteki: 2020.01</p>\n<table " + tableStyle + "><tr><th>Nazwa</th><th>Tablica</th><th>Rozmiar</th><th>Typ</th><th>ASCII</th></tr>\n")
+	toSend.WriteString("<!DOCTYPE html>\n<html><style>" + mainCSS + "</style>" + mainJS + "<title>" + p.Name + "</title><h3>" + p.Name + "</h3><p>Wersja biblioteki: 2020.01</p>\n<input type=checkbox id=showbtn name=showbtn><label for=showbtn>Pokaż wszystkie</label><table><tr><th>Nazwa</th><th>Tablica</th><th>Rozmiar</th><th>Typ</th><th>Odczyt</th><th>ASCII</th></tr>\n")
 
 	p.tMut.RLock()
 	arr := make([]string, 0, len(p.tags))
@@ -44,21 +65,22 @@ func (p *PLC) tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 	sort.Strings(arr)
 
 	for _, n := range arr {
-		toSend.WriteString("<tr><td><a href=\"/" + n + "\" id=\"" + n + "\">" + n + "</a></td><td>" + p.tags[n].DimString() + "</td><td>" + strconv.Itoa(p.tags[n].Dims()*p.tags[n].Len()) + " B</td><td>" + p.tags[n].TypeString() + "</td><td>")
+		t := p.tags[n]
+		toSend.WriteString("<tr class=\"" + iif(t.prot, "pr", "rw") + "\"><td><a href=\"/" + n + "\" id=\"" + n + "\">" + n + "</a></td><td>" + t.DimString() + "</td><td>" + strconv.Itoa(t.Dims()*t.Len()) + " B</td><td>" + t.TypeString() + "</td><td>" + iif(t.prot, "☐", "☑") + "</td><td>")
 		var ascii strings.Builder
-		if p.tags[n].Type != TypeREAL && p.tags[n].Type != TypeLREAL && p.tags[n].Type != TypeBOOL {
-			ascii.Grow(p.tags[n].Dims())
-			ln := p.tags[n].ElemLen()
+		if t.Type != TypeREAL && t.Type != TypeLREAL && t.Type != TypeBOOL {
+			ascii.Grow(t.Dims())
+			ln := t.ElemLen()
 			startI := 0
-			if p.tags[n].Type == TypeSTRING {
+			if t.Type == TypeSTRING {
 				startI = 2
 			}
-			for i := startI; i < len(p.tags[n].data); i += ln {
-				tmp := int64(p.tags[n].data[i])
+			for i := startI; i < len(t.data); i += ln {
+				tmp := int64(t.data[i])
 				for j := 1; j < ln; j++ {
-					tmp += int64(p.tags[n].data[i+j]) << uint(8*j)
+					tmp += int64(t.data[i+j]) << uint(8*j)
 				}
-				switch p.tags[n].Type {
+				switch t.Type {
 				case TypeSINT:
 					tmp = int64(int8(tmp))
 				case TypeINT:
@@ -193,11 +215,11 @@ func tagToHTML(t *Tag) string {
 
 	ln := t.ElemLen()
 
-	toSend.WriteString("<!DOCTYPE html>\n<html><title>" + t.Name + "</title><a href=\"/#" + t.Name + "\">powrót</a> <a href=\"\">odśwież</a><h3>" + t.Name + "</h3>")
+	toSend.WriteString("<!DOCTYPE html>\n<html><style type=\"text/css\">" + mainCSS + "</style><title>" + t.Name + "</title><a href=\"/#" + t.Name + "\">powrót</a> <a href=\"\">odśwież</a><h3>" + t.Name + "</h3>")
 	if t.Dim[0] > 0 {
-		toSend.WriteString("<table " + tableStyle + "><tr><th>N</th><th>" + t.TypeString() + "</th>")
+		toSend.WriteString("<table><tr><th>N</th><th>" + t.TypeString() + "</th>")
 	} else {
-		toSend.WriteString("<table " + tableStyle + "><tr><th>" + t.TypeString() + "</th>")
+		toSend.WriteString("<table><tr><th>" + t.TypeString() + "</th>")
 	}
 	if t.Type == TypeBOOL {
 		toSend.WriteString("</tr>\n")
