@@ -2,6 +2,7 @@ package plcconnector
 
 import (
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 )
 
@@ -12,7 +13,7 @@ type jsSymbols struct {
 	Type     string `json:"type"`
 	TypeInt  int    `json:"type_int"`
 	TypeSize int    `json:"type_size"`
-	Size     int    `json:"size"`
+	Dim      []int  `json:"dim"`
 }
 
 type jsMember struct {
@@ -88,7 +89,12 @@ func (p *PLC) ImportJSON(file string) error {
 
 	for name, s := range db.Symbols {
 		var tag Tag
-		tag.Dim[0] = s.Size
+		if len(s.Dim) != 3 {
+			return errors.New("dim.length != 3")
+		}
+		tag.Dim[0] = s.Dim[0]
+		tag.Dim[1] = s.Dim[1]
+		tag.Dim[2] = s.Dim[2]
 		tag.Name = name
 		if s.TypeInt < TypeStruct {
 			tag.Type = s.TypeInt & TypeType
