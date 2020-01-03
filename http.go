@@ -32,7 +32,7 @@ func (p *PLC) tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 
 	var toSend strings.Builder
 
-	toSend.WriteString("<!DOCTYPE html>\n<html><title>" + p.Name + "</title><h3>" + p.Name + "</h3><p>Wersja biblioteki: 2019.12</p>\n<table " + tableStyle + "><tr><th>Nazwa</th><th>Tablica</th><th>Rozmiar</th><th>Typ</th><th>ASCII</th></tr>\n")
+	toSend.WriteString("<!DOCTYPE html>\n<html><title>" + p.Name + "</title><h3>" + p.Name + "</h3><p>Wersja biblioteki: 2020.01</p>\n<table " + tableStyle + "><tr><th>Nazwa</th><th>Tablica</th><th>Rozmiar</th><th>Typ</th><th>ASCII</th></tr>\n")
 
 	p.tMut.RLock()
 	arr := make([]string, 0, len(p.tags))
@@ -205,7 +205,10 @@ func tagToHTML(t *Tag) string {
 		toSend.WriteString("<th>SIGN</th><th>EXPONENT</th><th>MANTISSA</th></tr>\n")
 	} else {
 		toSend.WriteString("<th>HEX</th><th>ASCII</th><th>BIN</th></tr>\n")
-		toSend.WriteString(fmt.Sprintf("<td></td><td></td><td></td><td></td><td>%s</td></tr>\n", hexTr(ln)))
+		if t.Dim[0] > 0 {
+			toSend.WriteString(fmt.Sprintf("<td></td>"))
+		}
+		toSend.WriteString(fmt.Sprintf("<td></td><td></td><td></td><td>%s</td></tr>\n", hexTr(ln)))
 	}
 
 	n := 0
