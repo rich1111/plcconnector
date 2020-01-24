@@ -212,34 +212,41 @@ func float64ToString(f uint64) string {
 
 func structToHTML(t *Tag, b *strings.Builder) {
 	for i := 0; i < len(t.st.d); i++ {
-		tmp := int64(t.data[t.st.d[i].offset])
 		ln := t.st.d[i].ElemLen()
-		for j := 1; j < ln; j++ {
-			tmp += int64(t.data[t.st.d[i].offset+j]) << uint(8*j)
-		}
-		switch t.st.d[i].Type {
-		case TypeBOOL:
-			if tmp != 0 {
-				tmp = 1
+		var val strings.Builder
+		for x := 0; x < t.st.d[i].Dims(); x++ {
+			tmp := int64(t.data[t.st.d[i].offset+ln*x])
+			for j := 1; j < ln; j++ {
+				tmp += int64(t.data[t.st.d[i].offset+ln*x+j]) << uint(8*j)
 			}
-		case TypeSINT:
-			tmp = int64(int8(tmp))
-		case TypeINT:
-			tmp = int64(int16(tmp))
-		case TypeDINT:
-			tmp = int64(int32(tmp))
-		case TypeDWORD:
-			tmp = int64(int32(tmp))
-		case TypeUSINT:
-			tmp = int64(uint8(tmp))
-		case TypeUINT:
-			tmp = int64(uint16(tmp))
-		case TypeUDINT:
-			tmp = int64(uint32(tmp))
-		case TypeULINT:
-			tmp = int64(uint64(tmp))
+			switch t.st.d[i].Type {
+			case TypeBOOL:
+				if tmp != 0 {
+					tmp = 1
+				}
+			case TypeSINT:
+				tmp = int64(int8(tmp))
+			case TypeINT:
+				tmp = int64(int16(tmp))
+			case TypeDINT:
+				tmp = int64(int32(tmp))
+			case TypeDWORD:
+				tmp = int64(int32(tmp))
+			case TypeUSINT:
+				tmp = int64(uint8(tmp))
+			case TypeUINT:
+				tmp = int64(uint16(tmp))
+			case TypeUDINT:
+				tmp = int64(uint32(tmp))
+			case TypeULINT:
+				tmp = int64(uint64(tmp))
+			}
+			if x != 0 {
+				val.WriteString(", ")
+			}
+			val.WriteString(fmt.Sprintf("%v", tmp))
 		}
-		b.WriteString(fmt.Sprintf("<tr><td>%s</td><td>%s</td><td>%d</td></tr>", t.st.d[i].Name, t.st.d[i].TypeString(), tmp))
+		b.WriteString(fmt.Sprintf("<tr><td>%s</td><td>%s</td><td>%s</td></tr>", t.st.d[i].Name, t.st.d[i].TypeString()+t.st.d[i].DimString(), val.String()))
 	}
 }
 
