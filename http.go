@@ -210,12 +210,51 @@ func float64ToString(f uint64) string {
 	return fmt.Sprintf("<td>%v</td><td>%v</td><td>%011b</td><td>%052b</td></tr>\n", math.Float64frombits(f), s, e, m)
 }
 
+func structToHTML(t *Tag, b *strings.Builder) {
+	for i := 0; i < len(t.st.d); i++ {
+		tmp := int64(t.data[t.st.d[i].offset])
+		ln := t.st.d[i].ElemLen()
+		for j := 1; j < ln; j++ {
+			tmp += int64(t.data[t.st.d[i].offset+j]) << uint(8*j)
+		}
+		switch t.st.d[i].Type {
+		case TypeBOOL:
+			if tmp != 0 {
+				tmp = 1
+			}
+		case TypeSINT:
+			tmp = int64(int8(tmp))
+		case TypeINT:
+			tmp = int64(int16(tmp))
+		case TypeDINT:
+			tmp = int64(int32(tmp))
+		case TypeDWORD:
+			tmp = int64(int32(tmp))
+		case TypeUSINT:
+			tmp = int64(uint8(tmp))
+		case TypeUINT:
+			tmp = int64(uint16(tmp))
+		case TypeUDINT:
+			tmp = int64(uint32(tmp))
+		case TypeULINT:
+			tmp = int64(uint64(tmp))
+		}
+		b.WriteString(fmt.Sprintf("<tr><td>%s</td><td>%s</td><td>%d</td></tr>", t.st.d[i].Name, t.st.d[i].TypeString(), tmp))
+	}
+}
+
 func tagToHTML(t *Tag) string {
 	var toSend strings.Builder
 
 	ln := t.ElemLen()
 
 	toSend.WriteString("<!DOCTYPE html>\n<html><style type=\"text/css\">" + mainCSS + "</style><title>" + t.Name + "</title><a href=\"/#" + t.Name + "\">powrót</a> <a href=\"\">odśwież</a><h3>" + t.Name + "</h3>")
+	if t.Type > TypeStructHead { // TODO array of struct, struct in struct
+		toSend.WriteString("<h4>" + t.TypeString() + "</h4><table><tr><th>Nazwa</th><th>Typ</th><th>Wartość</th></tr>")
+		structToHTML(t, &toSend)
+		toSend.WriteString("</table></html>")
+		return toSend.String()
+	}
 	if t.Dim[0] > 0 {
 		toSend.WriteString("<table><tr><th>N</th><th>" + t.TypeString() + "</th>")
 	} else {
