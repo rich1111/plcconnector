@@ -53,7 +53,7 @@ func (p *PLC) tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 
 	var toSend strings.Builder
 
-	toSend.WriteString("<!DOCTYPE html>\n<html><style>" + mainCSS + "</style>" + mainJS + "<title>" + p.Name + "</title><h3>" + p.Name + "</h3><p>Wersja biblioteki: 2020.01</p>\n<input type=checkbox id=showbtn name=showbtn><label for=showbtn>Pokaż wszystkie</label><table><tr><th>Nazwa</th><th>Tablica</th><th>Rozmiar</th><th>Typ</th><th>Odczyt</th><th>ASCII</th></tr>\n")
+	toSend.WriteString("<!DOCTYPE html>\n<html><style>" + mainCSS + "</style>" + mainJS + "<title>" + p.Name + "</title><h3>" + p.Name + "</h3><p>Wersja biblioteki: 2020.01</p>\n<input type=checkbox id=showbtn name=showbtn><label for=showbtn>Pokaż wszystkie</label><table><tr><th>Nazwa</th><th>Rozmiar</th><th>Typ</th><th>Odczyt</th><th>ASCII</th></tr>\n")
 
 	p.tMut.RLock()
 	arr := make([]string, 0, len(p.tags))
@@ -66,7 +66,7 @@ func (p *PLC) tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 
 	for _, n := range arr {
 		t := p.tags[n]
-		toSend.WriteString("<tr class=\"" + iif(t.prot, "pr", "rw") + "\"><td><a href=\"/" + n + "\" id=\"" + n + "\">" + n + "</a></td><td>" + t.DimString() + "</td><td>" + strconv.Itoa(t.Dims()*t.Len()) + " B</td><td>" + t.TypeString() + "</td><td>" + iif(t.prot, "☐", "☑") + "</td><td>")
+		toSend.WriteString("<tr class=\"" + iif(t.prot, "pr", "rw") + "\"><td><a href=\"/" + n + "\" id=\"" + n + "\">" + n + "</a></td><td>" + strconv.Itoa(t.Dims()*t.Len()) + " B</td><td>" + t.TypeString() + t.DimString() + "</td><td>" + iif(t.prot, "☐", "☑") + "</td><td>")
 		var ascii strings.Builder
 		if t.Type != TypeREAL && t.Type != TypeLREAL && t.Type != TypeBOOL {
 			ascii.Grow(t.Dims())
