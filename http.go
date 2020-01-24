@@ -212,6 +212,9 @@ func float64ToString(f uint64) string {
 
 func structToHTML(t *Tag, b *strings.Builder) {
 	for i := 0; i < len(t.st.d); i++ {
+		if strings.HasPrefix(t.st.d[i].Name, "ZZZZZZZZZZ") {
+			continue
+		}
 		ln := t.st.d[i].ElemLen()
 		var val strings.Builder
 		for x := 0; x < t.st.d[i].Dims(); x++ {
@@ -247,6 +250,9 @@ func structToHTML(t *Tag, b *strings.Builder) {
 			val.WriteString(fmt.Sprintf("%v", tmp))
 		}
 		b.WriteString(fmt.Sprintf("<tr><td>%s</td><td>%s</td><td>%s</td></tr>", t.st.d[i].Name, t.st.d[i].TypeString()+t.st.d[i].DimString(), val.String()))
+	}
+	if len(t.st.d) == 2 && strings.EqualFold(t.st.d[0].Name, "len") && strings.EqualFold(t.st.d[1].Name, "data") {
+		b.WriteString(fmt.Sprintf("<tr><td></td><td><td>ASCII: %s</td></tr>", string(t.data[t.st.d[1].offset:])))
 	}
 }
 
