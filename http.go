@@ -33,6 +33,9 @@ table {
 	border-spacing: 20px 0;
 	text-align: left;
 }
+td {
+	vertical-align: top;
+}
 `
 
 const mainJS = `
@@ -210,45 +213,53 @@ func float64ToString(f uint64) string {
 	return fmt.Sprintf("<td>%v</td><td>%v</td><td>%011b</td><td>%052b</td></tr>\n", math.Float64frombits(f), s, e, m)
 }
 
-func structToHTML(t *Tag, n int, lev int, N bool, b *strings.Builder) {
+func structToHTML(t *Tag, data []uint8, n int, N bool, b *strings.Builder) {
 	off := n * t.ElemLen()
 	for i := 0; i < len(t.st.d); i++ {
 		if strings.HasPrefix(t.st.d[i].Name, "ZZZZZZZZZZ") {
 			continue
 		}
-		ln := t.st.d[i].ElemLen()
 		var val strings.Builder
-		for x := 0; x < t.st.d[i].Dims(); x++ {
-			tmp := int64(t.data[t.st.d[i].offset+off+ln*x])
-			for j := 1; j < ln; j++ {
-				tmp += int64(t.data[t.st.d[i].offset+off+ln*x+j]) << uint(8*j)
+		ln := t.st.d[i].ElemLen()
+		if t.st.d[i].Type > TypeStructHead { // TODO array
+			val.WriteString("<table><tr><th>Nazwa</th><th>Typ</th><th>Wartość</th></tr>")
+			structToHTML(&t.st.d[i], data[t.st.d[i].offset+off:t.st.d[i].offset+off+ln], 0, false, &val)
+			val.WriteString("</table>")
+		} else if t.st.d[i].Type == TypeBOOL {
+			if (data[t.st.d[i].offset+off]>>t.st.d[i].Dim[0])&1 == 1 {
+				val.WriteString("true")
+			} else {
+				val.WriteString("false")
 			}
-			switch t.st.d[i].Type {
-			case TypeBOOL:
-				if tmp != 0 {
-					tmp = 1
+		} else {
+			for x := 0; x < t.st.d[i].Dims(); x++ {
+				tmp := int64(data[t.st.d[i].offset+off+ln*x])
+				for j := 1; j < ln; j++ {
+					tmp += int64(data[t.st.d[i].offset+off+ln*x+j]) << uint(8*j)
 				}
-			case TypeSINT:
-				tmp = int64(int8(tmp))
-			case TypeINT:
-				tmp = int64(int16(tmp))
-			case TypeDINT:
-				tmp = int64(int32(tmp))
-			case TypeDWORD:
-				tmp = int64(int32(tmp))
-			case TypeUSINT:
-				tmp = int64(uint8(tmp))
-			case TypeUINT:
-				tmp = int64(uint16(tmp))
-			case TypeUDINT:
-				tmp = int64(uint32(tmp))
-			case TypeULINT:
-				tmp = int64(uint64(tmp))
+				switch t.st.d[i].Type {
+				case TypeSINT:
+					tmp = int64(int8(tmp))
+				case TypeINT:
+					tmp = int64(int16(tmp))
+				case TypeDINT:
+					tmp = int64(int32(tmp))
+				case TypeDWORD:
+					tmp = int64(int32(tmp))
+				case TypeUSINT:
+					tmp = int64(uint8(tmp))
+				case TypeUINT:
+					tmp = int64(uint16(tmp))
+				case TypeUDINT:
+					tmp = int64(uint32(tmp))
+				case TypeULINT:
+					tmp = int64(uint64(tmp))
+				}
+				if x != 0 {
+					val.WriteString(", ")
+				}
+				val.WriteString(fmt.Sprintf("%v", tmp))
 			}
-			if x != 0 {
-				val.WriteString(", ")
-			}
-			val.WriteString(fmt.Sprintf("%v", tmp))
 		}
 		b.WriteString("<tr><td>")
 		if N {
@@ -261,8 +272,8 @@ func structToHTML(t *Tag, n int, lev int, N bool, b *strings.Builder) {
 		if N {
 			b.WriteString("</td><td>")
 		}
-		strLen := (int(t.data[t.st.d[0].offset+off+3]) << 24) + (int(t.data[t.st.d[0].offset+off+2]) << 16) + (int(t.data[t.st.d[0].offset+off+1]) << 8) + int(t.data[t.st.d[0].offset+off])
-		b.WriteString(fmt.Sprintf("</td><td><td>ASCII: %s</td></tr>", string(t.data[t.st.d[1].offset+off:t.st.d[1].offset+off+strLen])))
+		strLen := (int(data[t.st.d[0].offset+off+3]) << 24) + (int(data[t.st.d[0].offset+off+2]) << 16) + (int(data[t.st.d[0].offset+off+1]) << 8) + int(data[t.st.d[0].offset+off])
+		b.WriteString(fmt.Sprintf("</td><td><td>ASCII: %s</td></tr>", string(data[t.st.d[1].offset+off:t.st.d[1].offset+off+strLen])))
 	}
 	if N {
 		b.WriteString(`<tr style="height: 25px;"/>`)
@@ -275,15 +286,15 @@ func tagToHTML(t *Tag) string {
 	ln := t.ElemLen()
 
 	toSend.WriteString("<!DOCTYPE html>\n<html><style type=\"text/css\">" + mainCSS + "</style><title>" + t.Name + "</title><a href=\"/#" + t.Name + "\">powrót</a> <a href=\"\">odśwież</a><h3>" + t.Name + "</h3>")
-	if t.Type > TypeStructHead { // TODO struct in struct
+	if t.Type > TypeStructHead {
 		if t.Dim[0] > 0 {
 			toSend.WriteString("<h4>" + t.TypeString() + t.DimString() + "</h4><table><tr><th>N</th><th>Nazwa</th><th>Typ</th><th>Wartość</th></tr>")
 			for i := 0; i < len(t.data)/ln; i++ {
-				structToHTML(t, i, 0, true, &toSend)
+				structToHTML(t, t.data, i, true, &toSend)
 			}
 		} else {
 			toSend.WriteString("<h4>" + t.TypeString() + "</h4><table><tr><th>Nazwa</th><th>Typ</th><th>Wartość</th></tr>")
-			structToHTML(t, 0, 0, false, &toSend)
+			structToHTML(t, t.data, 0, false, &toSend)
 		}
 		toSend.WriteString("</table></html>")
 		return toSend.String()

@@ -45,14 +45,18 @@ func (st structData) Elem(n string) *Tag {
 
 // Dims .
 func (t Tag) Dims() int {
+	if t.Type == TypeBOOL {
+		return 1
+	}
 	return one(t.Dim[0]) * one(t.Dim[1]) * one(t.Dim[2])
 }
 
 // DimString .
 func (t Tag) DimString() string {
-	if t.Dim[0] == 0 {
+	if t.Dim[0] == 0 || t.Type == TypeBOOL {
 		return ""
 	}
+
 	var r strings.Builder
 	r.WriteRune('[')
 	r.WriteString(strconv.Itoa(t.Dim[0]))
