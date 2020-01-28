@@ -401,7 +401,7 @@ func (p *PLC) handler(w http.ResponseWriter, r *http.Request) {
 		p.tagsIndexHTML(w, r)
 	} else {
 		p.tMut.RLock()
-		t, ok := p.tags[path.Base(r.URL.Path)]
+		t, ok := p.tags[strings.ToLower(path.Base(r.URL.Path))]
 		if ok {
 			_, json := r.URL.Query()["json"]
 			if json {

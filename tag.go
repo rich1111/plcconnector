@@ -850,7 +850,7 @@ func (p *PLC) parsePathEl(path []pathEl) (*Tag, uint32, int, int, int, error) {
 		tag = p.symbols.inst[path[1].val].attr[1].DataString()
 	}
 
-	tg, ok := p.tags[tag]
+	tg, ok := p.tags[strings.ToLower(tag)]
 
 	if !ok {
 		return nil, 0, 0, 0, 0, errors.New("path no tag")
@@ -1028,7 +1028,7 @@ func (p *PLC) addTag(t Tag, instance int) {
 	} else {
 		p.symbols.SetInstance(instance, in)
 	}
-	p.tags[t.Name] = &t
+	p.tags[strings.ToLower(t.Name)] = &t
 	p.tMut.Unlock()
 }
 
@@ -1041,7 +1041,7 @@ func (p *PLC) AddTag(t Tag) {
 func (p *PLC) UpdateTag(name string, offset int, data []uint8) bool {
 	p.tMut.Lock()
 	defer p.tMut.Unlock()
-	t, ok := p.tags[name]
+	t, ok := p.tags[strings.ToLower(name)]
 	if !ok {
 		fmt.Println("plcconnector UpdateTag: no tag named ", name)
 		return false

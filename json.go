@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"strings"
 )
 
 type jsSymbols struct {
@@ -130,7 +131,7 @@ func (p *PLC) ImportMemoryJSON(file string) error {
 		return err
 	}
 	for n, c := range db {
-		tag, ok := p.tags[n]
+		tag, ok := p.tags[strings.ToLower(n)]
 		if !ok {
 			return errors.New("no tag " + n)
 		}
