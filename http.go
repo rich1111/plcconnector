@@ -221,9 +221,16 @@ func structToHTML(t *Tag, data []uint8, n int, N bool, b *strings.Builder) {
 		}
 		var val strings.Builder
 		ln := t.st.d[i].ElemLen()
-		if t.st.d[i].Type > TypeStructHead { // TODO array
-			val.WriteString("<table><tr><th>Nazwa</th><th>Typ</th><th>Wartość</th></tr>")
-			structToHTML(&t.st.d[i], data[t.st.d[i].offset+off:t.st.d[i].offset+off+ln], 0, false, &val)
+		if t.st.d[i].Type > TypeStructHead {
+			if t.st.d[i].Dim[0] > 0 {
+				val.WriteString("<table><tr><th>N</th><th>Nazwa</th><th>Typ</th><th>Wartość</th></tr>")
+				for k := 0; k < t.st.d[i].Dim[0]; k++ {
+					structToHTML(&t.st.d[i], data[t.st.d[i].offset+off:t.st.d[i].offset+off+ln*t.st.d[i].Dim[0]], k, true, &val)
+				}
+			} else {
+				val.WriteString("<table><tr><th>Nazwa</th><th>Typ</th><th>Wartość</th></tr>")
+				structToHTML(&t.st.d[i], data[t.st.d[i].offset+off:t.st.d[i].offset+off+ln], 0, false, &val)
+			}
 			val.WriteString("</table>")
 		} else if t.st.d[i].Type == TypeBOOL {
 			if (data[t.st.d[i].offset+off]>>t.st.d[i].Dim[0])&1 == 1 {
