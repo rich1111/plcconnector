@@ -133,6 +133,7 @@ type req struct {
 	class    int
 	connID   uint32
 	dataLen  int
+	uDataLen int
 	encHead  encapsulationHeader
 	file     map[int]*[3]uint8
 	instance int
@@ -174,7 +175,6 @@ func (r *req) writeCIP(data interface{}) {
 }
 
 func (r *req) reset() {
-	r.readBuf.Reset(r.c)
 	r.writeBuf.Reset()
 	r.wrCIPBuf.Reset()
 }
@@ -343,6 +343,9 @@ loop:
 				break loop
 			}
 			r.dataLen -= 2 + len(ePath)
+			r.uDataLen = r.dataLen
+
+			unc := false
 
 			r.class, r.instance, r.attr, r.path, err = r.parsePath(ePath)
 			if err != nil {
@@ -350,6 +353,7 @@ loop:
 				r.resp.AddStatusSize = 1
 				r.write(r.resp)
 				r.write(uint16(0))
+				r.readBuf.Reset(r.c)
 				goto errl
 			}
 			if p.Verbose {
@@ -357,7 +361,8 @@ loop:
 			}
 
 			if r.class == ConnManager && r.protd.Service == UnconnectedSend {
-				var usdata [4]uint8
+				unc = true
+				var usdata itemType
 				err = r.read(&usdata)
 				if err != nil {
 					break loop
@@ -374,7 +379,8 @@ loop:
 				if err != nil {
 					break loop
 				}
-				r.dataLen -= 6 + len(ePath)
+				r.uDataLen -= binary.Size(usdata) + int(usdata.Length)
+				r.dataLen -= 6 + len(ePath) + r.uDataLen
 
 				r.class, r.instance, r.attr, r.path, err = r.parsePath(ePath)
 				if err != nil {
@@ -382,6 +388,7 @@ loop:
 					r.resp.AddStatusSize = 1
 					r.write(r.resp)
 					r.write(uint16(0))
+					r.readBuf.Reset(r.c)
 					goto errl
 				}
 				if p.Verbose {
@@ -390,8 +397,19 @@ loop:
 			}
 
 			if !r.serviceHandle() {
+				r.readBuf.Reset(r.c)
 				break loop
 			}
+
+			if unc { // path
+				// fmt.Println(">>>", r.uDataLen)
+				data := make([]uint8, r.uDataLen)
+				err = r.read(&data)
+				if err != nil {
+					break loop
+				}
+			}
+
 		errl:
 			r.writeCIP(r.rrdata)
 			if cidok && r.connID != 0 {
@@ -415,13 +433,6 @@ loop:
 			r.encHead.Status = eipInvalid
 
 			r.write(data)
-		}
-
-		unread := r.readBuf.Buffered()
-		if unread > 0 {
-			discard := make([]byte, unread)
-			r.read(&discard)
-			p.debug("DISCARDED:", discard)
 		}
 
 		err = conn.SetWriteDeadline(timeout)
@@ -968,6 +979,18 @@ func (r *req) serviceHandle() bool {
 			r.write(r.resp)
 		}
 
+	case r.class == 0xAC && r.protd.Service == ReadTag:
+		fmt.Println("unknown service:", r.protd.Service)
+
+		data := make([]uint8, r.dataLen)
+		err := r.read(&data)
+		if err != nil {
+			return false
+		}
+
+		r.resp.Status = ServNotSup
+		r.write(r.resp)
+
 	case r.protd.Service == ReadTag:
 		r.p.debug("ReadTag")
 
@@ -1166,6 +1189,12 @@ func (r *req) serviceHandle() bool {
 
 	default:
 		fmt.Println("unknown service:", r.protd.Service)
+
+		data := make([]uint8, r.dataLen)
+		err := r.read(&data)
+		if err != nil {
+			return false
+		}
 
 		r.resp.Status = ServNotSup
 		r.write(r.resp)
