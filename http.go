@@ -56,7 +56,7 @@ func (p *PLC) tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 
 	var toSend strings.Builder
 
-	toSend.WriteString("<!DOCTYPE html>\n<html><style>" + mainCSS + "</style>" + mainJS + "<title>" + p.Name + "</title><h3>" + p.Name + "</h3><p>Wersja biblioteki: 2020.01</p>\n<input type=checkbox id=showbtn name=showbtn><label for=showbtn>Pokaż wszystkie</label><table><tr><th>Nazwa</th><th>Rozmiar</th><th>Typ</th><th>Odczyt</th><th>ASCII</th></tr>\n")
+	toSend.WriteString("<!DOCTYPE html>\n<html><style>" + mainCSS + "</style>" + mainJS + "<title>" + p.Name + "</title><h3>" + p.Name + "</h3><p>Wersja biblioteki: 2020.08</p>\n<input type=checkbox id=showbtn name=showbtn><label for=showbtn>Pokaż wszystkie</label><table><tr><th>Nazwa</th><th>Rozmiar</th><th>Typ</th><th>Odczyt</th><th>ASCII</th></tr>\n")
 
 	p.tMut.RLock()
 	arr := make([]string, 0, len(p.tags))
