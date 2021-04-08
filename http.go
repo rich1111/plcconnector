@@ -86,6 +86,26 @@ function n2b(n, s) {
   return r;
 }
 
+function to_float32(x) {
+  let buf = new ArrayBuffer(4);
+  let num = new Float32Array(buf);
+  num[0] = parseFloat(x);
+  x = new Uint8Array(buf);
+  return [x[0], x[1], x[2], x[3]];
+}
+
+function to_float64(x) {
+  let buf = new ArrayBuffer(8);
+  let num = new Float64Array(buf);
+  num[0] = parseFloat(x);
+  x = new Uint8Array(buf);
+  return [x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7]];
+}
+
+function r2b(n, s) {
+  return s == 4 ? to_float32(n) : to_float64(n);
+}
+
 function clicBOOL(ev) {
   const tc = ev.target.textContent === "1" ? "0" : "1";
   ev.target.textContent = tc;
@@ -99,6 +119,17 @@ function clicINT(ev) {
     const size = parseInt(ev.target.attributes[3].textContent, 10);
     ev.target.textContent = tc;
 	tc = n2b(tc, size);
+    setTag(ev.target.attributes[2].textContent, tc);
+  }
+}
+
+function clicREAL(ev) {
+  let tc = ev.target.textContent;
+  tc = prompt("Podaj liczbę", tc);
+  if (tc !== null) {
+    const size = parseInt(ev.target.attributes[3].textContent, 10);
+    ev.target.textContent = tc;
+    tc = r2b(tc, size);
     setTag(ev.target.attributes[2].textContent, tc);
   }
 }
@@ -260,14 +291,14 @@ func float32ToString(f uint32) string {
 	s := f >> 31
 	e := (f & 0x7f800000) >> 23
 	m := f & 0x007fffff
-	return fmt.Sprintf("<td>%v</td><td>%v</td><td>%08b</td><td>%023b</td></tr>\n", math.Float32frombits(f), s, e, m)
+	return fmt.Sprintf("%v</td><td>%v</td><td>%08b</td><td>%023b</td></tr>\n", math.Float32frombits(f), s, e, m)
 }
 
 func float64ToString(f uint64) string {
 	s := f >> 63
 	e := (f & 0x7FF0000000000000) >> 52
 	m := f & 0xFFFFFFFFFFFFF
-	return fmt.Sprintf("<td>%v</td><td>%v</td><td>%011b</td><td>%052b</td></tr>\n", math.Float64frombits(f), s, e, m)
+	return fmt.Sprintf("%v</td><td>%v</td><td>%011b</td><td>%052b</td></tr>\n", math.Float64frombits(f), s, e, m)
 }
 
 func structToHTML(t *Tag, data []uint8, n int, N bool, b *strings.Builder) {
@@ -449,9 +480,9 @@ func tagToHTML(t *Tag) string {
 		} else if t.Type == TypeBOOL {
 			toSend.WriteString(fmt.Sprintf("<td onclick=clicBOOL(event) class=clic tag='%s'>%v</td></tr>\n", tagClicName(t, n), tmp))
 		} else if t.Type == TypeREAL {
-			toSend.WriteString(fmt.Sprintf("%s</tr>\n", float32ToString(uint32(tmp))))
+			toSend.WriteString(fmt.Sprintf("<td onclick=clicREAL(event) class=clic tag='%s' size='4'>%s</tr>\n", tagClicName(t, n), float32ToString(uint32(tmp))))
 		} else if t.Type == TypeLREAL {
-			toSend.WriteString(fmt.Sprintf("%s</tr>\n", float64ToString(uint64(tmp))))
+			toSend.WriteString(fmt.Sprintf("<td onclick=clicREAL(event) class=clic tag='%s' size='8'>%s</tr>\n", tagClicName(t, n), float64ToString(uint64(tmp))))
 		}
 		n++
 	}
