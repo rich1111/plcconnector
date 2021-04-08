@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -49,7 +48,7 @@ func (p *PLC) getEDSInt(section string, item string) (int, error) {
 }
 
 func (p *PLC) loadEDS(fn string) error {
-	f, err := ioutil.ReadFile(fn)
+	f, err := os.ReadFile(fn)
 	if err != nil {
 		return err
 	}
@@ -265,7 +264,7 @@ func (p *PLC) loadEDS(fn string) error {
 			return false
 		}
 		x := int64(binary.LittleEndian.Uint64(dt))
-		p.timOff = -time.Now().Sub(time.Unix(x/1_000_000, x%1_000_000))
+		p.timOff = -time.Since(time.Unix(x/1_000_000, x%1_000_000))
 		return true
 	}
 	in.attr[11] = TagULINT(0, "LocalTime")

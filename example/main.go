@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	plc ".."
+	plc "github.com/podeszfa/plcconnector"
 )
 
 func call(service int, status int, tag *plc.Tag) {
@@ -100,7 +100,8 @@ func main() {
 			}
 		}
 	} else {
-		p.NewTag([4]bool{false, true}, "testBOOL")
+		p.NewTag(bool(false), "testBOOL")
+		p.NewTag([4]bool{false, true}, "testBOOL4")
 
 		p.NewTag([]int8{1, -128, 127}, "testSINT")
 		p.NewTag([]uint8{1, 0xFF, 0}, "testUSINT")

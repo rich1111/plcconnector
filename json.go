@@ -3,7 +3,7 @@ package plcconnector
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"os"
 	"strings"
 )
 
@@ -41,7 +41,7 @@ type JS struct {
 
 // ImportJSON .
 func (p *PLC) ImportJSON(file string) error {
-	data, err := ioutil.ReadFile(file)
+	data, err := os.ReadFile(file)
 	if err != nil {
 		return err
 	}
@@ -121,7 +121,7 @@ type memJS struct {
 
 // ImportMemoryJSON .
 func (p *PLC) ImportMemoryJSON(file string) error {
-	data, err := ioutil.ReadFile(file)
+	data, err := os.ReadFile(file)
 	if err != nil {
 		return err
 	}

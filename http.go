@@ -22,7 +22,10 @@ import (
 	"time"
 )
 
-const mainCSS = `
+const (
+	version = "2021.04"
+
+	mainCSS = `
 :root {
 	--hide: none;
 }
@@ -37,10 +40,17 @@ table {
 td {
 	vertical-align: top;
 }
+.clic {
+	cursor: pointer;
+}
 `
 
-const mainJS = `
+	mainJS = `
 <script>
+function clicBOOL() {
+	console.log(this);
+}
+
 document.addEventListener("DOMContentLoaded", function(e) {
 	var b = document.getElementById("showbtn");
 	b.addEventListener("click", function(e){
@@ -50,6 +60,29 @@ document.addEventListener("DOMContentLoaded", function(e) {
 </script>
 `
 
+	tagJS = `
+<script>
+async function setTag(tag, value) {
+  const response = await fetch('/.tagSet', {
+    method: 'POST',
+    cache: 'no-cache',
+    headers: {
+      'Content-Type': 'text/plain'
+    },
+    body: tag + " = " + value
+  });
+  return response;
+}
+
+function clicBOOL(ev) {
+	const bool = ev.target.textContent === "1" ? "0" : "1";
+	ev.target.textContent = bool;
+	setTag(ev.target.attributes[2].textContent, bool);
+}
+</script>
+`
+)
+
 func (p *PLC) tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -57,7 +90,7 @@ func (p *PLC) tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 
 	var toSend strings.Builder
 
-	toSend.WriteString("<!DOCTYPE html>\n<html><style>" + mainCSS + "</style>" + mainJS + "<title>" + p.Name + "</title><h3>" + p.Name + "</h3><p>Wersja biblioteki: 2020.08</p>\n<input type=checkbox id=showbtn name=showbtn><label for=showbtn>Pokaż wszystkie</label><table><tr><th>Nazwa</th><th>Rozmiar</th><th>Typ</th><th>Odczyt</th><th>ASCII</th></tr>\n")
+	toSend.WriteString("<!DOCTYPE html>\n<html><style>" + mainCSS + "</style>" + mainJS + "<title>" + p.Name + "</title><h3>" + p.Name + "</h3><p>Wersja biblioteki: " + version + "</p>\n<input type=checkbox id=showbtn name=showbtn><label for=showbtn>Pokaż wszystkie</label><table><tr><th>Nazwa</th><th>Rozmiar</th><th>Typ</th><th>Odczyt</th><th>ASCII</th></tr>\n")
 
 	p.tMut.RLock()
 	arr := make([]string, 0, len(p.tags))
@@ -288,12 +321,19 @@ func structToHTML(t *Tag, data []uint8, n int, N bool, b *strings.Builder) {
 	}
 }
 
+func tagClicName(t *Tag, n int) string {
+	if t.Dim[0] > 0 {
+		return t.Name + "[" + strconv.Itoa(n) + "]"
+	}
+	return t.Name
+}
+
 func tagToHTML(t *Tag) string {
 	var toSend strings.Builder
 
 	ln := t.ElemLen()
 
-	toSend.WriteString("<!DOCTYPE html>\n<html><style type=\"text/css\">" + mainCSS + "</style><title>" + t.Name + "</title><a href=\"/#" + t.Name + "\">powrót</a> <a href=\"\">odśwież</a><h3>" + t.Name + "</h3>")
+	toSend.WriteString("<!DOCTYPE html>\n<html><style type=\"text/css\">" + mainCSS + "</style>" + tagJS + "<title>" + t.Name + "</title><a href=\"/#" + t.Name + "\">powrót</a> <a href=\"\">odśwież</a><h3>" + t.Name + "</h3>")
 	if t.Type > TypeStructHead {
 		if t.Dim[0] > 0 {
 			toSend.WriteString("<h4>" + t.TypeString() + t.DimString() + "</h4><table><tr><th>N</th><th>Nazwa</th><th>Typ</th><th>Wartość</th></tr>")
@@ -319,7 +359,7 @@ func tagToHTML(t *Tag) string {
 	} else {
 		toSend.WriteString("<th>HEX</th><th>ASCII</th><th>BIN</th></tr>\n")
 		if t.Dim[0] > 0 {
-			toSend.WriteString(fmt.Sprintf("<td></td>"))
+			toSend.WriteString("<td></td>")
 		}
 		toSend.WriteString(fmt.Sprintf("<td></td><td></td><td></td><td>%s</td></tr>\n", hexTr(ln)))
 	}
@@ -383,7 +423,7 @@ func tagToHTML(t *Tag) string {
 				toSend.WriteString(fmt.Sprintf("<td>%v</td><td>%v</td><td>%v</td><td>%v</td></tr>\n", tmp, hx, ascii, bin))
 			}
 		} else if t.Type == TypeBOOL {
-			toSend.WriteString(fmt.Sprintf("<td>%v</td></tr>\n", tmp))
+			toSend.WriteString(fmt.Sprintf("<td onclick=clicBOOL(event) class=clic tag='%s'>%v</td></tr>\n", tagClicName(t, i), tmp))
 		} else if t.Type == TypeREAL {
 			toSend.WriteString(fmt.Sprintf("%s</tr>\n", float32ToString(uint32(tmp))))
 		} else if t.Type == TypeLREAL {
@@ -400,6 +440,36 @@ func tagToHTML(t *Tag) string {
 func (p *PLC) handler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" {
 		p.tagsIndexHTML(w, r)
+	} else if r.URL.Path == "/.tagSet" && r.Method == http.MethodPost {
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+
+		b, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "tagSet error", http.StatusBadRequest)
+			return
+		}
+		ps := string(b)
+		ind := strings.Index(ps, "=")
+		name := strings.TrimSpace(ps[:ind])
+		pth := parsePath(name)
+
+		val := strings.FieldsFunc(strings.TrimSpace(ps[ind+1:]), func(r rune) bool { return r == ',' })
+		arr := make([]byte, len(val))
+
+		for i, s := range val {
+			x, _ := strconv.Atoi(strings.TrimSpace(s))
+			arr[i] = byte(x)
+		}
+
+		ok := p.saveTag(pth, 0, 0, arr, 0)
+
+		if ok {
+			io.WriteString(w, "ok")
+		} else {
+			io.WriteString(w, "fail")
+		}
 	} else {
 		p.tMut.RLock()
 		t, ok := p.tags[strings.ToLower(path.Base(r.URL.Path))]
