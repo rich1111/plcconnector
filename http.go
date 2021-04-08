@@ -74,10 +74,33 @@ async function setTag(tag, value) {
   return response;
 }
 
+function n2b(n, s) {
+  const r = [];
+  for (let i = 0; i < s; i++) {
+    if (i * 8 >= 32) {
+      r.push(Number(Math.floor(n / Math.pow(2, i * 8))));
+    } else {
+      r.push((n >>> (i * 8)) & 0xFF);
+    }
+  }
+  return r;
+}
+
 function clicBOOL(ev) {
-	const bool = ev.target.textContent === "1" ? "0" : "1";
-	ev.target.textContent = bool;
-	setTag(ev.target.attributes[2].textContent, bool);
+  const tc = ev.target.textContent === "1" ? "0" : "1";
+  ev.target.textContent = tc;
+  setTag(ev.target.attributes[2].textContent, tc);
+}
+
+function clicINT(ev) {
+  let tc = ev.target.textContent;
+  tc = prompt("Podaj liczbę", tc);
+  if (tc !== null) {
+    const size = parseInt(ev.target.attributes[3].textContent, 10);
+    ev.target.textContent = tc;
+	tc = n2b(tc, size);
+    setTag(ev.target.attributes[2].textContent, tc);
+  }
 }
 </script>
 `
@@ -268,9 +291,9 @@ func structToHTML(t *Tag, data []uint8, n int, N bool, b *strings.Builder) {
 			val.WriteString("</table>")
 		} else if t.st.d[i].Type == TypeBOOL {
 			if (data[t.st.d[i].offset+off]>>t.st.d[i].Dim[0])&1 == 1 {
-				val.WriteString("true")
+				val.WriteString("1")
 			} else {
-				val.WriteString("false")
+				val.WriteString("0")
 			}
 		} else {
 			for x := 0; x < t.st.d[i].Dims(); x++ {
@@ -405,6 +428,7 @@ func tagToHTML(t *Tag) string {
 		case TypeULINT:
 			err = binary.Write(buf, binary.BigEndian, uint64(tmp))
 		}
+		toSend.WriteString("<tr>")
 		if t.Dim[0] > 0 {
 			toSend.WriteString(fmt.Sprintf("<td>%s</td>", t.NString(n)))
 		}
@@ -418,12 +442,12 @@ func tagToHTML(t *Tag) string {
 				ascii = asciiCode(uint8(tmp))
 			}
 			if t.Type == TypeULINT {
-				toSend.WriteString(fmt.Sprintf("<td>%v</td><td>%v</td><td>%v</td><td>%v</td></tr>\n", uint64(tmp), hx, ascii, bin))
+				toSend.WriteString(fmt.Sprintf("<td onclick=clicINT(event) class=clic tag='%s' size='%d'>%v</td><td>%v</td><td>%v</td><td>%v</td></tr>\n", tagClicName(t, n), typeLen(uint16(t.Type)), uint64(tmp), hx, ascii, bin))
 			} else {
-				toSend.WriteString(fmt.Sprintf("<td>%v</td><td>%v</td><td>%v</td><td>%v</td></tr>\n", tmp, hx, ascii, bin))
+				toSend.WriteString(fmt.Sprintf("<td onclick=clicINT(event) class=clic tag='%s' size='%d'>%v</td><td>%v</td><td>%v</td><td>%v</td></tr>\n", tagClicName(t, n), typeLen(uint16(t.Type)), tmp, hx, ascii, bin))
 			}
 		} else if t.Type == TypeBOOL {
-			toSend.WriteString(fmt.Sprintf("<td onclick=clicBOOL(event) class=clic tag='%s'>%v</td></tr>\n", tagClicName(t, i), tmp))
+			toSend.WriteString(fmt.Sprintf("<td onclick=clicBOOL(event) class=clic tag='%s'>%v</td></tr>\n", tagClicName(t, n), tmp))
 		} else if t.Type == TypeREAL {
 			toSend.WriteString(fmt.Sprintf("%s</tr>\n", float32ToString(uint32(tmp))))
 		} else if t.Type == TypeLREAL {
