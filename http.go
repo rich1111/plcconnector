@@ -211,15 +211,15 @@ func structToHTML(t *Tag, data []uint8, n int, N bool, prevName string, b *strin
 			if t.st.d[i].Dim[0] > 0 {
 				val.WriteString("<td><table><tr><th>N</th><th>Nazwa</th><th>Typ</th><th>Wartość</th></tr>")
 				for k := 0; k < t.st.d[i].Dim[0]; k++ {
-					structToHTML(&t.st.d[i], data[t.st.d[i].offset+off:t.st.d[i].offset+off+ln*t.st.d[i].Dim[0]], k, true, t.PathString(n), &val)
+					structToHTML(&t.st.d[i], data[t.st.d[i].offset+off:t.st.d[i].offset+off+ln*t.st.d[i].Dim[0]], k, true, t.PathString(n)+".", &val)
 				}
 			} else {
 				val.WriteString("<td><table><tr><th>Nazwa</th><th>Typ</th><th>Wartość</th></tr>")
-				structToHTML(&t.st.d[i], data[t.st.d[i].offset+off:t.st.d[i].offset+off+ln], 0, false, t.PathString(n), &val)
+				structToHTML(&t.st.d[i], data[t.st.d[i].offset+off:t.st.d[i].offset+off+ln], 0, false, t.PathString(n)+".", &val)
 			}
 			val.WriteString("</table>")
 		} else if t.st.d[i].BasicType() == TypeBOOL { // FIXME: array of BOOL
-			clic := prevName + "." + t.PathString(n) + "." + t.st.d[i].Name
+			clic := prevName + t.PathString(n) + "." + t.st.d[i].Name
 			fmt.Fprintf(&val, "<td onclick=clicBOOL(event) class=clic tag='%s'>", clic)
 			if (data[t.st.d[i].offset+off]>>t.st.d[i].Dim[0])&1 == 1 {
 				val.WriteString("1")
