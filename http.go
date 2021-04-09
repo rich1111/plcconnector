@@ -57,11 +57,11 @@ func (p *PLC) tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 		t := p.tags[strings.ToLower(n)]
 		toSend.WriteString("<tr class=\"" + iif(t.prot, "pr", "rw") + "\"><td><a href=\"/" + n + "\" id=\"" + n + "\">" + n + "</a></td><td>" + strconv.Itoa(t.Dims()*t.Len()) + " B</td><td>" + t.TypeString() + t.DimString() + "</td><td>" + iif(t.prot, "☐", "☑") + "</td><td>")
 		var ascii strings.Builder
-		if t.Type != TypeREAL && t.Type != TypeLREAL && t.Type != TypeBOOL {
+		if t.BasicType() != TypeREAL && t.BasicType() != TypeLREAL && t.BasicType() != TypeBOOL {
 			ascii.Grow(t.Dims())
 			ln := t.ElemLen()
 			startI := 0
-			if t.Type == TypeSTRING {
+			if t.BasicType() == TypeSTRING {
 				startI = 2
 			}
 			for i := startI; i < len(t.data); i += ln {
@@ -69,7 +69,7 @@ func (p *PLC) tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 				for j := 1; j < ln; j++ {
 					tmp += int64(t.data[i+j]) << uint(8*j)
 				}
-				switch t.Type {
+				switch t.BasicType() {
 				case TypeSINT:
 					tmp = int64(int8(tmp))
 				case TypeINT:
@@ -120,7 +120,7 @@ func tagToJSON(t *Tag) string {
 		for j := 1; j < ln; j++ {
 			tmp += int64(t.data[i+j]) << uint(8*j)
 		}
-		switch t.Type {
+		switch t.BasicType() {
 		case TypeBOOL:
 			if tmp != 0 {
 				tmp = 1
@@ -142,15 +142,15 @@ func tagToJSON(t *Tag) string {
 		case TypeULINT:
 			tmp = int64(uint64(tmp))
 		}
-		if t.Type == TypeREAL {
+		if t.BasicType() == TypeREAL {
 			tj.Data = append(tj.Data, float64(math.Float32frombits(uint32(tmp))))
-		} else if t.Type == TypeLREAL {
+		} else if t.BasicType() == TypeLREAL {
 			tj.Data = append(tj.Data, math.Float64frombits(uint64(tmp)))
 		} else {
 			tj.Data = append(tj.Data, float64(tmp))
 		}
-		if t.Type != TypeREAL && t.Type != TypeLREAL && t.Type != TypeBOOL {
-			if tmp <= 256 && ((t.Type == TypeSINT && tmp >= -128) || (t.Type != TypeSINT && tmp >= 0)) {
+		if t.BasicType() != TypeREAL && t.BasicType() != TypeLREAL && t.BasicType() != TypeBOOL {
+			if tmp <= 256 && ((t.BasicType() == TypeSINT && tmp >= -128) || (t.BasicType() != TypeSINT && tmp >= 0)) {
 				tj.ASCII = append(tj.ASCII, asciiCode(uint8(tmp)))
 			} else {
 				tj.ASCII = append(tj.ASCII, "")
@@ -218,7 +218,7 @@ func structToHTML(t *Tag, data []uint8, n int, N bool, prevName string, b *strin
 				structToHTML(&t.st.d[i], data[t.st.d[i].offset+off:t.st.d[i].offset+off+ln], 0, false, t.PathString(n), &val)
 			}
 			val.WriteString("</table>")
-		} else if t.st.d[i].Type == TypeBOOL { // FIXME: array of BOOL
+		} else if t.st.d[i].BasicType() == TypeBOOL { // FIXME: array of BOOL
 			clic := prevName + "." + t.PathString(n) + "." + t.st.d[i].Name
 			fmt.Fprintf(&val, "<td onclick=clicBOOL(event) class=clic tag='%s'>", clic)
 			if (data[t.st.d[i].offset+off]>>t.st.d[i].Dim[0])&1 == 1 {
@@ -236,12 +236,12 @@ func structToHTML(t *Tag, data []uint8, n int, N bool, prevName string, b *strin
 				for j := 1; j < ln; j++ {
 					tmp += int64(data[t.st.d[i].offset+off+ln*x+j]) << uint(8*j)
 				}
-				if t.st.d[i].Type == TypeREAL {
+				if t.st.d[i].BasicType() == TypeREAL {
 					fmt.Fprintf(&val, "%v", math.Float32frombits(uint32(tmp)))
-				} else if t.st.d[i].Type == TypeLREAL {
+				} else if t.st.d[i].BasicType() == TypeLREAL {
 					fmt.Fprintf(&val, "%v", math.Float64frombits(uint64(tmp)))
 				} else {
-					switch t.st.d[i].Type {
+					switch t.st.d[i].BasicType() {
 					case TypeSINT:
 						tmp = int64(int8(tmp))
 					case TypeINT:
@@ -306,9 +306,9 @@ func tagToHTML(t *Tag) string {
 	} else {
 		toSend.WriteString("<table><tr><th>" + t.TypeString() + "</th>")
 	}
-	if t.Type == TypeBOOL {
+	if t.BasicType() == TypeBOOL {
 		toSend.WriteString("</tr>\n")
-	} else if t.Type == TypeREAL || t.Type == TypeLREAL {
+	} else if t.BasicType() == TypeREAL || t.BasicType() == TypeLREAL {
 		toSend.WriteString("<th>SIGN</th><th>EXPONENT</th><th>MANTISSA</th></tr>\n")
 	} else {
 		toSend.WriteString("<th>HEX</th><th>ASCII</th><th>BIN</th></tr>\n")
@@ -328,7 +328,7 @@ func tagToHTML(t *Tag) string {
 		var err error
 		buf := new(bytes.Buffer)
 
-		switch t.Type {
+		switch t.BasicType() {
 		case TypeBOOL:
 			if tmp != 0 {
 				tmp = 1
@@ -363,25 +363,25 @@ func tagToHTML(t *Tag) string {
 		if t.Dim[0] > 0 {
 			fmt.Fprintf(&toSend, "<td>%s</td>", t.NString(n))
 		}
-		if t.Type != TypeREAL && t.Type != TypeLREAL && t.Type != TypeBOOL {
+		if t.BasicType() != TypeREAL && t.BasicType() != TypeLREAL && t.BasicType() != TypeBOOL {
 			ascii := ""
 			if err == nil {
 				hx = hex.EncodeToString(buf.Bytes())
 			}
 			bin := bytesToBinString(buf.Bytes())
-			if tmp <= 256 && ((t.Type == TypeSINT && tmp >= -128) || (t.Type != TypeSINT && tmp >= 0)) {
+			if tmp <= 256 && ((t.BasicType() == TypeSINT && tmp >= -128) || (t.BasicType() != TypeSINT && tmp >= 0)) {
 				ascii = asciiCode(uint8(tmp))
 			}
-			if t.Type == TypeULINT {
+			if t.BasicType() == TypeULINT {
 				fmt.Fprintf(&toSend, "<td onclick=clicINT(event) class=clic tag='%s' size='%d'>%v</td><td>%v</td><td>%v</td><td>%v</td></tr>\n", t.PathString(n), typeLen(uint16(t.Type)), uint64(tmp), hx, ascii, bin)
 			} else {
 				fmt.Fprintf(&toSend, "<td onclick=clicINT(event) class=clic tag='%s' size='%d'>%v</td><td>%v</td><td>%v</td><td>%v</td></tr>\n", t.PathString(n), typeLen(uint16(t.Type)), tmp, hx, ascii, bin)
 			}
-		} else if t.Type == TypeBOOL {
+		} else if t.BasicType() == TypeBOOL {
 			fmt.Fprintf(&toSend, "<td onclick=clicBOOL(event) class=clic tag='%s'>%v</td></tr>\n", t.PathString(n), tmp)
-		} else if t.Type == TypeREAL {
+		} else if t.BasicType() == TypeREAL {
 			fmt.Fprintf(&toSend, "<td onclick=clicREAL(event) class=clic tag='%s' size='4'>%s</tr>\n", t.PathString(n), float32ToString(uint32(tmp)))
-		} else if t.Type == TypeLREAL {
+		} else if t.BasicType() == TypeLREAL {
 			fmt.Fprintf(&toSend, "<td onclick=clicREAL(event) class=clic tag='%s' size='8'>%s</tr>\n", t.PathString(n), float64ToString(uint64(tmp)))
 		}
 		n++

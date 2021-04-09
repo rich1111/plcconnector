@@ -31,7 +31,7 @@ func call(service int, status int, tag *plc.Tag) {
 	}
 	if (service == plc.ReadTag || service == plc.WriteTag) && tag != nil {
 		fmt.Println(tag.Name, tag.Dim)
-		switch tag.Type {
+		switch tag.BasicType() {
 		case plc.TypeBOOL:
 			fmt.Println("BOOL type", tag.DataBOOL())
 		case plc.TypeSINT:
