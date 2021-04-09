@@ -229,32 +229,38 @@ func structToHTML(t *Tag, data []uint8, n int, N bool, prevName string, b *strin
 		} else {
 			val.WriteString("<td>")
 			for x := 0; x < t.st.d[i].Dims(); x++ {
+				if x != 0 {
+					val.WriteString(", ")
+				}
 				tmp := int64(data[t.st.d[i].offset+off+ln*x])
 				for j := 1; j < ln; j++ {
 					tmp += int64(data[t.st.d[i].offset+off+ln*x+j]) << uint(8*j)
 				}
-				switch t.st.d[i].Type {
-				case TypeSINT:
-					tmp = int64(int8(tmp))
-				case TypeINT:
-					tmp = int64(int16(tmp))
-				case TypeDINT:
-					tmp = int64(int32(tmp))
-				case TypeDWORD:
-					tmp = int64(int32(tmp))
-				case TypeUSINT:
-					tmp = int64(uint8(tmp))
-				case TypeUINT:
-					tmp = int64(uint16(tmp))
-				case TypeUDINT:
-					tmp = int64(uint32(tmp))
-				case TypeULINT:
-					tmp = int64(uint64(tmp))
+				if t.st.d[i].Type == TypeREAL {
+					fmt.Fprintf(&val, "%v", math.Float32frombits(uint32(tmp)))
+				} else if t.st.d[i].Type == TypeLREAL {
+					fmt.Fprintf(&val, "%v", math.Float64frombits(uint64(tmp)))
+				} else {
+					switch t.st.d[i].Type {
+					case TypeSINT:
+						tmp = int64(int8(tmp))
+					case TypeINT:
+						tmp = int64(int16(tmp))
+					case TypeDINT:
+						tmp = int64(int32(tmp))
+					case TypeDWORD:
+						tmp = int64(int32(tmp))
+					case TypeUSINT:
+						tmp = int64(uint8(tmp))
+					case TypeUINT:
+						tmp = int64(uint16(tmp))
+					case TypeUDINT:
+						tmp = int64(uint32(tmp))
+					case TypeULINT:
+						tmp = int64(uint64(tmp))
+					}
+					fmt.Fprintf(&val, "%v", tmp)
 				}
-				if x != 0 {
-					val.WriteString(", ")
-				}
-				fmt.Fprintf(&val, "%v", tmp)
 			}
 		}
 		b.WriteString("<tr><td>")
@@ -403,7 +409,6 @@ func (p *PLC) handler(w http.ResponseWriter, r *http.Request) {
 		ind := strings.Index(ps, "=")
 		name := strings.TrimSpace(ps[:ind])
 		pth := parsePath(name)
-		// fmt.Println(ps)
 
 		val := strings.FieldsFunc(strings.TrimSpace(ps[ind+1:]), func(r rune) bool { return r == ',' })
 		arr := make([]byte, len(val))
@@ -420,6 +425,7 @@ func (p *PLC) handler(w http.ResponseWriter, r *http.Request) {
 		} else {
 			io.WriteString(w, "fail")
 		}
+		// fmt.Println(ps, pth, ok, len(arr))
 	} else {
 		p.tMut.RLock()
 		t, ok := p.tags[strings.ToLower(path.Base(r.URL.Path))]

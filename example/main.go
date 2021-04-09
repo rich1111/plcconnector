@@ -132,7 +132,7 @@ func main() {
 		p.NewUDT("DATATYPE POSITION DINT x; DINT y; END_DATATYPE")
 		p.NewUDT("DATATYPE HMM (FamilyType := NoFamily) POSITION sprites[8]; LINT money; END_DATATYPE")
 		p.NewUDT("DATATYPE POSITION3D (FamilyType := NoFamily) DINT x; DINT y; DINT z; END_DATATYPE")
-		p.NewUDT("DATATYPE MHH (FamilyType := NoFamily) POSITION3D objects[2]; SINT lives; END_DATATYPE")
+		p.NewUDT("DATATYPE MHH (FamilyType := NoFamily) POSITION3D objects[2]; SINT lives; REAL temp; LREAL temp2[3]; END_DATATYPE")
 
 		p.NewUDT("DATATYPE BOOLS (FamilyType := NoFamily) BOOL In; BOOL Out; END_DATATYPE")
 		p.NewUDT("DATATYPE STRINSTR (FamilyType := NoFamily) INT int; BOOLS struct[2]; END_DATATYPE")

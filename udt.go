@@ -116,7 +116,7 @@ func (p *PLC) addUDT(st *structData) int {
 
 	bwrite(&buf, make([]byte, (4-buf.Len())&3))
 
-	// fmt.Println(t.st.n, t.st.l, buf.Len())
+	// fmt.Println(st.n, st.l, buf.Len())
 
 	tp = NewInstance(5)
 	tp.data = buf.Bytes()
