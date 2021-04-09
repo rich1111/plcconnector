@@ -1,0 +1,17 @@
+:root {
+	--hide: none;
+}
+.pr {
+	display: var(--hide);
+}
+table {
+	font-family: "Courier New", Courier, monospace;
+	border-spacing: 20px 0;
+	text-align: left;
+}
+td {
+	vertical-align: top;
+}
+.clic {
+	cursor: pointer;
+}
