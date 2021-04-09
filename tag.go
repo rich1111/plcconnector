@@ -45,7 +45,7 @@ func (st structData) Elem(n string) *Tag {
 
 // Dims .
 func (t Tag) Dims() int {
-	if t.Type == TypeBOOL {
+	if t.Type&TypeType == TypeBOOL {
 		return 1
 	}
 	return one(t.Dim[0]) * one(t.Dim[1]) * one(t.Dim[2])
@@ -53,7 +53,7 @@ func (t Tag) Dims() int {
 
 // DimString .
 func (t Tag) DimString() string {
-	if t.Dim[0] == 0 || t.Type == TypeBOOL {
+	if t.Dim[0] == 0 || t.Type&TypeType == TypeBOOL {
 		return ""
 	}
 
@@ -103,7 +103,7 @@ func (t Tag) Len() int {
 	if t.Type >= TypeStructHead {
 		return t.st.l
 	}
-	switch t.Type {
+	switch t.Type & TypeType {
 	case TypeSTRING, TypeSTRING2, TypeSTRINGI, TypeSTRINGN, TypeSHORTSTRING:
 		return len(t.data)
 	default:
@@ -788,7 +788,7 @@ func (t *Tag) DataLINT() []int64 {
 
 // DataString returns string.
 func (t *Tag) DataString() string {
-	switch t.Type {
+	switch t.Type & TypeType {
 	case TypeSTRING:
 		return string(t.data[2:])
 	case TypeSHORTSTRING:

@@ -82,7 +82,7 @@ func getPort(host string) uint16 {
 }
 
 func typeLen(t uint16) uint16 {
-	switch t {
+	switch t & TypeType {
 	case TypeBOOL:
 		return 1
 	case TypeSINT:
@@ -152,7 +152,7 @@ func typeToString(t int) string {
 	if t >= TypeStructHead {
 		return "STRUCT"
 	}
-	switch t & 0xFF {
+	switch t & TypeType {
 	case TypeBOOL:
 		return "BOOL"
 	case TypeSINT:
