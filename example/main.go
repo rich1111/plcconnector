@@ -135,7 +135,7 @@ func main() {
 		p.NewUDT("DATATYPE MHH (FamilyType := NoFamily) POSITION3D objects[2]; SINT lives; END_DATATYPE")
 
 		p.NewUDT("DATATYPE BOOLS (FamilyType := NoFamily) BOOL In; BOOL Out; END_DATATYPE")
-		p.NewUDT("DATATYPE STRINSTR (FamilyType := NoFamily) INT int; BOOLS struct; END_DATATYPE")
+		p.NewUDT("DATATYPE STRINSTR (FamilyType := NoFamily) INT int; BOOLS struct[2]; END_DATATYPE")
 		p.NewUDT("DATATYPE ASCIISTRING82 DINT LEN; SINT DATA[82]; END_DATATYPE")
 
 		p.CreateTag("ASCIISTRING82", "testASCIISTRING")

@@ -199,7 +199,7 @@ func float64ToString(f uint64) string {
 	return fmt.Sprintf("%v</td><td>%v</td><td>%011b</td><td>%052b</td></tr>\n", math.Float64frombits(f), s, e, m)
 }
 
-func structToHTML(t *Tag, data []uint8, n int, N bool, b *strings.Builder) {
+func structToHTML(t *Tag, data []uint8, n int, N bool, prevName string, b *strings.Builder) {
 	off := n * t.ElemLen()
 	for i := 0; i < len(t.st.d); i++ {
 		if strings.HasPrefix(t.st.d[i].Name, "ZZZZZZZZZZ") {
@@ -209,22 +209,25 @@ func structToHTML(t *Tag, data []uint8, n int, N bool, b *strings.Builder) {
 		ln := t.st.d[i].ElemLen()
 		if t.st.d[i].Type > TypeStructHead {
 			if t.st.d[i].Dim[0] > 0 {
-				val.WriteString("<table><tr><th>N</th><th>Nazwa</th><th>Typ</th><th>Wartość</th></tr>")
+				val.WriteString("<td><table><tr><th>N</th><th>Nazwa</th><th>Typ</th><th>Wartość</th></tr>")
 				for k := 0; k < t.st.d[i].Dim[0]; k++ {
-					structToHTML(&t.st.d[i], data[t.st.d[i].offset+off:t.st.d[i].offset+off+ln*t.st.d[i].Dim[0]], k, true, &val)
+					structToHTML(&t.st.d[i], data[t.st.d[i].offset+off:t.st.d[i].offset+off+ln*t.st.d[i].Dim[0]], k, true, t.PathString(n), &val)
 				}
 			} else {
-				val.WriteString("<table><tr><th>Nazwa</th><th>Typ</th><th>Wartość</th></tr>")
-				structToHTML(&t.st.d[i], data[t.st.d[i].offset+off:t.st.d[i].offset+off+ln], 0, false, &val)
+				val.WriteString("<td><table><tr><th>Nazwa</th><th>Typ</th><th>Wartość</th></tr>")
+				structToHTML(&t.st.d[i], data[t.st.d[i].offset+off:t.st.d[i].offset+off+ln], 0, false, t.PathString(n), &val)
 			}
 			val.WriteString("</table>")
-		} else if t.st.d[i].Type == TypeBOOL {
+		} else if t.st.d[i].Type == TypeBOOL { // FIXME: array of BOOL
+			clic := prevName + "." + t.PathString(n) + "." + t.st.d[i].Name
+			fmt.Fprintf(&val, "<td onclick=clicBOOL(event) class=clic tag='%s'>", clic)
 			if (data[t.st.d[i].offset+off]>>t.st.d[i].Dim[0])&1 == 1 {
 				val.WriteString("1")
 			} else {
 				val.WriteString("0")
 			}
 		} else {
+			val.WriteString("<td>")
 			for x := 0; x < t.st.d[i].Dims(); x++ {
 				tmp := int64(data[t.st.d[i].offset+off+ln*x])
 				for j := 1; j < ln; j++ {
@@ -258,7 +261,7 @@ func structToHTML(t *Tag, data []uint8, n int, N bool, b *strings.Builder) {
 		if N {
 			fmt.Fprintf(b, "%s</td><td>", t.NString(n))
 		}
-		fmt.Fprintf(b, "%s</td><td>%s</td><td>%s</td></tr>", t.st.d[i].Name, t.st.d[i].TypeString()+t.st.d[i].DimString(), val.String())
+		fmt.Fprintf(b, "%s</td><td>%s</td>%s</td></tr>", t.st.d[i].Name, t.st.d[i].TypeString()+t.st.d[i].DimString(), val.String())
 	}
 	if len(t.st.d) == 2 && strings.EqualFold(t.st.d[0].Name, "len") && strings.EqualFold(t.st.d[1].Name, "data") {
 		b.WriteString("<tr><td>")
@@ -283,11 +286,11 @@ func tagToHTML(t *Tag) string {
 		if t.Dim[0] > 0 {
 			toSend.WriteString("<h4>" + t.TypeString() + t.DimString() + "</h4><table><tr><th>N</th><th>Nazwa</th><th>Typ</th><th>Wartość</th></tr>")
 			for i := 0; i < len(t.data)/ln; i++ {
-				structToHTML(t, t.data, i, true, &toSend)
+				structToHTML(t, t.data, i, true, "", &toSend)
 			}
 		} else {
 			toSend.WriteString("<h4>" + t.TypeString() + "</h4><table><tr><th>Nazwa</th><th>Typ</th><th>Wartość</th></tr>")
-			structToHTML(t, t.data, 0, false, &toSend)
+			structToHTML(t, t.data, 0, false, "", &toSend)
 		}
 		toSend.WriteString("</table></html>")
 		return toSend.String()
