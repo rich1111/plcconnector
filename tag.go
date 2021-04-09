@@ -83,6 +83,21 @@ func (t Tag) NString(n int) string {
 	return "[" + strconv.Itoa(n/(t.Dim[1]*t.Dim[2])) + "," + strconv.Itoa((n/t.Dim[2])%t.Dim[1]) + "," + strconv.Itoa(n%t.Dim[2]) + "]"
 }
 
+// PathString .
+func (t Tag) PathString(n int) string {
+	if t.Dim[0] == 0 {
+		return t.Name
+	}
+
+	if t.Dim[1] == 0 {
+		return t.Name + "[" + strconv.Itoa(n) + "]"
+	}
+	if t.Dim[2] == 0 {
+		return t.Name + "[" + strconv.Itoa(n/t.Dim[1]) + "][" + strconv.Itoa(n%t.Dim[1]) + "]"
+	}
+	return t.Name + "[" + strconv.Itoa(n/(t.Dim[1]*t.Dim[2])) + "][" + strconv.Itoa((n/t.Dim[2])%t.Dim[1]) + "][" + strconv.Itoa(n%t.Dim[2]) + "]"
+}
+
 // Len .
 func (t Tag) Len() int {
 	if t.Type >= TypeStructHead {
