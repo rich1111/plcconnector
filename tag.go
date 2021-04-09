@@ -840,14 +840,22 @@ func (p *PLC) parsePathEl(path []pathEl) (*Tag, uint32, int, int, int, error) {
 				pi = 2
 			} else if len(path) > 2 && path[1].typ == pathClass && path[1].val == SymbolClass && path[2].typ == pathInstance {
 				pi = 3
-				tag = p.symbols.inst[path[2].val].attr[1].DataString()
+				inst, ok := p.symbols.inst[path[2].val]
+				if !ok {
+					return nil, 0, 0, 0, 0, errors.New("path no tag")
+				}
+				tag = inst.attr[1].DataString()
 			}
 		} else {
 			tag = path[0].txt
 		}
 	} else if len(path) > 1 && path[0].typ == pathClass && path[0].val == SymbolClass && path[1].typ == pathInstance {
 		pi = 2
-		tag = p.symbols.inst[path[1].val].attr[1].DataString()
+		inst, ok := p.symbols.inst[path[1].val]
+		if !ok {
+			return nil, 0, 0, 0, 0, errors.New("path no tag")
+		}
+		tag = inst.attr[1].DataString()
 	}
 
 	tg, ok := p.tags[strings.ToLower(tag)]
