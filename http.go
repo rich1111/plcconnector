@@ -251,7 +251,7 @@ func structToHTML(t *Tag, data []uint8, n int, N bool, b *strings.Builder) {
 				if x != 0 {
 					val.WriteString(", ")
 				}
-				fmt.Fprintf(b, "%v", tmp)
+				fmt.Fprintf(&val, "%v", tmp)
 			}
 		}
 		b.WriteString("<tr><td>")

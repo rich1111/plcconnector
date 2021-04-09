@@ -136,6 +136,9 @@ func main() {
 
 		p.NewUDT("DATATYPE BOOLS (FamilyType := NoFamily) BOOL In; BOOL Out; END_DATATYPE")
 		p.NewUDT("DATATYPE STRINSTR (FamilyType := NoFamily) INT int; BOOLS struct; END_DATATYPE")
+		p.NewUDT("DATATYPE ASCIISTRING82 DINT LEN; SINT DATA[82]; END_DATATYPE")
+
+		p.CreateTag("ASCIISTRING82", "testASCIISTRING")
 
 		p.CreateTag("POSITION", "pos1")
 		p.CreateTag("HMM", "hmm1")
