@@ -236,10 +236,11 @@ func structToHTML(t *Tag, data []uint8, n int, N bool, prevName string, b *strin
 				for j := 1; j < ln; j++ {
 					tmp += int64(data[t.st.d[i].offset+off+ln*x+j]) << uint(8*j)
 				}
+				clic := prevName + t.PathString(n) + "." + t.st.d[i].PathString(x)
 				if t.st.d[i].BasicType() == TypeREAL {
-					fmt.Fprintf(&val, "%v", math.Float32frombits(uint32(tmp)))
+					fmt.Fprintf(&val, "<span onclick=clicREAL(event) class=clic tag='%s' size='4'>%v</span>", clic, math.Float32frombits(uint32(tmp)))
 				} else if t.st.d[i].BasicType() == TypeLREAL {
-					fmt.Fprintf(&val, "%v", math.Float64frombits(uint64(tmp)))
+					fmt.Fprintf(&val, "<span onclick=clicREAL(event) class=clic tag='%s' size='8'>%v</span>", clic, math.Float64frombits(uint64(tmp)))
 				} else {
 					switch t.st.d[i].BasicType() {
 					case TypeSINT:
@@ -259,7 +260,7 @@ func structToHTML(t *Tag, data []uint8, n int, N bool, prevName string, b *strin
 					case TypeULINT:
 						tmp = int64(uint64(tmp))
 					}
-					fmt.Fprintf(&val, "%v", tmp)
+					fmt.Fprintf(&val, "<span onclick=clicINT(event) class=clic tag='%s' size='%d'>%v</span>", clic, typeLen(uint16(t.st.d[i].Type)), tmp)
 				}
 			}
 		}
