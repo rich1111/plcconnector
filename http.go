@@ -170,7 +170,7 @@ func tagToJSON(t *Tag) string {
 func bytesToBinString(bs []byte) string {
 	var buf strings.Builder
 	for _, b := range bs {
-		buf.WriteString(fmt.Sprintf("%.8b ", b))
+		fmt.Fprintf(&buf, "%.8b ", b)
 	}
 	return buf.String()
 }
@@ -179,7 +179,7 @@ func hexTr(ln int) string {
 	var r strings.Builder
 	r.WriteString("<pre style='font-family:\"Courier New\", Courier, monospace; margin: 0px;'>")
 	for i := ln; i > 0; i-- {
-		r.WriteString(fmt.Sprintf("%v       ", i*8))
+		fmt.Fprintf(&r, "%v       ", i*8)
 	}
 	r.WriteString("</pre>")
 	return r.String()
@@ -251,14 +251,14 @@ func structToHTML(t *Tag, data []uint8, n int, N bool, b *strings.Builder) {
 				if x != 0 {
 					val.WriteString(", ")
 				}
-				val.WriteString(fmt.Sprintf("%v", tmp))
+				fmt.Fprintf(b, "%v", tmp)
 			}
 		}
 		b.WriteString("<tr><td>")
 		if N {
-			b.WriteString(fmt.Sprintf("%s</td><td>", t.NString(n)))
+			fmt.Fprintf(b, "%s</td><td>", t.NString(n))
 		}
-		b.WriteString(fmt.Sprintf("%s</td><td>%s</td><td>%s</td></tr>", t.st.d[i].Name, t.st.d[i].TypeString()+t.st.d[i].DimString(), val.String()))
+		fmt.Fprintf(b, "%s</td><td>%s</td><td>%s</td></tr>", t.st.d[i].Name, t.st.d[i].TypeString()+t.st.d[i].DimString(), val.String())
 	}
 	if len(t.st.d) == 2 && strings.EqualFold(t.st.d[0].Name, "len") && strings.EqualFold(t.st.d[1].Name, "data") {
 		b.WriteString("<tr><td>")
@@ -266,7 +266,7 @@ func structToHTML(t *Tag, data []uint8, n int, N bool, b *strings.Builder) {
 			b.WriteString("</td><td>")
 		}
 		strLen := (int(data[t.st.d[0].offset+off+3]) << 24) + (int(data[t.st.d[0].offset+off+2]) << 16) + (int(data[t.st.d[0].offset+off+1]) << 8) + int(data[t.st.d[0].offset+off])
-		b.WriteString(fmt.Sprintf("</td><td><td>ASCII: %s</td></tr>", string(data[t.st.d[1].offset+off:t.st.d[1].offset+off+strLen])))
+		fmt.Fprintf(b, "</td><td><td>ASCII: %s</td></tr>", string(data[t.st.d[1].offset+off:t.st.d[1].offset+off+strLen]))
 	}
 	if N {
 		b.WriteString(`<tr style="height: 25px;"/>`)
@@ -306,7 +306,7 @@ func tagToHTML(t *Tag) string {
 		if t.Dim[0] > 0 {
 			toSend.WriteString("<td></td>")
 		}
-		toSend.WriteString(fmt.Sprintf("<td></td><td></td><td></td><td>%s</td></tr>\n", hexTr(ln)))
+		fmt.Fprintf(&toSend, "<td></td><td></td><td></td><td>%s</td></tr>\n", hexTr(ln))
 	}
 
 	n := 0
@@ -352,7 +352,7 @@ func tagToHTML(t *Tag) string {
 		}
 		toSend.WriteString("<tr>")
 		if t.Dim[0] > 0 {
-			toSend.WriteString(fmt.Sprintf("<td>%s</td>", t.NString(n)))
+			fmt.Fprintf(&toSend, "<td>%s</td>", t.NString(n))
 		}
 		if t.Type != TypeREAL && t.Type != TypeLREAL && t.Type != TypeBOOL {
 			ascii := ""
@@ -364,16 +364,16 @@ func tagToHTML(t *Tag) string {
 				ascii = asciiCode(uint8(tmp))
 			}
 			if t.Type == TypeULINT {
-				toSend.WriteString(fmt.Sprintf("<td onclick=clicINT(event) class=clic tag='%s' size='%d'>%v</td><td>%v</td><td>%v</td><td>%v</td></tr>\n", t.PathString(n), typeLen(uint16(t.Type)), uint64(tmp), hx, ascii, bin))
+				fmt.Fprintf(&toSend, "<td onclick=clicINT(event) class=clic tag='%s' size='%d'>%v</td><td>%v</td><td>%v</td><td>%v</td></tr>\n", t.PathString(n), typeLen(uint16(t.Type)), uint64(tmp), hx, ascii, bin)
 			} else {
-				toSend.WriteString(fmt.Sprintf("<td onclick=clicINT(event) class=clic tag='%s' size='%d'>%v</td><td>%v</td><td>%v</td><td>%v</td></tr>\n", t.PathString(n), typeLen(uint16(t.Type)), tmp, hx, ascii, bin))
+				fmt.Fprintf(&toSend, "<td onclick=clicINT(event) class=clic tag='%s' size='%d'>%v</td><td>%v</td><td>%v</td><td>%v</td></tr>\n", t.PathString(n), typeLen(uint16(t.Type)), tmp, hx, ascii, bin)
 			}
 		} else if t.Type == TypeBOOL {
-			toSend.WriteString(fmt.Sprintf("<td onclick=clicBOOL(event) class=clic tag='%s'>%v</td></tr>\n", t.PathString(n), tmp))
+			fmt.Fprintf(&toSend, "<td onclick=clicBOOL(event) class=clic tag='%s'>%v</td></tr>\n", t.PathString(n), tmp)
 		} else if t.Type == TypeREAL {
-			toSend.WriteString(fmt.Sprintf("<td onclick=clicREAL(event) class=clic tag='%s' size='4'>%s</tr>\n", t.PathString(n), float32ToString(uint32(tmp))))
+			fmt.Fprintf(&toSend, "<td onclick=clicREAL(event) class=clic tag='%s' size='4'>%s</tr>\n", t.PathString(n), float32ToString(uint32(tmp)))
 		} else if t.Type == TypeLREAL {
-			toSend.WriteString(fmt.Sprintf("<td onclick=clicREAL(event) class=clic tag='%s' size='8'>%s</tr>\n", t.PathString(n), float64ToString(uint64(tmp))))
+			fmt.Fprintf(&toSend, "<td onclick=clicREAL(event) class=clic tag='%s' size='8'>%s</tr>\n", t.PathString(n), float64ToString(uint64(tmp)))
 		}
 		n++
 	}
