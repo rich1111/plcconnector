@@ -1084,7 +1084,7 @@ func (p *PLC) addTag(t Tag, instance int) {
 	p.tMut.Unlock()
 
 	in = p.Class[0xAC].inst[1]
-	crc := in.attr[3].DataDINT()[0] + int32(crc16([]byte(name)))
+	crc := in.attr[3].DataDINT()[0] + int32(crc16([]byte(name))) + int32(t.Type+t.Dims())
 	binary.LittleEndian.PutUint32(in.attr[3].data, uint32(crc))
 }
 
