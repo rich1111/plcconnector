@@ -47,6 +47,28 @@ func (t Tag) BasicType() int {
 	return t.Type & TypeType
 }
 
+func (t Tag) NumType() int {
+	typ := t.BasicType()
+	switch typ {
+	case TypeITIME:
+		return TypeINT
+	case TypeFTIME, TypeSTIME, TypeTIME:
+		return TypeDINT
+	case TypeLTIME:
+		return TypeLINT
+	case TypeBYTE:
+		return TypeUSINT
+	case TypeDATE, TypeWORD:
+		return TypeUINT
+	case TypeDWORD, TypeTIMEOFDAY:
+		return TypeUDINT
+	case TypeLWORD:
+		return TypeULINT
+	default:
+		return typ
+	}
+}
+
 // Dims .
 func (t Tag) Dims() int {
 	if t.BasicType() == TypeBOOL {

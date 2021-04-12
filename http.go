@@ -69,14 +69,12 @@ func (p *PLC) tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 				for j := 1; j < ln; j++ {
 					tmp += int64(t.data[i+j]) << uint(8*j)
 				}
-				switch t.BasicType() {
+				switch t.NumType() {
 				case TypeSINT:
 					tmp = int64(int8(tmp))
 				case TypeINT:
 					tmp = int64(int16(tmp))
 				case TypeDINT:
-					tmp = int64(int32(tmp))
-				case TypeDWORD:
 					tmp = int64(int32(tmp))
 				case TypeUSINT:
 					tmp = int64(uint8(tmp))
@@ -120,7 +118,7 @@ func tagToJSON(t *Tag) string {
 		for j := 1; j < ln; j++ {
 			tmp += int64(t.data[i+j]) << uint(8*j)
 		}
-		switch t.BasicType() {
+		switch t.NumType() {
 		case TypeBOOL:
 			if tmp != 0 {
 				tmp = 1
@@ -130,8 +128,6 @@ func tagToJSON(t *Tag) string {
 		case TypeINT:
 			tmp = int64(int16(tmp))
 		case TypeDINT:
-			tmp = int64(int32(tmp))
-		case TypeDWORD:
 			tmp = int64(int32(tmp))
 		case TypeUSINT:
 			tmp = int64(uint8(tmp))
@@ -150,7 +146,7 @@ func tagToJSON(t *Tag) string {
 			tj.Data = append(tj.Data, float64(tmp))
 		}
 		if t.BasicType() != TypeREAL && t.BasicType() != TypeLREAL && t.BasicType() != TypeBOOL {
-			if tmp <= 256 && ((t.BasicType() == TypeSINT && tmp >= -128) || (t.BasicType() != TypeSINT && tmp >= 0)) {
+			if tmp <= 256 && ((t.NumType() == TypeSINT && tmp >= -128) || (t.NumType() != TypeSINT && tmp >= 0)) {
 				tj.ASCII = append(tj.ASCII, asciiCode(uint8(tmp)))
 			} else {
 				tj.ASCII = append(tj.ASCII, "")
@@ -242,14 +238,12 @@ func structToHTML(t *Tag, data []uint8, n int, N bool, prevName string, b *strin
 				} else if t.st.d[i].BasicType() == TypeLREAL {
 					fmt.Fprintf(&val, "<span onclick=clicREAL(event) class=clic tag='%s' size='8'>%v</span>", clic, math.Float64frombits(uint64(tmp)))
 				} else {
-					switch t.st.d[i].BasicType() {
+					switch t.st.d[i].NumType() {
 					case TypeSINT:
 						tmp = int64(int8(tmp))
 					case TypeINT:
 						tmp = int64(int16(tmp))
 					case TypeDINT:
-						tmp = int64(int32(tmp))
-					case TypeDWORD:
 						tmp = int64(int32(tmp))
 					case TypeUSINT:
 						tmp = int64(uint8(tmp))
@@ -329,7 +323,7 @@ func tagToHTML(t *Tag) string {
 		var err error
 		buf := new(bytes.Buffer)
 
-		switch t.BasicType() {
+		switch t.NumType() {
 		case TypeBOOL:
 			if tmp != 0 {
 				tmp = 1
@@ -341,9 +335,6 @@ func tagToHTML(t *Tag) string {
 			err = binary.Write(buf, binary.BigEndian, int16(tmp))
 			tmp = int64(int16(tmp))
 		case TypeDINT:
-			err = binary.Write(buf, binary.BigEndian, int32(tmp))
-			tmp = int64(int32(tmp))
-		case TypeDWORD:
 			err = binary.Write(buf, binary.BigEndian, int32(tmp))
 			tmp = int64(int32(tmp))
 		case TypeLINT:
@@ -370,10 +361,10 @@ func tagToHTML(t *Tag) string {
 				hx = hex.EncodeToString(buf.Bytes())
 			}
 			bin := bytesToBinString(buf.Bytes())
-			if tmp <= 256 && ((t.BasicType() == TypeSINT && tmp >= -128) || (t.BasicType() != TypeSINT && tmp >= 0)) {
+			if tmp <= 256 && ((t.NumType() == TypeSINT && tmp >= -128) || (t.NumType() != TypeSINT && tmp >= 0)) {
 				ascii = asciiCode(uint8(tmp))
 			}
-			if t.BasicType() == TypeULINT {
+			if t.NumType() == TypeULINT {
 				fmt.Fprintf(&toSend, "<td onclick=clicINT(event) class=clic tag='%s' size='%d'>%v</td><td>%v</td><td>%v</td><td>%v</td></tr>\n", t.PathString(n), typeLen(uint16(t.Type)), uint64(tmp), hx, ascii, bin)
 			} else {
 				fmt.Fprintf(&toSend, "<td onclick=clicINT(event) class=clic tag='%s' size='%d'>%v</td><td>%v</td><td>%v</td><td>%v</td></tr>\n", t.PathString(n), typeLen(uint16(t.Type)), tmp, hx, ascii, bin)
