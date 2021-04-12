@@ -2,6 +2,7 @@ package plcconnector
 
 import (
 	"bytes"
+	"encoding/binary"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -81,6 +82,11 @@ func (p *PLC) newUDT(udt []udtT, name string, handle int, size int) error {
 		st.l = size
 	}
 	p.addUDT(st)
+
+	in := p.Class[0xAC].inst[1]
+	crc := in.attr[4].DataDINT()[0] + int32(crc16([]byte(name)))
+	binary.LittleEndian.PutUint32(in.attr[4].data, uint32(crc))
+
 	// fmt.Printf("%v = 0x%X (%d)\n", typencstr.String(), st.h, st.h)
 	return nil
 }

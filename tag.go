@@ -1049,14 +1049,21 @@ func (p *PLC) addTag(t Tag, instance int) {
 	in.attr[8] = &Tag{Name: "Dimensions", data: []uint8{uint8(t.Dim[0]), uint8(t.Dim[0] >> 8), uint8(t.Dim[0] >> 16), uint8(t.Dim[0] >> 24),
 		uint8(t.Dim[1]), uint8(t.Dim[1] >> 8), uint8(t.Dim[1] >> 16), uint8(t.Dim[1] >> 24),
 		uint8(t.Dim[2]), uint8(t.Dim[2] >> 8), uint8(t.Dim[2] >> 16), uint8(t.Dim[2] >> 24)}}
+
+	name := strings.ToLower(t.Name)
+
 	p.tMut.Lock()
 	if instance == -1 {
 		p.symbols.SetInstance(p.symbols.lastInst+1, in)
 	} else {
 		p.symbols.SetInstance(instance, in)
 	}
-	p.tags[strings.ToLower(t.Name)] = &t
+	p.tags[name] = &t
 	p.tMut.Unlock()
+
+	in = p.Class[0xAC].inst[1]
+	crc := in.attr[3].DataDINT()[0] + int32(crc16([]byte(name)))
+	binary.LittleEndian.PutUint32(in.attr[3].data, uint32(crc))
 }
 
 // AddTag adds tag.

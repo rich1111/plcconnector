@@ -239,8 +239,8 @@ func (p *PLC) loadEDS(fn string) error {
 	in = NewInstance(10)
 	in.attr[1] = TagINT(5, "Attr1")
 	in.attr[2] = TagINT(1, "Attr2")
-	in.attr[3] = &Tag{Name: "Attr3", Type: TypeDINT, data: []uint8{0x03, 0xB2, 0x80, 0xC5}}
-	in.attr[4] = &Tag{Name: "Attr4", Type: TypeDINT, data: []uint8{0x03, 0xB2, 0x80, 0xC5}}
+	in.attr[3] = TagDINT(0, "TagCRC") // guess
+	in.attr[4] = TagDINT(0, "UDTCRC") // guess
 	in.attr[10] = &Tag{Name: "Attr10", Type: TypeDINT, data: []uint8{0xF8, 0xDE, 0x47, 0xB8}}
 	p.Class[0xAC].SetInstance(1, in)
 

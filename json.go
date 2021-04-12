@@ -51,13 +51,6 @@ func (p *PLC) ImportJSON(file string) error {
 		return err
 	}
 
-	in := p.Class[0xAC].inst[1]
-	in.attr[1] = TagINT(int16(db.AC[0]), "Attr1")
-	in.attr[2] = TagINT(int16(db.AC[1]), "Attr2")
-	in.attr[3] = TagDINT(int32(db.AC[2]), "Attr3")
-	in.attr[4] = TagDINT(int32(db.AC[3]), "Attr4")
-	in.attr[10] = TagDINT(int32(db.AC[4]), "Attr5")
-
 	tt := db.Templates
 	for len(tt) > 0 {
 		newtt := make(map[string]jsTemplates)
@@ -111,6 +104,14 @@ func (p *PLC) ImportJSON(file string) error {
 		}
 		p.addTag(tag, s.Instance)
 	}
+
+	in := p.Class[0xAC].inst[1]
+	in.attr[1] = TagINT(int16(db.AC[0]), "Attr1")
+	in.attr[2] = TagINT(int16(db.AC[1]), "Attr2")
+	in.attr[3] = TagDINT(int32(db.AC[2]), "Attr3")
+	in.attr[4] = TagDINT(int32(db.AC[3]), "Attr4")
+	in.attr[10] = TagDINT(int32(db.AC[4]), "Attr5")
+
 	return nil
 }
 
