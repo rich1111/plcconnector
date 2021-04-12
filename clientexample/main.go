@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	plc ".."
+	plc "github.com/podeszfa/plcconnector"
 )
 
 func main() {
