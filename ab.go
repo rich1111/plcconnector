@@ -709,7 +709,7 @@ func (r *req) serviceHandle() bool {
 		in := r.p.GetClassInstance(r.class, r.instance)
 		if in != nil {
 			in.m.RLock()
-			if r.attr < len(in.attr) {
+			if r.attr < len(in.attr) && r.attr >= 0 {
 				at = in.attr[r.attr]
 				if at != nil {
 					aok = true
@@ -750,7 +750,7 @@ func (r *req) serviceHandle() bool {
 		in := r.p.GetClassInstance(r.class, r.instance)
 		if in != nil {
 			in.m.RLock()
-			if r.attr < len(in.attr) {
+			if r.attr < len(in.attr) && r.attr >= 0 {
 				at = in.attr[r.attr]
 				if at != nil {
 					aok = true
