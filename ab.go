@@ -653,7 +653,7 @@ func (r *req) serviceHandle() bool {
 			r.write(r.resp)
 		}
 
-	case r.protd.Service == GetInstAttrList:
+	case r.class == SymbolClass && r.protd.Service == GetInstAttrList:
 		r.p.debug("GetInstanceAttributesList")
 		var (
 			count uint16
@@ -1002,7 +1002,7 @@ func (r *req) serviceHandle() bool {
 		r.resp.Status = ServNotSup
 		r.write(r.resp)
 
-	case r.protd.Service == ReadTag:
+	case (r.class == -1 || r.class == SymbolClass) && r.protd.Service == ReadTag:
 		r.p.debug("ReadTag")
 
 		var tagCount uint16
@@ -1035,7 +1035,7 @@ func (r *req) serviceHandle() bool {
 			r.write(uint16(0))
 		}
 
-	case r.protd.Service == ReadTagFrag:
+	case (r.class == -1 || r.class == SymbolClass) && r.protd.Service == ReadTagFrag:
 		r.p.debug("ReadTagFragmented")
 
 		var (
@@ -1076,7 +1076,7 @@ func (r *req) serviceHandle() bool {
 			r.write(uint16(0))
 		}
 
-	case r.protd.Service == ReadModifyWrite:
+	case (r.class == -1 || r.class == SymbolClass) && r.protd.Service == ReadModifyWrite:
 		r.p.debug("ReadModifyWrite")
 
 		var maskSize uint16
@@ -1105,7 +1105,7 @@ func (r *req) serviceHandle() bool {
 			r.write(uint16(0))
 		}
 
-	case r.protd.Service == WriteTag:
+	case (r.class == -1 || r.class == SymbolClass) && r.protd.Service == WriteTag:
 		r.p.debug("WriteTag")
 
 		var (
@@ -1145,7 +1145,7 @@ func (r *req) serviceHandle() bool {
 			r.write(uint16(0))
 		}
 
-	case r.protd.Service == WriteTagFrag:
+	case (r.class == -1 || r.class == SymbolClass) && r.protd.Service == WriteTagFrag:
 		r.p.debug("WriteTagFragmented")
 
 		var (
