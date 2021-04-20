@@ -628,9 +628,10 @@ func (r *req) serviceHandle() bool {
 						return false
 					}
 					st = Success
-					if !in.attr[attr].SetDataBytes(wrData) {
+					sdb := in.attr[attr].SetDataBytes(wrData)
+					if sdb != Success {
 						r.resp.Status = AttrListError
-						st = PrivilegeViol
+						st = uint16(sdb)
 					}
 				} else {
 					r.resp.Status = AttrListError
@@ -766,8 +767,8 @@ func (r *req) serviceHandle() bool {
 			r.p.debug(at.Name)
 			if r.instance == 0 {
 				r.resp.Status = ServNotSup
-			} else if !at.SetDataBytes(wrData) {
-				r.resp.Status = AttrNotSettable
+			} else {
+				r.resp.Status = at.SetDataBytes(wrData)
 			}
 		} else {
 			r.p.debug("path unknown", r.path)
@@ -1193,8 +1194,17 @@ func (r *req) serviceHandle() bool {
 	case r.protd.Service == Reset:
 		r.p.debug("Reset")
 
+		var resetType uint8
+		err := r.read(&resetType)
+		if err != nil {
+			return false
+		}
+
 		if r.p.callback != nil {
 			go r.p.callback(Reset, Success, nil)
+		}
+		if resetType > 1 {
+			r.resp.Status = InvalidPar
 		}
 		r.write(r.resp)
 

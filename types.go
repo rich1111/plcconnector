@@ -96,6 +96,7 @@ const (
 	AttrListError    = 0x0A
 	AttrNotSettable  = 0x0E
 	PrivilegeViol    = 0x0F
+	NotEnoughData    = 0x13
 	AttrNotSup       = 0x14
 	TooMuchData      = 0x15
 	ObjectNotExist   = 0x16

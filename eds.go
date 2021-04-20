@@ -259,13 +259,13 @@ func (p *PLC) loadEDS(fn string) error {
 		return x
 	}
 	in.attr[6].write = true
-	in.attr[6].setter = func(dt []uint8) bool {
+	in.attr[6].setter = func(dt []uint8) uint8 {
 		if len(dt) != 8 {
-			return false
+			return TooMuchData
 		}
 		x := int64(binary.LittleEndian.Uint64(dt))
 		p.timOff = -time.Since(time.Unix(x/1_000_000, x%1_000_000))
-		return true
+		return Success
 	}
 	in.attr[11] = TagULINT(0, "LocalTime")
 	in.attr[11].getter = func() []uint8 {

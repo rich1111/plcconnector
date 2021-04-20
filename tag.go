@@ -32,7 +32,7 @@ type Tag struct {
 	prot   bool
 	write  bool // TODO mutex
 	getter func() []uint8
-	setter func([]uint8) bool
+	setter func([]uint8) uint8
 }
 
 func (st structData) Elem(n string) *Tag {
@@ -709,18 +709,21 @@ func kindToType(k reflect.Kind) int {
 }
 
 // SetDataBytes .
-func (t *Tag) SetDataBytes(dt []byte) bool {
+func (t *Tag) SetDataBytes(dt []byte) uint8 {
 	if !t.write {
-		return false
+		return AttrNotSettable
 	}
 	if t.setter != nil {
 		return t.setter(dt)
 	}
 	if len(dt) > len(t.data) {
-		return false
+		return TooMuchData
+	}
+	if len(dt) < len(t.data) {
+		return NotEnoughData
 	}
 	copy(t.data, dt)
-	return true
+	return Success
 }
 
 // DataBytes returns array of bytes.
