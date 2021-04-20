@@ -764,13 +764,19 @@ func (r *req) serviceHandle() bool {
 
 		if in != nil && aok {
 			r.p.debug(at.Name)
-			if !at.SetDataBytes(wrData) {
-				r.resp.Status = PrivilegeViol
+			if r.instance == 0 {
+				r.resp.Status = ServNotSup
+			} else if !at.SetDataBytes(wrData) {
+				r.resp.Status = AttrNotSettable
 			}
 		} else {
 			r.p.debug("path unknown", r.path)
 			if in != nil {
-				r.resp.Status = AttrNotSup
+				if r.instance == 0 {
+					r.resp.Status = ServNotSup
+				} else {
+					r.resp.Status = AttrNotSup
+				}
 			} else if r.class == FileClass {
 				r.resp.Status = ObjectNotExist
 			} else {

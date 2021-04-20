@@ -172,7 +172,9 @@ func defaultIdentityClass() *Class {
 	i.attr[8] = TagUSINT(3, "State")               // operational
 	i.attr[9] = TagUINT(0, "ConfConsistencyValue") // or USINT?
 	i.attr[10] = TagUSINT(0, "HeartbeatInterval")
+	i.attr[10].write = true
 	i.attr[11] = &Tag{Name: "ActiveLanguage", data: []byte{'e', 'n', 'g'}}
+	i.attr[11].write = true
 	i.attr[12] = &Tag{Name: "SuppLangList", data: []byte{'e', 'n', 'g'}}
 	i.attr[13] = TagStringI("", "InternationalProductName")
 

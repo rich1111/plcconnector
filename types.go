@@ -94,6 +94,7 @@ const (
 	PartialTransfer  = 0x06
 	ServNotSup       = 0x08
 	AttrListError    = 0x0A
+	AttrNotSettable  = 0x0E
 	PrivilegeViol    = 0x0F
 	AttrNotSup       = 0x14
 	TooMuchData      = 0x15
