@@ -725,7 +725,9 @@ func (r *req) serviceHandle() bool {
 			r.write(at.DataBytes())
 		} else {
 			r.p.debug("path unknown", r.path)
-			if r.class == FileClass {
+			if in != nil {
+				r.resp.Status = AttrNotSup
+			} else if r.class == FileClass {
 				r.resp.Status = ObjectNotExist
 			} else {
 				r.resp.Status = PathUnknown
@@ -767,7 +769,9 @@ func (r *req) serviceHandle() bool {
 			}
 		} else {
 			r.p.debug("path unknown", r.path)
-			if r.class == FileClass {
+			if in != nil {
+				r.resp.Status = AttrNotSup
+			} else if r.class == FileClass {
 				r.resp.Status = ObjectNotExist
 			} else {
 				r.resp.Status = PathUnknown
