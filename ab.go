@@ -1194,18 +1194,20 @@ func (r *req) serviceHandle() bool {
 	case r.protd.Service == Reset:
 		r.p.debug("Reset")
 
-		var resetType uint8
-		err := r.read(&resetType)
+		data := make([]uint8, r.dataLen)
+		err := r.read(&data)
 		if err != nil {
 			return false
 		}
 
-		if r.p.callback != nil {
-			go r.p.callback(Reset, Success, nil)
-		}
-		if resetType > 1 {
+		if r.dataLen >= 1 && data[0] > 1 {
 			r.resp.Status = InvalidPar
 		}
+
+		if r.p.callback != nil {
+			go r.p.callback(Reset, int(r.resp.Status), nil)
+		}
+
 		r.write(r.resp)
 
 	default:
