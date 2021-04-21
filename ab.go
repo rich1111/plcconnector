@@ -180,6 +180,12 @@ func (r *req) reset() {
 	r.wrCIPBuf.Reset()
 }
 
+func (r *req) err(status int) bool {
+	r.resp.Status = uint8(status)
+	r.write(r.resp)
+	return true
+}
+
 func (p *PLC) handleRequest(conn net.Conn) {
 	r := req{}
 	r.connID = uint32(0)
@@ -474,6 +480,11 @@ func (r *req) serviceHandle() bool {
 			count  uint16
 			offset uint16
 		)
+
+		if r.dataLen < 2 {
+			return r.err(NotEnoughData)
+		}
+
 		err := r.read(&count)
 		if err != nil {
 			return false
@@ -554,6 +565,10 @@ func (r *req) serviceHandle() bool {
 			st    uint16
 		)
 
+		if r.dataLen < 2 {
+			return r.err(NotEnoughData)
+		}
+
 		err := r.read(&count)
 		if err != nil {
 			return false
@@ -604,6 +619,10 @@ func (r *req) serviceHandle() bool {
 			buf   bytes.Buffer
 			st    uint16
 		)
+
+		if r.dataLen < 2 {
+			return r.err(NotEnoughData)
+		}
 
 		err := r.read(&count)
 		if err != nil {
@@ -661,6 +680,10 @@ func (r *req) serviceHandle() bool {
 			buf   bytes.Buffer
 		)
 
+		if r.dataLen < 2 {
+			return r.err(NotEnoughData)
+		}
+
 		err := r.read(&count)
 		if err != nil {
 			return false
@@ -695,9 +718,7 @@ func (r *req) serviceHandle() bool {
 			r.write(r.resp)
 			r.write(buf.Bytes())
 		} else {
-			r.p.debug("path unknown", r.path)
-			r.resp.Status = PathUnknown
-			r.write(r.resp)
+			r.err(PathUnknown)
 		}
 
 	case r.protd.Service == GetAttr:
@@ -790,6 +811,10 @@ func (r *req) serviceHandle() bool {
 		r.p.debug("InititateUpload")
 		var maxSize uint8
 
+		if r.dataLen < 1 {
+			return r.err(NotEnoughData)
+		}
+
 		err := r.read(&maxSize)
 		if err != nil {
 			return false
@@ -804,14 +829,16 @@ func (r *req) serviceHandle() bool {
 			r.write(r.resp)
 			r.write(sr)
 		} else {
-			r.p.debug("path unknown", r.path)
-			r.resp.Status = PathUnknown
-			r.write(r.resp)
+			r.err(PathUnknown)
 		}
 
 	case r.class == FileClass && r.protd.Service == UploadTransfer:
 		r.p.debug("UploadTransfer")
 		var transferNo uint8
+
+		if r.dataLen < 1 {
+			return r.err(NotEnoughData)
+		}
 
 		err := r.read(&transferNo)
 		if err != nil {
@@ -868,10 +895,7 @@ func (r *req) serviceHandle() bool {
 				r.write(uint16(0))
 			}
 		} else {
-			r.p.debug("path unknown", r.path)
-
-			r.resp.Status = PathUnknown
-			r.write(r.resp)
+			r.err(PathUnknown)
 		}
 
 	case r.class == ConnManager && r.protd.Service == ForwardOpen:
@@ -881,6 +905,11 @@ func (r *req) serviceHandle() bool {
 			fodata forwardOpenData
 			sr     forwardOpenResponse
 		)
+
+		if r.dataLen < binary.Size(fodata) {
+			return r.err(NotEnoughData)
+		}
+
 		err := r.read(&fodata)
 		if err != nil {
 			return false
@@ -913,6 +942,11 @@ func (r *req) serviceHandle() bool {
 			fodata largeForwardOpenData
 			sr     forwardOpenResponse
 		)
+
+		if r.dataLen < binary.Size(fodata) {
+			return r.err(NotEnoughData)
+		}
+
 		err := r.read(&fodata)
 		if err != nil {
 			return false
@@ -945,6 +979,11 @@ func (r *req) serviceHandle() bool {
 			fcdata forwardCloseData
 			sr     forwardCloseResponse
 		)
+
+		if r.dataLen < binary.Size(fcdata) {
+			return r.err(NotEnoughData)
+		}
+
 		err := r.read(&fcdata)
 		if err != nil {
 			return false
@@ -970,6 +1009,10 @@ func (r *req) serviceHandle() bool {
 
 		var rd readTemplateResponse
 
+		if r.dataLen < binary.Size(rd) {
+			return r.err(NotEnoughData)
+		}
+
 		err := r.read(&rd)
 		if err != nil {
 			return false
@@ -985,10 +1028,7 @@ func (r *req) serviceHandle() bool {
 			r.write(r.resp)
 			r.write(data)
 		} else {
-			r.p.debug("path unknown", r.path)
-
-			r.resp.Status = PathUnknown
-			r.write(r.resp)
+			r.err(PathUnknown)
 		}
 
 	case r.class == 0xAC && r.protd.Service == ReadTag:
@@ -1000,13 +1040,16 @@ func (r *req) serviceHandle() bool {
 			return false
 		}
 
-		r.resp.Status = ServNotSup
-		r.write(r.resp)
+		r.err(ServNotSup)
 
 	case (r.class == -1 || r.class == SymbolClass) && r.protd.Service == ReadTag:
 		r.p.debug("ReadTag")
 
 		var tagCount uint16
+
+		if r.dataLen < 2 {
+			return r.err(NotEnoughData)
+		}
 
 		err := r.read(&tagCount)
 		if err != nil {
@@ -1043,6 +1086,10 @@ func (r *req) serviceHandle() bool {
 			tagCount  uint16
 			tagOffset uint32
 		)
+
+		if r.dataLen < 6 {
+			return r.err(NotEnoughData)
+		}
 
 		err := r.read(&tagCount)
 		if err != nil {
@@ -1082,6 +1129,10 @@ func (r *req) serviceHandle() bool {
 
 		var maskSize uint16
 
+		if r.dataLen < 2 {
+			return r.err(NotEnoughData)
+		}
+
 		err := r.read(&maskSize)
 		if err != nil {
 			return false
@@ -1113,6 +1164,10 @@ func (r *req) serviceHandle() bool {
 			tagType  uint16
 			tagCount uint16
 		)
+
+		if r.dataLen < 4 {
+			return r.err(NotEnoughData)
+		}
 
 		err := r.read(&tagType)
 		if err != nil {
@@ -1154,6 +1209,10 @@ func (r *req) serviceHandle() bool {
 			tagCount  uint16
 			tagOffset uint32
 		)
+
+		if r.dataLen < 8 {
+			return r.err(NotEnoughData)
+		}
 
 		err := r.read(&tagType)
 		if err != nil {
@@ -1217,6 +1276,10 @@ func (r *req) serviceHandle() bool {
 			buf   bytes.Buffer
 		)
 
+		if r.dataLen < 1 {
+			return r.err(NotEnoughData)
+		}
+
 		err := r.read(&count)
 		if err != nil {
 			return false
@@ -1232,9 +1295,7 @@ func (r *req) serviceHandle() bool {
 			r.write(r.resp)
 			r.write(buf.Bytes())
 		} else {
-			r.p.debug("path unknown", r.path)
-			r.resp.Status = PathUnknown
-			r.write(r.resp)
+			r.err(PathUnknown)
 		}
 
 	default:
@@ -1246,8 +1307,7 @@ func (r *req) serviceHandle() bool {
 			return false
 		}
 
-		r.resp.Status = ServNotSup
-		r.write(r.resp)
+		r.err(ServNotSup)
 	}
 	return true
 }
