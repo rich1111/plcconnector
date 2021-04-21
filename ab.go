@@ -671,7 +671,7 @@ func (r *req) serviceHandle() bool {
 			return false
 		}
 
-		li, ins := r.p.GetClassInstancesList(r.class, r.instance)
+		li, ins := r.p.GetClassInstancesList(r.class, r.instance, 0)
 		if li != nil {
 			for a, x := range li {
 				if buf.Len() >= r.maxData-20 {
@@ -1209,6 +1209,33 @@ func (r *req) serviceHandle() bool {
 		}
 
 		r.write(r.resp)
+
+	case r.protd.Service == NextInst:
+		r.p.debug("FindNextObjectInstance")
+		var (
+			count uint8
+			buf   bytes.Buffer
+		)
+
+		err := r.read(&count)
+		if err != nil {
+			return false
+		}
+
+		li, _ := r.p.GetClassInstancesList(r.class, r.instance, int(count))
+		if li != nil {
+			bwrite(&buf, uint8(len(li)))
+			for _, x := range li {
+				bwrite(&buf, uint16(x))
+			}
+
+			r.write(r.resp)
+			r.write(buf.Bytes())
+		} else {
+			r.p.debug("path unknown", r.path)
+			r.resp.Status = PathUnknown
+			r.write(r.resp)
+		}
 
 	default:
 		fmt.Println("unknown service:", r.protd.Service)

@@ -104,7 +104,7 @@ func NewClass(n string, attrs int) *Class {
 }
 
 // GetClassInstancesList .
-func (p *PLC) GetClassInstancesList(class int, instanceFrom int) ([]int, []*Instance) {
+func (p *PLC) GetClassInstancesList(class int, instanceFrom int, maxInstances int) ([]int, []*Instance) {
 	c, cok := p.Class[class]
 	if cok {
 		if instanceFrom <= 0 {
@@ -117,6 +117,9 @@ func (p *PLC) GetClassInstancesList(class int, instanceFrom int) ([]int, []*Inst
 			if in >= instanceFrom {
 				ret = append(ret, in)
 				i++
+				if maxInstances != 0 && i == maxInstances {
+					break
+				}
 			}
 		}
 		sort.Ints(ret)

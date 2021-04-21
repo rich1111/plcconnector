@@ -11,6 +11,7 @@ const (
 	MultiServ   = 0x0A
 	GetAttr     = 0x0E
 	SetAttr     = 0x10
+	NextInst    = 0x11
 
 	// Class Specific
 	InititateUpload = 0x4B
