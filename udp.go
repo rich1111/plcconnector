@@ -19,6 +19,7 @@ func (p *PLC) handleUDPRequest(conn *net.UDPConn, dt []byte, n int, addr *net.UD
 	if err != nil {
 		return
 	}
+	r.lenRem = int(r.encHead.Length)
 
 	switch r.encHead.Command {
 	case ecListIdentity:
