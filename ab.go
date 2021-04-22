@@ -485,7 +485,7 @@ loop:
 
 func (r *req) serviceHandle() bool {
 	switch {
-	case r.class == MessageRouter && r.protd.Service == MultiServ: // TODO errors, status 6
+	case r.class == MessageRouter && r.instance == 1 && r.protd.Service == MultiServ: // TODO errors, status 6
 		r.p.debug("MultipleServicePacket")
 
 		var (
