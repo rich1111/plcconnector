@@ -254,6 +254,8 @@ func (p *PLC) loadEDS(fn string) error {
 	p.Class[MessageRouter].SetInstance(1, in)
 
 	p.Class[ConnManager] = NewClass("Connection Manager", 7)
+	in = NewInstance(0)
+	p.Class[ConnManager].SetInstance(1, in)
 
 	p.Class[0xAC] = NewClass("AC", 0) // unknown class, values from 1756-pm020_-en-p.pdf p. 57
 	in = NewInstance(10)

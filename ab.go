@@ -379,23 +379,32 @@ loop:
 				fmt.Printf("Class %X Instance %X Attr %X %v\n", r.class, r.instance, r.attr, r.path)
 			}
 
-			if r.class == ConnManager && r.protd.Service == UnconnectedSend {
+			if r.class == ConnManager && r.instance == 1 && r.protd.Service == UnconnectedSend {
 				unc = true
 				var usdata itemType
-				_, err = r.read(&usdata)
+				rb, err := r.read(&usdata)
 				if err != nil {
+					if rb {
+						goto errl
+					}
 					break loop
 				}
-				_, err = r.read(&r.protd)
+				rb, err = r.read(&r.protd)
 				if err != nil {
+					if rb {
+						goto errl
+					}
 					break loop
 				}
 
 				r.resp.Service = r.protd.Service + 128
 
 				ePath = make([]uint8, r.protd.PathSize*2)
-				_, err = r.read(&ePath)
+				rb, err = r.read(&ePath)
 				if err != nil {
+					if rb {
+						goto errl
+					}
 					break loop
 				}
 				r.uDataLen -= binary.Size(usdata) + int(usdata.Length)
@@ -423,8 +432,8 @@ loop:
 			if unc { // path
 				// fmt.Println(">>>", r.uDataLen)
 				data := make([]uint8, r.uDataLen)
-				_, err = r.read(&data)
-				if err != nil {
+				rb, err := r.read(&data)
+				if err != nil && !rb {
 					break loop
 				}
 			}
@@ -864,7 +873,7 @@ func (r *req) serviceHandle() bool {
 			r.err(PathUnknown)
 		}
 
-	case r.class == ConnManager && r.protd.Service == ForwardOpen:
+	case r.class == ConnManager && r.instance == 1 && r.protd.Service == ForwardOpen:
 		r.p.debug("ForwardOpen")
 
 		var (
@@ -897,7 +906,7 @@ func (r *req) serviceHandle() bool {
 		r.write(r.resp)
 		r.write(sr)
 
-	case r.class == ConnManager && r.protd.Service == LargeForwOpen:
+	case r.class == ConnManager && r.instance == 1 && r.protd.Service == LargeForwOpen:
 		r.p.debug("LargeForwardOpen")
 
 		var (
@@ -930,7 +939,7 @@ func (r *req) serviceHandle() bool {
 		r.write(r.resp)
 		r.write(sr)
 
-	case r.class == ConnManager && r.protd.Service == ForwardClose:
+	case r.class == ConnManager && r.instance == 1 && r.protd.Service == ForwardClose:
 		r.p.debug("ForwardClose")
 
 		var (
