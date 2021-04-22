@@ -155,9 +155,9 @@ func (c *Class) SetInstance(no int, in *Instance) {
 	if no > c.lastInst {
 		c.lastInst = no
 	}
-	c.inst[0].SetAttrUINT(2, uint16(c.lastInst))   // MaxInstance
-	c.inst[0].SetAttrUINT(3, uint16(len(c.inst)))  // NumInstances
-	c.inst[0].SetAttrUINT(7, uint16(len(in.attr))) // MaxInstAttr
+	c.inst[0].SetAttrUINT(2, uint16(c.lastInst))     // MaxInstance
+	c.inst[0].SetAttrUINT(3, uint16(len(c.inst)-1))  // NumInstances
+	c.inst[0].SetAttrUINT(7, uint16(len(in.attr)-1)) // MaxInstAttr
 	c.m.Unlock()
 }
 
