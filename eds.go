@@ -301,14 +301,16 @@ func (p *PLC) loadEDS(fn string) error {
 	p.Class[ClockClass].SetInstance(1, in)
 
 	p.Class[PortClass] = NewClass("Port", 9)
+	p.Class[PortClass].inst[0].attr[1] = TagUINT(2, "Revision")
 	p.Class[PortClass].inst[0].attr[8] = TagUINT(1, "EntryPort")
 	p.Class[PortClass].inst[0].attr[9] = &Tag{Name: "PortInstanceInfo", data: []uint8{0, 0, 0, 0, 4, 0, 1, 0}} // uint 4 - Ethernet/IP , uint 1 - CIP port number
-	in = NewInstance(7)
+	in = NewInstance(10)
 	in.attr[1] = TagUINT(4, "PortType")
 	in.attr[2] = TagUINT(1, "PortNumber")
 	in.attr[3] = &Tag{Name: "LinkObject", Type: TypeEPATH, data: []uint8{0x02, 0x00, 0x20, 0xF5, 0x24, 0x01}}
 	in.attr[4] = TagShortString("EtherNet/IP port", "PortName")
 	in.attr[7] = &Tag{Name: "NodeAddress", Type: TypeEPATH, data: []uint8{0x01, 0x00, 0x10, 0x01}}
+	in.attr[10] = &Tag{Name: "Port Routing Capabilities", Type: TypeDWORD, data: []uint8{0x00, 0x00, 0x00, 0x00}}
 	p.Class[PortClass].SetInstance(1, in)
 
 	p.Class[TCPClass] = NewClass("TCP Interface", 0)
