@@ -790,7 +790,7 @@ func (r *req) serviceHandle() bool {
 		}
 		r.write(r.resp)
 
-	case r.class == FileClass && r.protd.Service == InititateUpload:
+	case r.class == FileClass && r.instance != 0 && r.protd.Service == InititateUpload:
 		r.p.debug("InititateUpload")
 		var maxSize uint8
 
@@ -811,7 +811,7 @@ func (r *req) serviceHandle() bool {
 			r.err(PathUnknown)
 		}
 
-	case r.class == FileClass && r.protd.Service == UploadTransfer:
+	case r.class == FileClass && r.instance != 0 && r.protd.Service == UploadTransfer:
 		r.p.debug("UploadTransfer")
 		var transferNo uint8
 

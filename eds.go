@@ -201,6 +201,7 @@ func (p *PLC) loadEDS(fn string) error {
 	}
 
 	p.Class[FileClass] = NewClass("File", 32)
+	p.Class[FileClass].inst[0].attr[1] = TagUINT(2, "Revision")
 
 	gzipped := true
 
