@@ -12,6 +12,7 @@ const (
 	GetAttr     = 0x0E
 	SetAttr     = 0x10
 	NextInst    = 0x11
+	GetMember   = 0x18
 
 	// Class Specific
 	InititateUpload = 0x4B

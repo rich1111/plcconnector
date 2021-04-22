@@ -148,6 +148,27 @@ func (p *PLC) GetClassInstance(class int, instance int) *Instance {
 	return nil
 }
 
+// GetClassInstanceAttr .
+func (p *PLC) GetClassInstanceAttr(class int, instance int, attr int) (*Tag, bool, bool) {
+	var (
+		aok bool
+		at  *Tag
+	)
+
+	in := p.GetClassInstance(class, instance)
+	if in != nil {
+		in.m.RLock()
+		if attr < len(in.attr) && attr >= 0 {
+			at = in.attr[attr]
+			if at != nil {
+				aok = true
+			}
+		}
+		in.m.RUnlock()
+	}
+	return at, aok, in != nil
+}
+
 // SetInstance .
 func (c *Class) SetInstance(no int, in *Instance) {
 	c.m.Lock()
@@ -178,7 +199,7 @@ func defaultIdentityClass() *Class {
 	i.attr[10].write = true
 	i.attr[11] = &Tag{Name: "ActiveLanguage", data: []byte{'e', 'n', 'g'}}
 	i.attr[11].write = true
-	i.attr[12] = &Tag{Name: "SuppLangList", data: []byte{'e', 'n', 'g'}}
+	i.attr[12] = &Tag{Name: "SuppLangList", data: []byte{'e', 'n', 'g', 'p', 'o', 'l'}, Dim: [3]int{2, 0, 0}, st: &structData{l: 3}}
 	i.attr[13] = TagStringI("", "InternationalProductName")
 
 	c.Name = "Identity"

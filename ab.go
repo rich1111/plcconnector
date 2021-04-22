@@ -130,20 +130,22 @@ func (p *PLC) Close() {
 }
 
 type req struct {
-	attr     int
-	c        net.Conn
 	class    int
+	instance int
+	attr     int
+	member   int
+	path     []pathEl
+
+	c        net.Conn
 	connID   uint32
 	dataLen  int
 	lenRem   int
 	uDataLen int
 	encHead  encapsulationHeader
 	file     map[int]*[3]uint8
-	instance int
 	maxData  int
 	maxFO    int
 	p        *PLC
-	path     []pathEl
 	protd    protocolData
 	readBuf  *bufio.Reader
 	resp     response
@@ -364,7 +366,7 @@ loop:
 
 			unc := false
 
-			r.class, r.instance, r.attr, r.path, err = r.parsePath(ePath)
+			r.class, r.instance, r.attr, r.member, r.path, err = r.parsePath(ePath)
 			if err != nil {
 				r.resp.Status = PathSegmentError
 				r.resp.AddStatusSize = 1
@@ -399,7 +401,7 @@ loop:
 				r.uDataLen -= binary.Size(usdata) + int(usdata.Length)
 				r.dataLen -= 6 + len(ePath) + r.uDataLen
 
-				r.class, r.instance, r.attr, r.path, err = r.parsePath(ePath)
+				r.class, r.instance, r.attr, r.member, r.path, err = r.parsePath(ePath)
 				if err != nil {
 					r.resp.Status = PathSegmentError
 					r.resp.AddStatusSize = 1
@@ -532,7 +534,7 @@ func (r *req) serviceHandle() bool {
 			}
 			r.dataLen -= 2 + len(ePath)
 
-			r.class, r.instance, r.attr, r.path, err = r.parsePath(ePath)
+			r.class, r.instance, r.attr, r.member, r.path, err = r.parsePath(ePath)
 			if r.p.Verbose {
 				fmt.Printf("Class %X Instance %X Attr %X %v\n", r.class, r.instance, r.attr, r.path)
 			}
@@ -718,30 +720,17 @@ func (r *req) serviceHandle() bool {
 	case r.protd.Service == GetAttr:
 		r.p.debug("GetAttributesSingle")
 
-		var (
-			aok bool
-			at  *Tag
-		)
-		in := r.p.GetClassInstance(r.class, r.instance)
-		if in != nil {
-			in.m.RLock()
-			if r.attr < len(in.attr) && r.attr >= 0 {
-				at = in.attr[r.attr]
-				if at != nil {
-					aok = true
-				}
-			}
-			in.m.RUnlock()
-		}
+		at, aok, in := r.p.GetClassInstanceAttr(r.class, r.instance, r.attr)
+
 		r.resp.Service = r.protd.Service + 128
 
-		if in != nil && aok {
+		if in && aok {
 			r.p.debug(at.Name)
 			r.write(r.resp)
 			r.write(at.DataBytes())
 		} else {
 			r.p.debug("path unknown", r.path)
-			if in != nil {
+			if in {
 				r.resp.Status = AttrNotSup
 			} else if r.class == FileClass {
 				r.resp.Status = ObjectNotExist
@@ -765,20 +754,11 @@ func (r *req) serviceHandle() bool {
 			return rb
 		}
 
-		in := r.p.GetClassInstance(r.class, r.instance)
-		if in != nil {
-			in.m.RLock()
-			if r.attr < len(in.attr) && r.attr >= 0 {
-				at = in.attr[r.attr]
-				if at != nil {
-					aok = true
-				}
-			}
-			in.m.RUnlock()
-		}
+		at, aok, in := r.p.GetClassInstanceAttr(r.class, r.instance, r.attr)
+
 		r.resp.Service = r.protd.Service + 128
 
-		if in != nil && aok {
+		if in && aok {
 			r.p.debug(at.Name)
 			if r.instance == 0 {
 				r.resp.Status = ServNotSup
@@ -787,7 +767,7 @@ func (r *req) serviceHandle() bool {
 			}
 		} else {
 			r.p.debug("path unknown", r.path)
-			if in != nil {
+			if in {
 				if r.instance == 0 {
 					r.resp.Status = ServNotSup
 				} else {
@@ -1242,6 +1222,27 @@ func (r *req) serviceHandle() bool {
 			r.write(buf.Bytes())
 		} else {
 			r.err(PathUnknown)
+		}
+
+	case r.protd.Service == GetMember:
+		r.p.debug("GetMember")
+
+		fmt.Println(r.class, r.instance, r.attr, r.member)
+
+		at, aok, in := r.p.GetClassInstanceAttr(r.class, r.instance, r.attr)
+		r.resp.Service = r.protd.Service + 128
+
+		if in && aok && at.st != nil && at.st.l > 0 {
+			r.p.debug(at.Name)
+			from := r.member * at.st.l
+			to := from + at.st.l
+			if to > len(at.data) {
+				return r.err(InvalidPar)
+			}
+			r.write(r.resp)
+			r.write(at.data[from:to])
+		} else {
+			r.err(ServNotSup)
 		}
 
 	default:

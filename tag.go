@@ -914,7 +914,7 @@ func (p *PLC) parsePathEl(path []pathEl) (*Tag, uint32, int, int, int, error) {
 	tgc := tg
 	for i := pi; i < len(path); i++ {
 		switch path[i].typ {
-		case pathElement:
+		case pathMember:
 			index = path[i].val
 			if arri > 2 || index > tgc.Dim[arri] {
 				return nil, 0, 0, 0, 0, errors.New("path index too big")

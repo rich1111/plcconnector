@@ -19,7 +19,7 @@ const (
 	pathSegType   = 0x1C
 	pathClass     = 0x00
 	pathInstance  = 0x04
-	pathElement   = 0x08
+	pathMember    = 0x08
 	pathAttribute = 0x10
 
 	pathSize = 0x03
@@ -73,14 +73,14 @@ func parsePath(p string) []pathEl {
 			}
 			inName = true
 			noint, _ := strconv.Atoi(strings.TrimSpace(no))
-			e = append(e, pathEl{typ: pathElement, val: noint})
+			e = append(e, pathEl{typ: pathMember, val: noint})
 			no = ""
 		case t == ',':
 			if inName || strings.TrimSpace(no) == "" {
 				return nil
 			}
 			noint, _ := strconv.Atoi(strings.TrimSpace(no))
-			e = append(e, pathEl{typ: pathElement, val: noint})
+			e = append(e, pathEl{typ: pathMember, val: noint})
 			no = ""
 		case unicode.IsDigit(t) || t == ' ':
 			if inName {
@@ -147,13 +147,13 @@ func constructPath(p []pathEl) []uint8 {
 			if len(byt)&1 == 1 {
 				b = append(b, 0)
 			}
-		case pathElement:
+		case pathMember:
 			if e.val > 65535 {
-				b = append(b, []uint8{pathLogical | pathElement | path32, 0, uint8(e.val), uint8(e.val >> 8), uint8(e.val >> 16), uint8(e.val >> 24)}...)
+				b = append(b, []uint8{pathLogical | pathMember | path32, 0, uint8(e.val), uint8(e.val >> 8), uint8(e.val >> 16), uint8(e.val >> 24)}...)
 			} else if e.val > 255 {
-				b = append(b, []uint8{pathLogical | pathElement | path16, 0, uint8(e.val), uint8(e.val >> 8)}...)
+				b = append(b, []uint8{pathLogical | pathMember | path16, 0, uint8(e.val), uint8(e.val >> 8)}...)
 			} else {
-				b = append(b, []uint8{pathLogical | pathElement, uint8(e.val)}...)
+				b = append(b, []uint8{pathLogical | pathMember, uint8(e.val)}...)
 			}
 		case pathBit:
 		default:
@@ -163,10 +163,11 @@ func constructPath(p []pathEl) []uint8 {
 	return b
 }
 
-func (r *req) parsePath(path []uint8) (int, int, int, []pathEl, error) {
+func (r *req) parsePath(path []uint8) (int, int, int, int, []pathEl, error) {
 	class := -1
 	insta := -1
 	attri := -1
+	membi := -1
 	pth := []pathEl{}
 	x := 0
 	for i := 0; i < len(path); i++ {
@@ -194,7 +195,7 @@ func (r *req) parsePath(path []uint8) (int, int, int, []pathEl, error) {
 				i += 5
 			default:
 				r.p.debug("path size error")
-				return 0, 0, 0, nil, errPath
+				return 0, 0, 0, 0, nil, errPath
 			}
 			switch typ {
 			case pathClass:
@@ -212,22 +213,24 @@ func (r *req) parsePath(path []uint8) (int, int, int, []pathEl, error) {
 					attri = el
 				}
 				pth = append(pth, pathEl{typ: pathAttribute, val: el})
-			case pathElement:
+			case pathMember:
 				if attri == -1 && x == 2 {
 					attri = el
+				} else if membi == -1 && x == 3 {
+					membi = el
 				}
-				pth = append(pth, pathEl{typ: pathElement, val: el})
+				pth = append(pth, pathEl{typ: pathMember, val: el})
 			default:
 				r.p.debug("path segment type error")
-				return 0, 0, 0, nil, errPath
+				return 0, 0, 0, 0, nil, errPath
 			}
 		} else {
 			r.p.debug("path type error", path[i])
-			return 0, 0, 0, nil, errPath
+			return 0, 0, 0, 0, nil, errPath
 		}
 		x++
 	}
-	return class, insta, attri, pth, nil
+	return class, insta, attri, membi, pth, nil
 }
 
 func (r *req) eipNOP() error {
