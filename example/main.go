@@ -76,7 +76,7 @@ func main() {
 	}()
 
 	// inicjalizacja
-	eds := "test.eds"
+	eds := ""
 	if len(os.Args) >= 2 {
 		eds = os.Args[1]
 	}

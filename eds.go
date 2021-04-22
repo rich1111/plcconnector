@@ -10,7 +10,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	_ "embed"
 )
+
+//go:embed example/test.eds
+var defEDS []byte
 
 const (
 	stateNonExistent  = 0
@@ -48,9 +53,18 @@ func (p *PLC) getEDSInt(section string, item string) (int, error) {
 }
 
 func (p *PLC) loadEDS(fn string) error {
-	f, err := os.ReadFile(fn)
-	if err != nil {
-		return err
+	var (
+		f   []byte
+		err error
+	)
+
+	if fn == "" {
+		f = defEDS
+	} else {
+		f, err = os.ReadFile(fn)
+		if err != nil {
+			return err
+		}
 	}
 
 	p.eds = make(map[string]map[string]string)
