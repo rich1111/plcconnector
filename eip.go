@@ -234,7 +234,7 @@ func (r *req) eipNOP() error {
 	r.p.debug("NOP")
 
 	data := make([]byte, r.encHead.Length)
-	err := r.read(&data)
+	_, err := r.read(&data)
 	if err != nil {
 		return err
 	}
@@ -245,7 +245,7 @@ func (r *req) eipRegisterSession() error {
 	r.p.debug("RegisterSession")
 
 	var data registerSessionData
-	err := r.read(&data)
+	_, err := r.read(&data)
 	if err != nil {
 		return err
 	}

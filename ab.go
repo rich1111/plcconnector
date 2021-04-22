@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net"
@@ -134,6 +135,7 @@ type req struct {
 	class    int
 	connID   uint32
 	dataLen  int
+	lenRem   int
 	uDataLen int
 	encHead  encapsulationHeader
 	file     map[int]*[3]uint8
@@ -150,15 +152,21 @@ type req struct {
 	writeBuf *bytes.Buffer
 }
 
-func (r *req) read(data interface{}) error {
+func (r *req) read(data interface{}) (bool, error) {
+	toRead := binary.Size(data)
+	if r.lenRem != -1 && r.lenRem < toRead {
+		r.err(NotEnoughData)
+		return true, errors.New("not enough data")
+	}
 	err := binary.Read(r.readBuf, binary.LittleEndian, data)
 	if err != nil {
 		fmt.Println(err)
 	}
+	r.lenRem -= toRead
 	if r.p.DumpNetwork {
 		fmt.Printf("%#v\n", data)
 	}
-	return err
+	return false, err
 }
 
 func (r *req) write(data interface{}) {
@@ -176,6 +184,7 @@ func (r *req) writeCIP(data interface{}) {
 }
 
 func (r *req) reset() {
+	r.lenRem = -1
 	r.writeBuf.Reset()
 	r.wrCIPBuf.Reset()
 }
@@ -216,10 +225,11 @@ loop:
 		}
 
 		p.debug()
-		err = r.read(&r.encHead)
+		_, err = r.read(&r.encHead)
 		if err != nil {
 			break loop
 		}
+		r.lenRem = int(r.encHead.Length)
 
 		switch r.encHead.Command {
 		case ecNOP:
@@ -258,7 +268,7 @@ loop:
 				item         itemType
 				protSeqCount uint16
 			)
-			err = r.read(&r.rrdata)
+			_, err = r.read(&r.rrdata)
 			if err != nil {
 				break loop
 			}
@@ -283,13 +293,13 @@ loop:
 			}
 
 			// address item
-			err = r.read(&item)
+			_, err = r.read(&item)
 			if err != nil {
 				break loop
 			}
 			if item.Type == itConnAddress { // TODO itemdata to connID
 				itemdata := make([]uint8, item.Length)
-				err = r.read(&itemdata)
+				_, err = r.read(&itemdata)
 				if err != nil {
 					break loop
 				}
@@ -298,21 +308,21 @@ loop:
 				p.debug("unkown address item:", item.Type)
 				itemserror = true
 				itemdata := make([]uint8, item.Length)
-				err = r.read(&itemdata)
+				_, err = r.read(&itemdata)
 				if err != nil {
 					break loop
 				}
 			}
 
 			// data item
-			err = r.read(&item)
+			_, err = r.read(&item)
 			if err != nil {
 				break loop
 			}
 			r.dataLen = int(item.Length)
 			r.maxData = 472
 			if item.Type == itConnData {
-				err = r.read(&protSeqCount)
+				_, err = r.read(&protSeqCount)
 				if err != nil {
 					break loop
 				}
@@ -323,7 +333,7 @@ loop:
 				p.debug("unkown data item:", item.Type)
 				itemserror = true
 				itemdata := make([]uint8, item.Length)
-				err = r.read(&itemdata)
+				_, err = r.read(&itemdata)
 				if err != nil {
 					break loop
 				}
@@ -335,7 +345,7 @@ loop:
 			}
 
 			// CIP
-			err = r.read(&r.protd)
+			_, err = r.read(&r.protd)
 			if err != nil {
 				break loop
 			}
@@ -345,7 +355,7 @@ loop:
 			r.resp.AddStatusSize = 0
 
 			ePath := make([]uint8, r.protd.PathSize*2)
-			err = r.read(&ePath)
+			_, err = r.read(&ePath)
 			if err != nil {
 				break loop
 			}
@@ -370,11 +380,11 @@ loop:
 			if r.class == ConnManager && r.protd.Service == UnconnectedSend {
 				unc = true
 				var usdata itemType
-				err = r.read(&usdata)
+				_, err = r.read(&usdata)
 				if err != nil {
 					break loop
 				}
-				err = r.read(&r.protd)
+				_, err = r.read(&r.protd)
 				if err != nil {
 					break loop
 				}
@@ -382,7 +392,7 @@ loop:
 				r.resp.Service = r.protd.Service + 128
 
 				ePath = make([]uint8, r.protd.PathSize*2)
-				err = r.read(&ePath)
+				_, err = r.read(&ePath)
 				if err != nil {
 					break loop
 				}
@@ -411,7 +421,7 @@ loop:
 			if unc { // path
 				// fmt.Println(">>>", r.uDataLen)
 				data := make([]uint8, r.uDataLen)
-				err = r.read(&data)
+				_, err = r.read(&data)
 				if err != nil {
 					break loop
 				}
@@ -433,7 +443,7 @@ loop:
 			fmt.Println("unknown command:", r.encHead.Command)
 
 			data := make([]uint8, r.encHead.Length)
-			err = r.read(&data)
+			_, err = r.read(&data)
 			if err != nil {
 				break loop
 			}
@@ -481,20 +491,16 @@ func (r *req) serviceHandle() bool {
 			offset uint16
 		)
 
-		if r.dataLen < 2 {
-			return r.err(NotEnoughData)
-		}
-
-		err := r.read(&count)
+		rb, err := r.read(&count)
 		if err != nil {
-			return false
+			return rb
 		}
 		offset = 2 + 2*count
 
 		svs := make([]uint16, count)
-		err = r.read(&svs)
+		rb, err = r.read(&svs)
 		if err != nil {
-			return false
+			return rb
 		}
 
 		r.write(r.resp)
@@ -506,18 +512,18 @@ func (r *req) serviceHandle() bool {
 
 		olddl := r.dataLen
 		for i := range svs {
-			err = r.read(&r.protd)
+			rb, err = r.read(&r.protd)
 			if err != nil {
-				return false
+				return rb
 			}
 
 			r.resp.Service = r.protd.Service + 128
 			r.resp.Status = Success
 
 			ePath := make([]uint8, r.protd.PathSize*2)
-			err = r.read(&ePath)
+			rb, err = r.read(&ePath)
 			if err != nil {
-				return false
+				return rb
 			}
 			if i+1 < len(svs) {
 				r.dataLen = int(svs[i+1] - svs[i])
@@ -565,18 +571,14 @@ func (r *req) serviceHandle() bool {
 			st    uint16
 		)
 
-		if r.dataLen < 2 {
-			return r.err(NotEnoughData)
-		}
-
-		err := r.read(&count)
+		rb, err := r.read(&count)
 		if err != nil {
-			return false
+			return rb
 		}
 		attr := make([]uint16, count)
-		err = r.read(&attr)
+		rb, err = r.read(&attr)
 		if err != nil {
-			return false
+			return rb
 		}
 
 		in := r.p.GetClassInstance(r.class, r.instance)
@@ -620,13 +622,9 @@ func (r *req) serviceHandle() bool {
 			st    uint16
 		)
 
-		if r.dataLen < 2 {
-			return r.err(NotEnoughData)
-		}
-
-		err := r.read(&count)
+		rb, err := r.read(&count)
 		if err != nil {
-			return false
+			return rb
 		}
 
 		in := r.p.GetClassInstance(r.class, r.instance)
@@ -634,17 +632,17 @@ func (r *req) serviceHandle() bool {
 			in.m.RLock()
 			ln := len(in.attr)
 			for i := uint16(0); i < count; i++ {
-				err := r.read(&attr)
+				rb, err := r.read(&attr)
 				if err != nil {
-					return false
+					return rb
 				}
 				bwrite(&buf, attr)
 				if int(attr) < ln && in.attr[attr] != nil {
 					r.p.debug(in.attr[attr].Name)
 					wrData := make([]uint8, len(in.attr[attr].data))
-					err := r.read(wrData)
+					rb, err := r.read(wrData)
 					if err != nil {
-						return false
+						return rb
 					}
 					st = Success
 					sdb := in.attr[attr].SetDataBytes(wrData)
@@ -680,18 +678,14 @@ func (r *req) serviceHandle() bool {
 			buf   bytes.Buffer
 		)
 
-		if r.dataLen < 2 {
-			return r.err(NotEnoughData)
-		}
-
-		err := r.read(&count)
+		rb, err := r.read(&count)
 		if err != nil {
-			return false
+			return rb
 		}
 		attr := make([]uint16, count)
-		err = r.read(&attr)
+		rb, err = r.read(&attr)
 		if err != nil {
-			return false
+			return rb
 		}
 
 		li, ins := r.p.GetClassInstancesList(r.class, r.instance, 0)
@@ -766,9 +760,9 @@ func (r *req) serviceHandle() bool {
 		)
 
 		wrData := make([]uint8, r.dataLen)
-		err := r.read(wrData)
+		rb, err := r.read(wrData)
 		if err != nil {
-			return false
+			return rb
 		}
 
 		in := r.p.GetClassInstance(r.class, r.instance)
@@ -811,13 +805,9 @@ func (r *req) serviceHandle() bool {
 		r.p.debug("InititateUpload")
 		var maxSize uint8
 
-		if r.dataLen < 1 {
-			return r.err(NotEnoughData)
-		}
-
-		err := r.read(&maxSize)
+		rb, err := r.read(&maxSize)
 		if err != nil {
-			return false
+			return rb
 		}
 
 		in := r.p.GetClassInstance(r.class, r.instance)
@@ -836,13 +826,9 @@ func (r *req) serviceHandle() bool {
 		r.p.debug("UploadTransfer")
 		var transferNo uint8
 
-		if r.dataLen < 1 {
-			return r.err(NotEnoughData)
-		}
-
-		err := r.read(&transferNo)
+		rb, err := r.read(&transferNo)
 		if err != nil {
-			return false
+			return rb
 		}
 
 		in := r.p.GetClassInstance(r.class, r.instance)
@@ -906,18 +892,14 @@ func (r *req) serviceHandle() bool {
 			sr     forwardOpenResponse
 		)
 
-		if r.dataLen < binary.Size(fodata) {
-			return r.err(NotEnoughData)
-		}
-
-		err := r.read(&fodata)
+		rb, err := r.read(&fodata)
 		if err != nil {
-			return false
+			return rb
 		}
 		connPath := make([]uint8, fodata.ConnPathSize*2)
-		err = r.read(&connPath)
+		rb, err = r.read(&connPath)
 		if err != nil {
-			return false
+			return rb
 		}
 
 		sr.OTConnectionID = rand.Uint32()
@@ -943,18 +925,14 @@ func (r *req) serviceHandle() bool {
 			sr     forwardOpenResponse
 		)
 
-		if r.dataLen < binary.Size(fodata) {
-			return r.err(NotEnoughData)
-		}
-
-		err := r.read(&fodata)
+		rb, err := r.read(&fodata)
 		if err != nil {
-			return false
+			return rb
 		}
 		connPath := make([]uint8, fodata.ConnPathSize*2)
-		err = r.read(&connPath)
+		rb, err = r.read(&connPath)
 		if err != nil {
-			return false
+			return rb
 		}
 
 		sr.OTConnectionID = rand.Uint32()
@@ -980,18 +958,14 @@ func (r *req) serviceHandle() bool {
 			sr     forwardCloseResponse
 		)
 
-		if r.dataLen < binary.Size(fcdata) {
-			return r.err(NotEnoughData)
-		}
-
-		err := r.read(&fcdata)
+		rb, err := r.read(&fcdata)
 		if err != nil {
-			return false
+			return rb
 		}
 		connPath := make([]uint8, fcdata.ConnPathSize*2)
-		err = r.read(&connPath)
+		rb, err = r.read(&connPath)
 		if err != nil {
-			return false
+			return rb
 		}
 
 		sr.ConnSerialNumber = fcdata.ConnSerialNumber
@@ -1009,13 +983,9 @@ func (r *req) serviceHandle() bool {
 
 		var rd readTemplateResponse
 
-		if r.dataLen < binary.Size(rd) {
-			return r.err(NotEnoughData)
-		}
-
-		err := r.read(&rd)
+		rb, err := r.read(&rd)
 		if err != nil {
-			return false
+			return rb
 		}
 		r.p.debug(rd.Offset, rd.Number)
 
@@ -1035,9 +1005,9 @@ func (r *req) serviceHandle() bool {
 		fmt.Println("unknown service:", r.protd.Service)
 
 		data := make([]uint8, r.dataLen)
-		err := r.read(&data)
+		rb, err := r.read(&data)
 		if err != nil {
-			return false
+			return rb
 		}
 
 		r.err(ServNotSup)
@@ -1047,13 +1017,9 @@ func (r *req) serviceHandle() bool {
 
 		var tagCount uint16
 
-		if r.dataLen < 2 {
-			return r.err(NotEnoughData)
-		}
-
-		err := r.read(&tagCount)
+		rb, err := r.read(&tagCount)
 		if err != nil {
-			return false
+			return rb
 		}
 
 		if rtData, tagType, elLen, ok := r.p.readTag(r.path, tagCount); ok {
@@ -1087,17 +1053,13 @@ func (r *req) serviceHandle() bool {
 			tagOffset uint32
 		)
 
-		if r.dataLen < 6 {
-			return r.err(NotEnoughData)
-		}
-
-		err := r.read(&tagCount)
+		rb, err := r.read(&tagCount)
 		if err != nil {
-			return false
+			return rb
 		}
-		err = r.read(&tagOffset)
+		rb, err = r.read(&tagOffset)
 		if err != nil {
-			return false
+			return rb
 		}
 
 		if rtData, tagType, elLen, ok := r.p.readTag(r.path, tagCount); ok && tagOffset < uint32(len(rtData)) {
@@ -1129,23 +1091,19 @@ func (r *req) serviceHandle() bool {
 
 		var maskSize uint16
 
-		if r.dataLen < 2 {
-			return r.err(NotEnoughData)
-		}
-
-		err := r.read(&maskSize)
+		rb, err := r.read(&maskSize)
 		if err != nil {
-			return false
+			return rb
 		}
 		orMask := make([]uint8, maskSize)
-		err = r.read(&orMask)
+		rb, err = r.read(&orMask)
 		if err != nil {
-			return false
+			return rb
 		}
 		andMask := make([]uint8, maskSize)
-		err = r.read(&andMask)
+		rb, err = r.read(&andMask)
 		if err != nil {
-			return false
+			return rb
 		}
 		if r.p.readModWriteTag(r.path, orMask, andMask) {
 			r.write(r.resp)
@@ -1165,30 +1123,26 @@ func (r *req) serviceHandle() bool {
 			tagCount uint16
 		)
 
-		if r.dataLen < 4 {
-			return r.err(NotEnoughData)
-		}
-
-		err := r.read(&tagType)
+		rb, err := r.read(&tagType)
 		if err != nil {
-			return false
+			return rb
 		}
 		if tagType == 0x02A0 {
-			err = r.read(&tagType)
+			rb, err = r.read(&tagType)
 			if err != nil {
-				return false
+				return rb
 			}
 			r.dataLen -= 2
 		}
-		err = r.read(&tagCount)
+		rb, err = r.read(&tagCount)
 		if err != nil {
-			return false
+			return rb
 		}
 
 		wrData := make([]uint8, r.dataLen-4)
-		err = r.read(wrData)
+		rb, err = r.read(wrData)
 		if err != nil {
-			return false
+			return rb
 		}
 
 		if r.p.saveTag(r.path, tagType, int(tagCount), wrData, 0) {
@@ -1210,34 +1164,30 @@ func (r *req) serviceHandle() bool {
 			tagOffset uint32
 		)
 
-		if r.dataLen < 8 {
-			return r.err(NotEnoughData)
-		}
-
-		err := r.read(&tagType)
+		rb, err := r.read(&tagType)
 		if err != nil {
-			return false
+			return rb
 		}
 		if tagType == 0x02A0 {
-			err = r.read(&tagType)
+			rb, err = r.read(&tagType)
 			if err != nil {
-				return false
+				return rb
 			}
 			r.dataLen -= 2
 		}
-		err = r.read(&tagCount)
+		rb, err = r.read(&tagCount)
 		if err != nil {
-			return false
+			return rb
 		}
-		err = r.read(&tagOffset)
+		rb, err = r.read(&tagOffset)
 		if err != nil {
-			return false
+			return rb
 		}
 
 		wrData := make([]uint8, r.dataLen-8)
-		err = r.read(wrData)
+		rb, err = r.read(wrData)
 		if err != nil {
-			return false
+			return rb
 		}
 
 		if r.p.saveTag(r.path, tagType, (r.dataLen-8)/int(typeLen(tagType)), wrData, int(tagOffset)) {
@@ -1254,9 +1204,9 @@ func (r *req) serviceHandle() bool {
 		r.p.debug("Reset")
 
 		data := make([]uint8, r.dataLen)
-		err := r.read(&data)
+		rb, err := r.read(&data)
 		if err != nil {
-			return false
+			return rb
 		}
 
 		if r.dataLen >= 1 && data[0] > 1 {
@@ -1276,13 +1226,9 @@ func (r *req) serviceHandle() bool {
 			buf   bytes.Buffer
 		)
 
-		if r.dataLen < 1 {
-			return r.err(NotEnoughData)
-		}
-
-		err := r.read(&count)
+		rb, err := r.read(&count)
 		if err != nil {
-			return false
+			return rb
 		}
 
 		li, _ := r.p.GetClassInstancesList(r.class, r.instance, int(count))
@@ -1302,9 +1248,9 @@ func (r *req) serviceHandle() bool {
 		fmt.Println("unknown service:", r.protd.Service)
 
 		data := make([]uint8, r.dataLen)
-		err := r.read(&data)
+		rb, err := r.read(&data)
 		if err != nil {
-			return false
+			return rb
 		}
 
 		r.err(ServNotSup)

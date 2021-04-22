@@ -10,12 +10,12 @@ import (
 )
 
 func (p *PLC) handleUDPRequest(conn *net.UDPConn, dt []byte, n int, addr *net.UDPAddr) {
-	r := req{}
+	r := req{lenRem: -1}
 	r.p = p
 	r.readBuf = bufio.NewReader(bytes.NewReader(dt))
 	r.writeBuf = new(bytes.Buffer)
 
-	err := r.read(&r.encHead)
+	_, err := r.read(&r.encHead)
 	if err != nil {
 		return
 	}
@@ -38,7 +38,7 @@ func (p *PLC) handleUDPRequest(conn *net.UDPConn, dt []byte, n int, addr *net.UD
 		p.debug("UDP unknown command:", r.encHead.Command)
 
 		data := make([]uint8, r.encHead.Length)
-		err = r.read(&data)
+		_, err = r.read(&data)
 		if err != nil {
 			return
 		}
