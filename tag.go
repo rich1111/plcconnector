@@ -1071,6 +1071,8 @@ func (p *PLC) addTag(t Tag, instance int) {
 	} else {
 		in.attr[2] = TagUINT(typ, "SymbolType")
 	}
+	in.attr[3] = TagUDINT(0, "Symbol Address")
+	in.attr[5] = TagUDINT(0, "Symbol Object Address")
 	in.attr[6] = TagUDINT(0, "Control")
 	in.attr[7] = TagUINT(uint16(t.ElemLen()), "BaseTypeSize")
 	in.attr[8] = &Tag{Name: "Dimensions", data: []uint8{uint8(t.Dim[0]), uint8(t.Dim[0] >> 8), uint8(t.Dim[0] >> 16), uint8(t.Dim[0] >> 24),
