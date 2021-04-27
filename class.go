@@ -189,7 +189,7 @@ func defaultIdentityClass() *Class {
 	i.attr[1] = TagUINT(1, "VendorID")
 	i.attr[2] = TagUINT(0x0C, "DeviceType") // communications adapter
 	i.attr[3] = TagUINT(65001, "ProductCode")
-	i.attr[4] = TagUINT(1+2<<8, "Revision")
+	i.attr[4] = TagUINT(21, "Revision")
 	i.attr[5] = TagUINT(0, "Status")
 	i.attr[6] = TagUDINT(1234, "SerialNumber")
 	i.attr[7] = TagShortString("MongolPLC", "ProductName")

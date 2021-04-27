@@ -14,8 +14,8 @@ $ EZ-EDS Version 3.21.1.20161208 Generated Electronic Data Sheet
         ProdType = 43;
         ProdTypeStr = "Generic Device";
         ProdCode = 1;
-        MajRev = 1;
-        MinRev = 1;
+        MajRev = 21;
+        MinRev = 0;
         ProdName = "Minimal Device";
         Catalog = "TestDevice#1";
 
