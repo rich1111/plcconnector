@@ -28,8 +28,9 @@ type Tag struct {
 
 	data   []uint8
 	st     *structData
+	in     *Instance
 	offset int
-	prot   bool
+	prot   uint8
 	write  bool // TODO mutex
 	getter func() []uint8
 	setter func([]uint8) uint8
@@ -1055,7 +1056,7 @@ func (p *PLC) addTag(t Tag, instance int) {
 	if t.data == nil {
 		t.data = make([]uint8, t.ElemLen()*t.Dims())
 	}
-	in := NewInstance(8)
+	in := NewInstance(10)
 	in.attr[1] = TagString(t.Name, "SymbolName")
 	typ := uint16(t.Type)
 	if t.Dim[2] > 0 {
@@ -1070,12 +1071,15 @@ func (p *PLC) addTag(t Tag, instance int) {
 	} else {
 		in.attr[2] = TagUINT(typ, "SymbolType")
 	}
+	in.attr[6] = TagUDINT(0, "Control")
 	in.attr[7] = TagUINT(uint16(t.ElemLen()), "BaseTypeSize")
 	in.attr[8] = &Tag{Name: "Dimensions", data: []uint8{uint8(t.Dim[0]), uint8(t.Dim[0] >> 8), uint8(t.Dim[0] >> 16), uint8(t.Dim[0] >> 24),
 		uint8(t.Dim[1]), uint8(t.Dim[1] >> 8), uint8(t.Dim[1] >> 16), uint8(t.Dim[1] >> 24),
 		uint8(t.Dim[2]), uint8(t.Dim[2] >> 8), uint8(t.Dim[2] >> 16), uint8(t.Dim[2] >> 24)}}
+	in.attr[10] = TagUSINT(t.prot, "External Acces")
 
 	name := strings.ToLower(t.Name)
+	t.in = in
 
 	p.tMut.Lock()
 	if instance == -1 {

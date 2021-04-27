@@ -55,7 +55,7 @@ func (p *PLC) tagsIndexHTML(w http.ResponseWriter, r *http.Request) {
 
 	for _, n := range arr {
 		t := p.tags[strings.ToLower(n)]
-		toSend.WriteString("<tr class=\"" + iif(t.prot, "pr", "rw") + "\"><td><a href=\"/" + n + "\" id=\"" + n + "\">" + n + "</a></td><td>" + strconv.Itoa(t.Dims()*t.Len()) + " B</td><td>" + t.TypeString() + t.DimString() + "</td><td>" + iif(t.prot, "☐", "☑") + "</td><td>")
+		toSend.WriteString("<tr class=\"" + iif(t.prot != 0, "pr", "rw") + "\"><td><a href=\"/" + n + "\" id=\"" + n + "\">" + n + "</a></td><td>" + strconv.Itoa(t.Dims()*t.Len()) + " B</td><td>" + t.TypeString() + t.DimString() + "</td><td>" + iif(t.prot != 0, "☐", "☑") + "</td><td>")
 		var ascii strings.Builder
 		if t.BasicType() != TypeREAL && t.BasicType() != TypeLREAL && t.BasicType() != TypeBOOL {
 			ascii.Grow(t.Dims())

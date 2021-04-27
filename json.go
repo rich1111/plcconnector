@@ -136,7 +136,10 @@ func (p *PLC) ImportMemoryJSON(file string) error {
 		if !ok {
 			return errors.New("no tag " + n)
 		}
-		tag.prot = !c.Read
+		if c.Read && tag.prot == 0 {
+			tag.prot = 2
+			tag.in.attr[10] = TagUSINT(tag.prot, "External Acces")
+		}
 		if c.Read {
 			if len(c.Rx) != len(tag.data) {
 				return errors.New("data length mismatch " + n)
