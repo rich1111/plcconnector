@@ -267,6 +267,11 @@ func (p *PLC) loadEDS(fn string) error {
 	in.attr[10] = &Tag{Name: "Attr10", Type: TypeDINT, data: []uint8{0xF8, 0xDE, 0x47, 0xB8}}
 	p.Class[0xAC].SetInstance(1, in)
 
+	p.Class[ProgramClass] = NewClass("Program", 0)
+	in = NewInstance(1)
+	in.attr[1] = TagString("main", "Program Name")
+	p.Class[ProgramClass].SetInstance(1, in)
+
 	p.Class[SymbolClass] = NewClass("Symbol", 0)
 	p.symbols = p.Class[SymbolClass]
 

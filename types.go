@@ -37,6 +37,7 @@ const (
 	ConnManager   = 0x06
 	FileClass     = 0x37
 
+	ProgramClass  = 0x64
 	SymbolClass   = 0x6B
 	TemplateClass = 0x6C
 	ClockClass    = 0x8B
