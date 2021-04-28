@@ -106,11 +106,12 @@ func (p *PLC) ImportJSON(file string) error {
 	}
 
 	in := p.Class[0xAC].inst[1]
-	in.attr[1] = TagINT(int16(db.AC[0]), "Attr1")
-	in.attr[2] = TagINT(int16(db.AC[1]), "Attr2")
-	in.attr[3] = TagDINT(int32(db.AC[2]), "Attr3")
-	in.attr[4] = TagDINT(int32(db.AC[3]), "Attr4")
-	in.attr[10] = TagDINT(int32(db.AC[4]), "Attr5")
+	in.SetAttrINT(1, int16(db.AC[0]))
+	in.SetAttrINT(2, int16(db.AC[1]))
+	in.SetAttrDINT(3, int32(db.AC[2]))
+	in.SetAttrDINT(4, int32(db.AC[3]))
+	in.SetAttrDINT(10, int32(db.AC[4]))
+	p.Class[SymbolClass].inst[0].SetAttrUDINT(8, uint32(db.AC[2]))
 
 	return nil
 }

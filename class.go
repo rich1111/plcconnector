@@ -31,10 +31,31 @@ func (in *Instance) SetAttr(no int, a *Tag) {
 	in.m.Unlock()
 }
 
+// SetAttrINT .
+func (in *Instance) SetAttrINT(no int, v int16) {
+	in.m.Lock()
+	binary.LittleEndian.PutUint16(in.attr[no].data, uint16(v))
+	in.m.Unlock()
+}
+
+// SetAttrDINT .
+func (in *Instance) SetAttrDINT(no int, v int32) {
+	in.m.Lock()
+	binary.LittleEndian.PutUint32(in.attr[no].data, uint32(v))
+	in.m.Unlock()
+}
+
 // SetAttrUINT .
 func (in *Instance) SetAttrUINT(no int, v uint16) {
 	in.m.Lock()
 	binary.LittleEndian.PutUint16(in.attr[no].data, v)
+	in.m.Unlock()
+}
+
+// SetAttrUDINT .
+func (in *Instance) SetAttrUDINT(no int, v uint32) {
+	in.m.Lock()
+	binary.LittleEndian.PutUint32(in.attr[no].data, v)
 	in.m.Unlock()
 }
 

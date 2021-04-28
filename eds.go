@@ -201,7 +201,7 @@ func (p *PLC) loadEDS(fn string) error {
 	}
 
 	p.Class[FileClass] = NewClass("File", 32)
-	p.Class[FileClass].inst[0].attr[1] = TagUINT(2, "Revision")
+	p.Class[FileClass].inst[0].SetAttrUINT(1, 2)
 
 	gzipped := true
 
@@ -272,7 +272,9 @@ func (p *PLC) loadEDS(fn string) error {
 	in.attr[1] = TagString("main", "Program Name")
 	p.Class[ProgramClass].SetInstance(1, in)
 
-	p.Class[SymbolClass] = NewClass("Symbol", 0)
+	p.Class[SymbolClass] = NewClass("Symbol", 8)
+	p.Class[SymbolClass].inst[0].SetAttrUINT(1, 4)
+	p.Class[SymbolClass].inst[0].attr[8] = TagUDINT(0, "Symbol UID")
 	p.symbols = p.Class[SymbolClass]
 
 	p.Class[TemplateClass] = NewClass("Template", 0)
@@ -306,7 +308,7 @@ func (p *PLC) loadEDS(fn string) error {
 	p.Class[ClockClass].SetInstance(1, in)
 
 	p.Class[PortClass] = NewClass("Port", 9)
-	p.Class[PortClass].inst[0].attr[1] = TagUINT(2, "Revision")
+	p.Class[PortClass].inst[0].SetAttrUINT(1, 2)
 	p.Class[PortClass].inst[0].attr[8] = TagUINT(1, "EntryPort")
 	p.Class[PortClass].inst[0].attr[9] = &Tag{Name: "PortInstanceInfo", data: []uint8{0, 0, 0, 0, 4, 0, 1, 0}} // uint 4 - Ethernet/IP , uint 1 - CIP port number
 	in = NewInstance(10)

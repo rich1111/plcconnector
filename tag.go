@@ -1056,7 +1056,7 @@ func (p *PLC) addTag(t Tag, instance int) {
 	if t.data == nil {
 		t.data = make([]uint8, t.ElemLen()*t.Dims())
 	}
-	in := NewInstance(10)
+	in := NewInstance(11)
 	in.attr[1] = TagString(t.Name, "SymbolName")
 	typ := uint16(t.Type)
 	if t.Dim[2] > 0 {
@@ -1071,14 +1071,16 @@ func (p *PLC) addTag(t Tag, instance int) {
 	} else {
 		in.attr[2] = TagUINT(typ, "SymbolType")
 	}
-	in.attr[3] = TagUDINT(0, "Symbol Address")
-	in.attr[5] = TagUDINT(0, "Symbol Object Address")
-	in.attr[6] = TagUDINT(0, "Control")
+	in.attr[3] = TagUDINT(0, "SymbolAddress")
+	in.attr[5] = TagUDINT(0, "SymbolObjectAddress")
+	in.attr[6] = TagUDINT(0, "SoftwareControl")
 	in.attr[7] = TagUINT(uint16(t.ElemLen()), "BaseTypeSize")
 	in.attr[8] = &Tag{Name: "Dimensions", data: []uint8{uint8(t.Dim[0]), uint8(t.Dim[0] >> 8), uint8(t.Dim[0] >> 16), uint8(t.Dim[0] >> 24),
 		uint8(t.Dim[1]), uint8(t.Dim[1] >> 8), uint8(t.Dim[1] >> 16), uint8(t.Dim[1] >> 24),
 		uint8(t.Dim[2]), uint8(t.Dim[2] >> 8), uint8(t.Dim[2] >> 16), uint8(t.Dim[2] >> 24)}}
-	in.attr[10] = TagUSINT(t.prot, "External Acces")
+	in.attr[9] = TagBOOL(false, "SafetyFlag")
+	in.attr[10] = TagUSINT(t.prot, "PPDControl")      // 0: full access, 1: reserved, 2: read only, 3: no access
+	in.attr[11] = TagUSINT(0, "ConstantTagIndicator") // 0: normal, 1: constant
 
 	name := strings.ToLower(t.Name)
 	t.in = in
@@ -1094,7 +1096,8 @@ func (p *PLC) addTag(t Tag, instance int) {
 
 	in = p.Class[0xAC].inst[1]
 	crc := in.attr[3].DataDINT()[0] + int32(crc16([]byte(name))) + int32(t.Type+t.Dims())
-	binary.LittleEndian.PutUint32(in.attr[3].data, uint32(crc))
+	in.SetAttrDINT(3, crc)
+	p.Class[SymbolClass].inst[0].SetAttrUDINT(8, uint32(crc))
 }
 
 // AddTag adds tag.
