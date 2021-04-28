@@ -321,7 +321,8 @@ func (p *PLC) loadEDS(fn string) error {
 	p.Class[PortClass].SetInstance(1, in)
 
 	p.Class[TCPClass] = NewClass("TCP Interface", 0)
-	in = NewInstance(6)
+	p.Class[TCPClass].inst[0].SetAttrUINT(1, 4)
+	in = NewInstance(13)
 	in.attr[1] = TagUDINT(1, "Status")
 	in.attr[2] = TagUDINT(0b1_1_0, "ConfigurationCapabality")
 	in.attr[3] = TagUDINT(0b1_0010, "ConfigurationControl")
@@ -337,6 +338,9 @@ func (p *PLC) loadEDS(fn string) error {
 	}}
 	hostname, _ := os.Hostname()
 	in.attr[6] = TagString(hostname, "HostName")
+	in.attr[10] = TagBOOL(false, "SelectACD")
+	in.attr[11] = &Tag{Name: "LastConflictDetected", data: make([]byte, 1+6+28)}
+	in.attr[13] = TagUINT(120, "EncapsulationInactivityTimeout")
 	p.Class[TCPClass].SetInstance(1, in)
 
 	p.Class[EthernetClass] = NewClass("Ethernet Link", 0)
