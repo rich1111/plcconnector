@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -281,8 +282,22 @@ func (p *PLC) loadEDS(fn string) error {
 	p.template = p.Class[TemplateClass]
 
 	p.Class[ClockClass] = NewClass("Clock", 0)
+	p.Class[ClockClass].inst[0].SetAttrUINT(1, 3)
 	in = NewInstance(11)
-	in.attr[6] = TagULINT(0, "UTSTime")
+	in.attr[5] = &Tag{Name: "DateAndTime"}
+	in.attr[5].getter = func() []uint8 {
+		t := time.Now().Add(p.timOff)
+		x := make([]uint8, 7*4)
+		binary.LittleEndian.PutUint64(x, uint64(t.Year()))
+		binary.LittleEndian.PutUint64(x[4:], uint64(t.Month()))
+		binary.LittleEndian.PutUint64(x[8:], uint64(t.Day()))
+		binary.LittleEndian.PutUint64(x[12:], uint64(t.Hour()))
+		binary.LittleEndian.PutUint64(x[16:], uint64(t.Minute()))
+		binary.LittleEndian.PutUint64(x[20:], uint64(t.Second()))
+		// microsecond
+		return x
+	}
+	in.attr[6] = TagLINT(0, "CurrentUTCValue")
 	in.attr[6].getter = func() []uint8 {
 		x := make([]uint8, 8)
 		binary.LittleEndian.PutUint64(x, uint64(time.Now().Add(p.timOff).UnixNano()/1000))
@@ -297,7 +312,32 @@ func (p *PLC) loadEDS(fn string) error {
 		p.timOff = -time.Since(time.Unix(x/1_000_000, x%1_000_000))
 		return Success
 	}
-	in.attr[11] = TagULINT(0, "LocalTime")
+	in.attr[7] = &Tag{Name: "UTCDateAndTime"}
+	in.attr[7].getter = func() []uint8 {
+		t := time.Now().Add(p.timOff).UTC()
+		x := make([]uint8, 7*4)
+		binary.LittleEndian.PutUint64(x, uint64(t.Year()))
+		binary.LittleEndian.PutUint64(x[4:], uint64(t.Month()))
+		binary.LittleEndian.PutUint64(x[8:], uint64(t.Day()))
+		binary.LittleEndian.PutUint64(x[12:], uint64(t.Hour()))
+		binary.LittleEndian.PutUint64(x[16:], uint64(t.Minute()))
+		binary.LittleEndian.PutUint64(x[20:], uint64(t.Second()))
+		// microsecond
+		return x
+	}
+	in.attr[8] = &Tag{Name: "TimeZoneString", getter: func() []uint8 {
+		_, offset := time.Now().Add(p.timOff).Zone()
+		h := offset / 3600
+		str := fmt.Sprintf("GMT%+03d:%02d", h, int(math.Abs(float64((offset-h*3600)/60))))
+		strLen := len(str)
+		x := make([]byte, 4+strLen)
+		binary.LittleEndian.PutUint32(x, uint32(strLen))
+		copy(x[4:], str)
+		return x
+	}}
+	in.attr[9] = TagINT(0, "DSTAdjustment")
+	in.attr[10] = TagUSINT(0, "EnableDST")
+	in.attr[11] = TagLINT(0, "CurrentValue")
 	in.attr[11].getter = func() []uint8 {
 		x := make([]uint8, 8)
 		t := time.Now().Add(p.timOff)
