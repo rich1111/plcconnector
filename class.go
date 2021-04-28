@@ -206,7 +206,7 @@ func (c *Class) SetInstance(no int, in *Instance) {
 func defaultIdentityClass() *Class {
 	c := NewClass("Identity", 0)
 	c.inst[0].getall = []int{1, 2, 6, 7}
-	i := NewInstance(13)
+	i := NewInstance(17)
 	i.attr[1] = TagUINT(1, "VendorID")
 	i.attr[2] = TagUINT(0x0C, "DeviceType") // communications adapter
 	i.attr[3] = TagUINT(65001, "ProductCode")
@@ -222,6 +222,11 @@ func defaultIdentityClass() *Class {
 	i.attr[11].write = true
 	i.attr[12] = &Tag{Name: "SuppLangList", data: []byte{'e', 'n', 'g', 'p', 'o', 'l'}, Dim: [3]int{2, 0, 0}, st: &structData{l: 3}}
 	i.attr[13] = TagStringI("", "InternationalProductName")
+	i.attr[14] = &Tag{Name: "Semaphore", data: []byte{0, 0, 0, 0, 0, 0, 0, 0}} // UINT VendorNumber, UDINT ClientSerialNumber, ITIME MillisecondTimer
+	i.attr[14].write = true
+	i.attr[15] = TagStringI("", "AssignedName")
+	i.attr[16] = TagStringI("", "AssignedDescription")
+	i.attr[17] = TagStringI("", "GeographicLocation")
 
 	c.Name = "Identity"
 	c.SetInstance(1, i)
