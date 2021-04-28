@@ -344,11 +344,20 @@ func (p *PLC) loadEDS(fn string) error {
 	p.Class[TCPClass].SetInstance(1, in)
 
 	p.Class[EthernetClass] = NewClass("Ethernet Link", 0)
-	p.Class[EthernetClass].inst[0].SetAttrUINT(1, 3)
-	in = NewInstance(3)
+	p.Class[EthernetClass].inst[0].SetAttrUINT(1, 4)
+	in = NewInstance(11)
 	in.attr[1] = TagUDINT(1000, "InterfaceSpeed")
 	in.attr[2] = TagUDINT(0b0_1_011_1_1, "InterfaceFlags")
 	in.attr[3] = &Tag{Name: "PhysicalAddress", data: mac}
+	in.attr[4] = &Tag{Name: "InterfaceCounters", data: make([]byte, 11*4), Dim: [3]int{11, 0, 0}, st: &structData{l: 4}}
+	in.attr[5] = &Tag{Name: "MediaCounters", data: make([]byte, 12*4), Dim: [3]int{12, 0, 0}, st: &structData{l: 4}}
+	in.attr[6] = &Tag{Name: "InterfaceControl", data: []byte{1, 0, 0, 0}} // WORD ControlBits, UINT ForcedInternetSpeed
+	in.attr[7] = TagUSINT(2, "InterfaceType")                             // 2: twisted-pair, 3: optical fiber
+	in.attr[8] = TagUSINT(1, "InterfaceState")
+	in.attr[9] = TagUSINT(1, "AdminState")
+	in.attr[10] = TagShortString("eth0", "InterfaceLabel")
+	in.attr[11] = &Tag{Name: "InterfaceCapability", data: []byte{0, 0, 0, 0, 3, 0, 10, 0, 1, 100, 0, 1, 0xE8, 0x03, 1}} // DWORD Capability Bits, USINT Speed/Duplex Array Count: UINT Interface Speed, USINT Inferface Duplex Mode (1: full duplex)
+
 	p.Class[EthernetClass].SetInstance(1, in)
 
 	return nil
