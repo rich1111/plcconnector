@@ -1,3 +1,14 @@
+/c/example
+/c/libplcconnector/_obj/_cgo_.o
+/c/libplcconnector/_obj/_cgo_export.c
+/c/libplcconnector/_obj/_cgo_export.h
+/c/libplcconnector/_obj/_cgo_flags
+/c/libplcconnector/_obj/_cgo_gotypes.go
+/c/libplcconnector/_obj/_cgo_main.c
+/c/libplcconnector/_obj/main.cgo1.go
+/c/libplcconnector/_obj/main.cgo2.c
+/c/libplcconnector/libplcconnector.a
+/c/libplcconnector/libplcconnector.h
 /clientexample/clientexample
 /clientexample/clientexample.exe
 /example/example
