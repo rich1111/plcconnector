@@ -327,8 +327,7 @@ func (p *PLC) loadEDS(fn string) error {
 	}
 	in.attr[8] = &Tag{Name: "TimeZoneString", getter: func() []uint8 {
 		_, offset := time.Now().Add(p.timOff).Zone()
-		h := offset / 3600
-		str := fmt.Sprintf("GMT%+03d:%02d", h, int(math.Abs(float64((offset-h*3600)/60))))
+		str := fmt.Sprintf("GMT%+03d:%02d", offset/3600, int(math.Abs(float64((offset%3600)/60))))
 		strLen := len(str)
 		x := make([]byte, 4+strLen)
 		binary.LittleEndian.PutUint32(x, uint32(strLen))
