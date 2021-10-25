@@ -27,6 +27,7 @@ type PLC struct {
 	closeWMut sync.Mutex
 	closeWait *sync.Cond
 	eds       map[string]map[string]string
+	favicon   []byte
 	port      uint16
 	symbols   *Class
 	template  *Class

@@ -68,6 +68,23 @@ func (p *PLC) loadEDS(fn string) error {
 		}
 	}
 
+	if len(f) >= 6 && f[0] == 0 && f[1] == 0 && f[2] == 1 && f[3] == 0 {
+		icons := (int(f[5]) << 8) | int(f[4])
+		hdrSize := 6
+		icoSize := 0
+
+		for i := 0; i < icons; i++ {
+			icoSize += (int(f[hdrSize+11]) << 24) | (int(f[hdrSize+10]) << 16) | (int(f[hdrSize+9]) << 8) | int(f[hdrSize+8])
+			hdrSize += 16
+		}
+		icoSize += hdrSize
+
+		p.favicon = f[:icoSize]
+		f = f[icoSize:]
+
+		fmt.Printf("ICO: %d icon(s), %d bytes\n", icons, icoSize)
+	}
+
 	p.eds = make(map[string]map[string]string)
 	comment := false
 	section := false

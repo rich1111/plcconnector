@@ -387,6 +387,14 @@ func tagToHTML(t *Tag) string {
 func (p *PLC) handler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" {
 		p.tagsIndexHTML(w, r)
+	} else if r.URL.Path == "/favicon.ico" {
+		if p.favicon == nil {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "image/vnd.microsoft.icon")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Write(p.favicon)
 	} else if r.URL.Path == "/.tagSet" && r.Method == http.MethodPost {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
