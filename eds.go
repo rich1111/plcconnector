@@ -60,17 +60,30 @@ func (p *PLC) getEDSInt(section string, item string) (int, error) {
 
 func (p *PLC) loadEDS(fn string) error {
 	var (
-		f   []byte
-		err error
+		orig_f []byte
+		f      []byte
+		err    error
+		gz     = false
 	)
 
 	if fn == "" {
-		f = defEDS
+		orig_f = defEDS
 	} else {
-		f, err = os.ReadFile(fn)
+		orig_f, err = os.ReadFile(fn)
 		if err != nil {
 			return err
 		}
+	}
+
+	if len(orig_f) >= 10 && orig_f[0] == 0x1f && orig_f[1] == 0x8b {
+		gz = true
+		f, err = loadGzip(orig_f)
+		if err != nil {
+			return nil
+		}
+	} else {
+		f = make([]byte, len(orig_f))
+		copy(f, orig_f)
 	}
 
 	p.eds = make(map[string]map[string]string)
@@ -236,11 +249,9 @@ func (p *PLC) loadEDS(fn string) error {
 	p.Class[FileClass] = NewClass("File", 32)
 	p.Class[FileClass].inst[0].SetAttrUINT(1, 2)
 
-	gzipped := true
-
 	in := NewInstance(11) // EDS.gz
 
-	if gzipped {
+	if !gz {
 		var buf bytes.Buffer
 		gz := gzip.NewWriter(&buf)
 		gz.Name = "0001000E00601800.eds"
@@ -250,7 +261,7 @@ func (p *PLC) loadEDS(fn string) error {
 		gz.Close()
 		in.data = buf.Bytes()
 	} else {
-		in.data = f
+		in.data = orig_f
 	}
 
 	chksum := 0
@@ -262,19 +273,14 @@ func (p *PLC) loadEDS(fn string) error {
 	in.attr[1] = TagUSINT(stateLoaded, "State")
 	in.attr[2] = TagStringI("EDS and Icon Files", "InstanceName")
 	in.attr[3] = TagUINT(1, "InstanceFormatVersion")
-	if gzipped {
-		in.attr[4] = TagStringI("EDS.gz", "FileName")
-		in.attr[11] = TagUSINT(1, "FileEncodingFormat")
-	} else {
-		in.attr[4] = TagStringI("EDS.txt", "FileName")
-		in.attr[11] = TagUSINT(0, "FileEncodingFormat")
-	}
+	in.attr[4] = TagStringI("EDS.gz", "FileName")
 	in.attr[5] = TagUINT(majRev+minRev<<8, "FileRevision")
 	in.attr[6] = TagUDINT(uint32(len(in.data)), "FileSize")
 	in.attr[7] = TagINT(int16(chksum), "FileChecksum")
 	in.attr[8] = TagUSINT(255, "InvocationMethod") // not aplicable
 	in.attr[9] = TagUSINT(0, "FileSaveParameters") // BYTE
 	in.attr[10] = TagUSINT(1, "FileType")          // read only
+	in.attr[11] = TagUSINT(1, "FileEncodingFormat")
 
 	dir := []uint8{0xC8, 0x00}
 	dir = append(dir, in.attr[2].data...)

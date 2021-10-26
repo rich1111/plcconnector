@@ -1,6 +1,8 @@
 package plcconnector
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -664,4 +666,17 @@ func crc16(buffer []byte) uint16 {
 		crc ^= crc16Table[tmp]
 	}
 	return crc
+}
+
+func loadGzip(buf []byte) ([]byte, error) {
+	gz, err := gzip.NewReader(bytes.NewBuffer(buf))
+	if err != nil {
+		return nil, err
+	}
+	defer gz.Close()
+	dec, err := io.ReadAll(gz)
+	if err != nil {
+		return nil, err
+	}
+	return dec, nil
 }
