@@ -29,6 +29,11 @@ const (
 	stateStoring      = 7
 )
 
+var (
+	errNotFound = errors.New("not found")
+	errBadICO   = errors.New("malformed ICO")
+)
+
 func (p *PLC) getEDS(section string, item string) (string, error) {
 	s, ok := p.eds[section]
 	if ok {
@@ -38,7 +43,7 @@ func (p *PLC) getEDS(section string, item string) (string, error) {
 			return v, nil
 		}
 	}
-	return "", errors.New("not found")
+	return "", errNotFound
 }
 
 func (p *PLC) getEDSInt(section string, item string) (int, error) {
@@ -50,7 +55,7 @@ func (p *PLC) getEDSInt(section string, item string) (int, error) {
 		}
 		return i, nil
 	}
-	return 0, errors.New("not found")
+	return 0, errNotFound
 }
 
 func (p *PLC) loadEDS(fn string) error {
@@ -68,23 +73,6 @@ func (p *PLC) loadEDS(fn string) error {
 		}
 	}
 
-	if len(f) >= 6 && f[0] == 0 && f[1] == 0 && f[2] == 1 && f[3] == 0 {
-		icons := (int(f[5]) << 8) | int(f[4])
-		hdrSize := 6
-		icoSize := 0
-
-		for i := 0; i < icons; i++ {
-			icoSize += (int(f[hdrSize+11]) << 24) | (int(f[hdrSize+10]) << 16) | (int(f[hdrSize+9]) << 8) | int(f[hdrSize+8])
-			hdrSize += 16
-		}
-		icoSize += hdrSize
-
-		p.favicon = f[:icoSize]
-		f = f[icoSize:]
-
-		fmt.Printf("ICO: %d icon(s), %d bytes\n", icons, icoSize)
-	}
-
 	p.eds = make(map[string]map[string]string)
 	comment := false
 	section := false
@@ -95,8 +83,36 @@ func (p *PLC) loadEDS(fn string) error {
 	valueName := ""
 	itemName := ""
 	valueString := false
-	for _, ch := range f {
+	lf := len(f)
+
+	for i := 0; i < lf; i++ {
+		ch := f[i]
 		switch ch {
+		case 0:
+			if lf > i+5 && f[i+1] == 0 && f[i+2] == 1 && f[i+3] == 0 {
+				icons := (int(f[i+5]) << 8) | int(f[i+4])
+				hdrSize := 6
+				icoSize := 0
+
+				for k := 0; k < icons; k++ {
+					if i+hdrSize+11 >= lf {
+						return errBadICO
+					}
+					icoSize += (int(f[i+hdrSize+11]) << 24) | (int(f[i+hdrSize+10]) << 16) | (int(f[i+hdrSize+9]) << 8) | int(f[i+hdrSize+8])
+					hdrSize += 16
+				}
+				icoSize += hdrSize
+				if i+icoSize > lf {
+					return errBadICO
+				}
+
+				p.favicon = f[i : i+icoSize]
+				i += icoSize
+
+				fmt.Printf("ICO: %d icon(s), %d bytes\n", icons, icoSize)
+			} else {
+				return errBadICO
+			}
 		case '$':
 			if !str {
 				comment = true
@@ -175,7 +191,6 @@ func (p *PLC) loadEDS(fn string) error {
 						break
 					}
 					valueName += string(ch)
-
 				}
 			}
 		}
