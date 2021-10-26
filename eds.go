@@ -273,7 +273,7 @@ func (p *PLC) loadEDS(fn string) error {
 	in.attr[6] = TagUDINT(uint32(len(in.data)), "FileSize")
 	in.attr[7] = TagINT(int16(chksum), "FileChecksum")
 	in.attr[8] = TagUSINT(255, "InvocationMethod") // not aplicable
-	in.attr[9] = TagUSINT(1, "FileSaveParameters") // BYTE
+	in.attr[9] = TagUSINT(0, "FileSaveParameters") // BYTE
 	in.attr[10] = TagUSINT(1, "FileType")          // read only
 
 	dir := []uint8{0xC8, 0x00}
