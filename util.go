@@ -221,6 +221,10 @@ func typeToString(t int) string {
 }
 
 func (p *PLC) stringToType(t string) int {
+	s, ok := p.tids[t]
+	if ok {
+		return TypeStructHead | int(s.h)
+	}
 	switch t {
 	case "BOOL":
 		return TypeBOOL
@@ -283,10 +287,6 @@ func (p *PLC) stringToType(t string) int {
 	case "STRINGI":
 		return TypeSTRINGI
 	default:
-		s, ok := p.tids[t]
-		if ok {
-			return TypeStructHead | int(s.h)
-		}
 		return 0
 	}
 }
