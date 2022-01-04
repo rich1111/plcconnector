@@ -29,7 +29,14 @@ func main() {
 		return
 	}
 
-	gal, err := c.GetAttributesAll(plc.PortClass, 0)
+	gaa, err := c.GetAttributesAll(plc.PortClass, 0)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(gaa)
+
+	gal, err := c.GetAttributeList(0x6F, 1, []int{1, 6})
 	if err != nil {
 		fmt.Println(err)
 		return

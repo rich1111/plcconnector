@@ -233,12 +233,40 @@ func (c *Client) GetAttributesAll(class, instance int) ([]byte, error) {
 		return nil, err
 	}
 
-	st, ln, err := c.readHead()
+	_, ln, err := c.readHead()
 	if err != nil {
 		return nil, err
 	}
-	if st != Success { // TODO additional status size
-		return nil, errors.New("status not Success")
+
+	d := make([]byte, ln)
+	err = c.read(&d)
+	if err != nil {
+		return nil, err
+	}
+
+	return d, nil
+}
+
+// GetAttributeList
+func (c *Client) GetAttributeList(class, instance int, list []int) ([]byte, error) {
+	path := pathCIA(class, instance, -1, -1)
+	count := len(list)
+
+	defer c.reset()
+	c.writeHead(path, GetAttrList, 2+count*2)
+	c.write(uint16(count))
+	for _, v := range list {
+		c.write(uint16(v))
+	}
+
+	_, err := c.c.Write(c.wr.Bytes())
+	if err != nil {
+		return nil, err
+	}
+
+	_, ln, err := c.readHead()
+	if err != nil {
+		return nil, err
 	}
 
 	d := make([]byte, ln)
@@ -266,13 +294,11 @@ func (c *Client) ReadTag(tag string, count int) (*Tag, error) {
 		return nil, err
 	}
 
-	st, ln, err := c.readHead()
+	_, ln, err := c.readHead()
 	if err != nil {
 		return nil, err
 	}
-	if st != Success { // TODO additional status size
-		return nil, errors.New("status not Success")
-	}
+
 	var t uint16
 	err = c.read(&t)
 	if err != nil {
@@ -339,6 +365,9 @@ func (c *Client) readHead() (int, int, error) {
 	err = c.read(&r)
 	if err != nil {
 		return 0, 0, err
+	}
+	if r.Status != Success { // TODO additional status size
+		return int(r.Status), int(i.Length) - 4, errors.New("status not Success")
 	}
 	return int(r.Status), int(i.Length) - 4, nil
 }

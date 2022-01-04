@@ -576,7 +576,7 @@ func (r *req) serviceHandle() bool {
 		}
 
 	case r.protd.Service == GetAttrList:
-		r.p.debug("GetAttributesList")
+		r.p.debug("GetAttributeList")
 		var (
 			count uint16
 			buf   bytes.Buffer
