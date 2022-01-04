@@ -16,6 +16,7 @@ type Client struct {
 	c       net.Conn
 	rd      *bufio.Reader
 	wr      *bytes.Buffer
+	wrData  *bytes.Buffer
 	handle  uint32
 	context uint64
 
@@ -32,6 +33,13 @@ func (c *Client) read(data interface{}) error {
 
 func (c *Client) write(data interface{}) {
 	err := binary.Write(c.wr, binary.LittleEndian, data)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func (c *Client) writeData(data interface{}) {
+	err := binary.Write(c.wrData, binary.LittleEndian, data)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -54,6 +62,7 @@ func Connect(host string) (*Client, error) {
 	}
 	c.c = conn
 	c.wr = new(bytes.Buffer)
+	c.wrData = new(bytes.Buffer)
 	c.Timeout = 20
 
 	conn.SetDeadline(time.Now().Add(time.Second))
@@ -225,26 +234,7 @@ func (c *Client) Close() error {
 // GetAttributesAll
 func (c *Client) GetAttributesAll(class, instance int) ([]byte, error) {
 	path := pathCIA(class, instance, -1, -1)
-
-	defer c.reset()
-	c.writeHead(path, GetAttrAll, 0)
-	_, err := c.c.Write(c.wr.Bytes())
-	if err != nil {
-		return nil, err
-	}
-
-	_, ln, err := c.readHead()
-	if err != nil {
-		return nil, err
-	}
-
-	d := make([]byte, ln)
-	err = c.read(&d)
-	if err != nil {
-		return nil, err
-	}
-
-	return d, nil
+	return c.sendRecv(path, GetAttrAll)
 }
 
 // GetAttributeList
@@ -252,55 +242,18 @@ func (c *Client) GetAttributeList(class, instance int, list []int) ([]byte, erro
 	path := pathCIA(class, instance, -1, -1)
 	count := len(list)
 
-	defer c.reset()
-	c.writeHead(path, GetAttrList, 2+count*2)
-	c.write(uint16(count))
+	c.writeData(uint16(count))
 	for _, v := range list {
-		c.write(uint16(v))
+		c.writeData(uint16(v))
 	}
 
-	_, err := c.c.Write(c.wr.Bytes())
-	if err != nil {
-		return nil, err
-	}
-
-	_, ln, err := c.readHead()
-	if err != nil {
-		return nil, err
-	}
-
-	d := make([]byte, ln)
-	err = c.read(&d)
-	if err != nil {
-		return nil, err
-	}
-
-	return d, nil
+	return c.sendRecv(path, GetAttrList)
 }
 
 // GetAttributeSingle
 func (c *Client) GetAttributeSingle(class, instance, attr int) ([]byte, error) {
 	path := pathCIA(class, instance, attr, -1)
-
-	defer c.reset()
-	c.writeHead(path, GetAttr, 0)
-	_, err := c.c.Write(c.wr.Bytes())
-	if err != nil {
-		return nil, err
-	}
-
-	_, ln, err := c.readHead()
-	if err != nil {
-		return nil, err
-	}
-
-	d := make([]byte, ln)
-	err = c.read(&d)
-	if err != nil {
-		return nil, err
-	}
-
-	return d, nil
+	return c.sendRecv(path, GetAttr)
 }
 
 // ReadTag .
@@ -351,6 +304,7 @@ func (c *Client) ReadTag(tag string, count int) (*Tag, error) {
 
 func (c *Client) reset() {
 	c.wr.Reset()
+	c.wrData.Reset()
 	c.rd.Reset(c.c)
 }
 
@@ -418,4 +372,28 @@ func (c *Client) writeHead(path []uint8, service uint8, dataLen int) {
 		PathSize: uint8(len(path) / 2),
 	})
 	c.write(path)
+}
+
+func (c *Client) sendRecv(path []uint8, service uint8) ([]uint8, error) {
+	defer c.reset()
+
+	c.writeHead(path, service, c.wrData.Len())
+	c.write(c.wrData.Bytes())
+	_, err := c.c.Write(c.wr.Bytes())
+	if err != nil {
+		return nil, err
+	}
+
+	_, ln, err := c.readHead()
+	if err != nil {
+		return nil, err
+	}
+
+	d := make([]byte, ln)
+	err = c.read(&d)
+	if err != nil {
+		return nil, err
+	}
+
+	return d, nil
 }

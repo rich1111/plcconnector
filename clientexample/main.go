@@ -50,11 +50,12 @@ func main() {
 	}
 	fmt.Println(gas)
 
-	// t, err := c.ReadTag("testSTRUCT", 1)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	return
-	// }
-	// fmt.Println(t)
+	t, err := c.ReadTag("testSTRUCT", 1)
+	if err != nil {
+		fmt.Println(err)
+		return
+	} else {
+		fmt.Println(t)
+	}
 	c.Close()
 }
