@@ -213,7 +213,7 @@ func (p *PLC) loadEDS(fn string) error {
 
 	p.Class[IdentityClass] = defaultIdentityClass()
 	i := p.Class[IdentityClass].inst[1]
-	i.getall = []int{1, 2, 3, 4, 5, 6, 7}
+	i.getall = []int{1, 2, 3, 4, 5, 6, 7} // FIXME communication device 10
 
 	majRev := uint16(1)
 	minRev := uint16(1)
@@ -437,6 +437,32 @@ func (p *PLC) loadEDS(fn string) error {
 	in.attr[11] = &Tag{Name: "InterfaceCapability", data: []byte{0, 0, 0, 0, 3, 0, 10, 0, 1, 100, 0, 1, 0xE8, 0x03, 1}} // DWORD Capability Bits, USINT Speed/Duplex Array Count: UINT Interface Speed, USINT Inferface Duplex Mode (1: full duplex)
 
 	p.Class[EthernetClass].SetInstance(1, in)
+
+	// FIXME communication device
+	// service 4B verify a fault location, no par, resp 2 bytes zeroes
+	// service 4C clear rapid faults 2 bytes, no par, resp status 0xC Object State Conflict if dlr not enabled
+	// service 4E clear gateway partial fault 2 bytes, no par, resp status 0xC Object State Conflict if dlr not enabled
+
+	// p.Class[DLRClass] = NewClass("Device Level Ring", 0)
+	// p.Class[DLRClass].inst[0].SetAttrUINT(1, 3)
+	// in = NewInstance(9)
+	// in.getall = []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}
+	// in.attr[1] = TagUSINT(0, "Network Topology") // 0: liner, 1: ring
+	// in.attr[2] = TagUSINT(0, "Network Status")   // 0: normal, 1: ring fault, 2: unexpected loop detected, 3: partial network fault, 4: rapid fault / restore cycle
+
+	// in.attr[3] = TagUSINT(3, "Unknown")
+	// in.attr[4] = &Tag{Name: "Unknown", data: []byte{0, 0, 144, 1, 0, 0, 168, 7, 0, 0, 0, 0}}
+
+	// in.attr[5] = TagUINT(0, "Ring Fault Count")
+	// in.attr[6] = &Tag{Name: "Last Active Node on Port 1", data: make([]byte, 10)} // ip address, mac address
+	// in.attr[7] = &Tag{Name: "Last Active Node on Port 2", data: make([]byte, 10)} // ip address, mac address
+	// in.attr[8] = TagUINT(0, "Ring Participants Count")
+	// // attr 9 hole Ring Protocol Participants List
+	// in.attr[10] = &Tag{Name: "Active Supervisor	Address", data: make([]byte, 10)} // ip address, mac address
+	// in.attr[11] = TagUSINT(0, "Active Supervisor Precedence")
+	// in.attr[12] = &Tag{Name: "Capability Flags", data: []byte{162, 0, 0, 0}}
+
+	// p.Class[DLRClass].SetInstance(1, in)
 
 	return nil
 }

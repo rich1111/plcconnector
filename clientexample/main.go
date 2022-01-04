@@ -23,7 +23,7 @@ func main() {
 			addr = os.Args[1]
 		}
 	}
-	c, err := plc.Connect(addr, 0)
+	c, err := plc.Connect(addr, -1)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -56,6 +56,41 @@ func main() {
 		return
 	}
 	fmt.Println(gas)
+
+	gas, err = c.GetAttributeSingle(plc.TCPClass, 0, 1)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(gas)
+
+	gas, err = c.GetAttributeSingle(plc.EthernetClass, 0, 1)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(gas)
+
+	gas, err = c.GetAttributeSingle(plc.EthernetClass, 0, 2)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(gas)
+
+	gas, err = c.GetAttributeSingle(plc.DLRClass, 0, 1)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(gas)
+
+	gaa, err = c.GetAttributesAll(plc.DLRClass, 1)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(gaa)
 
 	t, err := c.ReadTag("testSTRUCT", 1)
 	if err != nil {
