@@ -104,3 +104,29 @@ func Test_constructPath(t *testing.T) {
 		})
 	}
 }
+
+func Test_pathCIA(t *testing.T) {
+	type args struct {
+		clas     int
+		instance int
+		attr     int
+		member   int
+	}
+	tests := []struct {
+		name string
+		args args
+		want []uint8
+	}{
+		{"01", args{PortClass, 0, -1, -1}, []uint8{0x20, 0xF4, 0x24, 0x00}},
+		{"02", args{FileClass, 200, -1, -1}, []uint8{0x20, 0x37, 0x24, 0xC8}},
+		{"03", args{FileClass, 2000, -1, -1}, []uint8{0x20, 0x37, 0x25, 0x00, 0xD0, 0x07}},
+		{"04", args{2000, 2000, -1, -1}, []uint8{0x21, 0x00, 0xD0, 0x07, 0x25, 0x00, 0xD0, 0x07}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := pathCIA(tt.args.clas, tt.args.instance, tt.args.attr, tt.args.member); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("pathCIA() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

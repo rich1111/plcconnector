@@ -89,8 +89,8 @@ func Connect(host string) (*Client, error) {
 	}
 
 	// RegisterSession
-	c.wr.Reset()
-	c.rd.Reset(conn)
+	c.reset()
+	defer c.reset()
 	c.write(encapsulationHeader{
 		Command: ecRegisterSession,
 		Length:  uint16(binary.Size(rs)),
@@ -115,8 +115,6 @@ func Connect(host string) (*Client, error) {
 	}
 	c.handle = h.SessionHandle
 
-	c.wr.Reset()
-	c.rd.Reset(conn)
 	return &c, nil
 }
 
@@ -209,6 +207,7 @@ func Discover() ([]Identity, error) {
 func (c *Client) Close() error {
 	c.c.SetDeadline(time.Now().Add(time.Second))
 
+	defer c.reset()
 	// UnregisterSession
 	c.write(encapsulationHeader{
 		Command:       ecUnRegisterSession,
@@ -223,6 +222,34 @@ func (c *Client) Close() error {
 	return c.c.Close()
 }
 
+// GetAttributesAll
+func (c *Client) GetAttributesAll(class, instance int) ([]byte, error) {
+	path := pathCIA(class, instance, -1, -1)
+
+	defer c.reset()
+	c.writeHead(path, GetAttrAll, 0)
+	_, err := c.c.Write(c.wr.Bytes())
+	if err != nil {
+		return nil, err
+	}
+
+	st, ln, err := c.readHead()
+	if err != nil {
+		return nil, err
+	}
+	if st != Success { // TODO additional status size
+		return nil, errors.New("status not Success")
+	}
+
+	d := make([]byte, ln)
+	err = c.read(&d)
+	if err != nil {
+		return nil, err
+	}
+
+	return d, nil
+}
+
 // ReadTag .
 func (c *Client) ReadTag(tag string, count int) (*Tag, error) {
 	path := constructPath(parsePath(tag))
@@ -230,7 +257,8 @@ func (c *Client) ReadTag(tag string, count int) (*Tag, error) {
 		return nil, errors.New("path parse error")
 	}
 
-	c.writeHead(path, 2)
+	defer c.reset()
+	c.writeHead(path, ReadTag, 2)
 	c.write(uint16(count))
 
 	_, err := c.c.Write(c.wr.Bytes())
@@ -267,9 +295,12 @@ func (c *Client) ReadTag(tag string, count int) (*Tag, error) {
 	// fmt.Println(typeToString(int(t)))
 	// fmt.Println(d)
 
+	return &Tag{Name: tag, Type: int(t), data: d}, nil
+}
+
+func (c *Client) reset() {
 	c.wr.Reset()
 	c.rd.Reset(c.c)
-	return &Tag{Name: tag, Type: int(t), data: d}, nil
 }
 
 func (c *Client) readHead() (int, int, error) {
@@ -312,13 +343,13 @@ func (c *Client) readHead() (int, int, error) {
 	return int(r.Status), int(i.Length) - 4, nil
 }
 
-func (c *Client) writeHead(path []uint8, addLen int) {
+func (c *Client) writeHead(path []uint8, service uint8, dataLen int) {
 	c.c.SetDeadline(time.Now().Add(time.Second * time.Duration(c.Timeout)))
 
 	c.context++
 	c.write(encapsulationHeader{
 		Command:       ecSendRRData,
-		Length:        uint16(16 + 2 + len(path) + addLen),
+		Length:        uint16(16 + 2 + len(path) + dataLen),
 		SessionHandle: c.handle,
 		SenderContext: c.context,
 	})
@@ -327,9 +358,9 @@ func (c *Client) writeHead(path []uint8, addLen int) {
 		ItemCount: 2,
 	})
 	c.write(itemType{Type: itNullAddress, Length: 0})
-	c.write(itemType{Type: itUnconnData, Length: uint16(2 + len(path) + addLen)})
+	c.write(itemType{Type: itUnconnData, Length: uint16(2 + len(path) + dataLen)})
 	c.write(protocolData{
-		Service:  ReadTag,
+		Service:  service,
 		PathSize: uint8(len(path) / 2),
 	})
 	c.write(path)

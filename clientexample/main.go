@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	addr := "localhost:44818"
+	addr := "10.1.31.251:44818"
 	if len(os.Args) > 1 {
 		if os.Args[1] == "d" {
 			ids, err := plc.Discover()
@@ -28,11 +28,19 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	t, err := c.ReadTag("testSTRUCT", 1)
+
+	gal, err := c.GetAttributesAll(plc.PortClass, 0)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println(t)
+	fmt.Println(gal)
+
+	// t, err := c.ReadTag("testSTRUCT", 1)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	return
+	// }
+	// fmt.Println(t)
 	c.Close()
 }

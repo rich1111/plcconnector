@@ -305,3 +305,36 @@ func (r *req) eipListServices() error {
 	r.write(data)
 	return nil
 }
+
+func pathCIA(clas, instance, attr, member int) []uint8 {
+	path := make([]uint8, 0, 6)
+	if clas > 65535 {
+		path = append(path, []uint8{0x22, 0, uint8(clas), uint8(clas >> 8), uint8(clas >> 16), uint8(clas >> 24)}...)
+	} else if clas > 255 {
+		path = append(path, []uint8{0x21, 0, uint8(clas), uint8(clas >> 8)}...)
+	} else if clas >= 0 {
+		path = append(path, []uint8{0x20, uint8(clas)}...)
+	}
+	if instance > 65535 {
+		path = append(path, []uint8{0x26, 0, uint8(instance), uint8(instance >> 8), uint8(instance >> 16), uint8(instance >> 24)}...)
+	} else if instance > 255 {
+		path = append(path, []uint8{0x25, 0, uint8(instance), uint8(instance >> 8)}...)
+	} else if instance >= 0 {
+		path = append(path, []uint8{0x24, uint8(instance)}...)
+	}
+	if attr > 65535 {
+		path = append(path, []uint8{0x32, 0, uint8(attr), uint8(attr >> 8), uint8(attr >> 16), uint8(attr >> 24)}...)
+	} else if attr > 255 {
+		path = append(path, []uint8{0x31, 0, uint8(attr), uint8(attr >> 8)}...)
+	} else if attr >= 0 {
+		path = append(path, []uint8{0x30, uint8(attr)}...)
+	}
+	if member > 65535 {
+		path = append(path, []uint8{0x2A, 0, uint8(member), uint8(member >> 8), uint8(member >> 16), uint8(member >> 24)}...)
+	} else if member > 255 {
+		path = append(path, []uint8{0x29, 0, uint8(member), uint8(member >> 8)}...)
+	} else if member >= 0 {
+		path = append(path, []uint8{0x28, uint8(member)}...)
+	}
+	return path
+}
