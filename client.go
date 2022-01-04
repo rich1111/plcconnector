@@ -17,6 +17,7 @@ type Client struct {
 	rd      *bufio.Reader
 	wr      *bytes.Buffer
 	wrData  *bytes.Buffer
+	bp      int
 	handle  uint32
 	context uint64
 
@@ -46,7 +47,7 @@ func (c *Client) writeData(data interface{}) {
 }
 
 // Connect .
-func Connect(host string) (*Client, error) {
+func Connect(host string, backplane int) (*Client, error) {
 	var (
 		c   Client
 		h   encapsulationHeader
@@ -61,6 +62,7 @@ func Connect(host string) (*Client, error) {
 		return nil, err
 	}
 	c.c = conn
+	c.bp = backplane
 	c.wr = new(bytes.Buffer)
 	c.wrData = new(bytes.Buffer)
 	c.Timeout = 20
@@ -374,11 +376,47 @@ func (c *Client) writeHead(path []uint8, service uint8, dataLen int) {
 	c.write(path)
 }
 
+func (c *Client) writeHeadCM(path []uint8, service uint8, length int) {
+	c.c.SetDeadline(time.Now().Add(time.Second * time.Duration(c.Timeout)))
+
+	msrLen := 2 + len(path) + length
+	dataLen := msrLen + 14
+	encLen := dataLen + 16
+
+	c.context++
+	c.write(encapsulationHeader{
+		Command:       ecSendRRData,
+		Length:        uint16(encLen),
+		SessionHandle: c.handle,
+		SenderContext: c.context,
+	})
+	c.write(sendData{
+		Timeout:   c.Timeout,
+		ItemCount: 2,
+	})
+	c.write(itemType{Type: itNullAddress, Length: 0})
+	c.write(itemType{Type: itUnconnData, Length: uint16(dataLen)})
+	c.write([]byte{0x52, 0x02, 0x20, 0x06, 0x24, 0x01, // unconencted send, path to connection manager
+		0x05, 0x99, byte(msrLen), byte(msrLen >> 8)}) // timeout
+	c.write(protocolData{
+		Service:  service,
+		PathSize: uint8(len(path) / 2),
+	})
+	c.write(path)
+}
+
 func (c *Client) sendRecv(path []uint8, service uint8) ([]uint8, error) {
 	defer c.reset()
 
-	c.writeHead(path, service, c.wrData.Len())
+	if c.bp == -1 {
+		c.writeHead(path, service, c.wrData.Len())
+	} else {
+		c.writeHeadCM(path, service, c.wrData.Len())
+	}
 	c.write(c.wrData.Bytes())
+	if c.bp != -1 {
+		c.write([]byte{1, 0, 1, byte(c.bp)})
+	}
 	_, err := c.c.Write(c.wr.Bytes())
 	if err != nil {
 		return nil, err

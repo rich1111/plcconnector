@@ -23,13 +23,20 @@ func main() {
 			addr = os.Args[1]
 		}
 	}
-	c, err := plc.Connect(addr)
+	c, err := plc.Connect(addr, 0)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	gaa, err := c.GetAttributesAll(plc.PortClass, 0)
+	gaa, err := c.GetAttributesAll(plc.IdentityClass, 1)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(gaa)
+
+	gaa, err = c.GetAttributesAll(plc.PortClass, 0)
 	if err != nil {
 		fmt.Println(err)
 		return
