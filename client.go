@@ -278,6 +278,31 @@ func (c *Client) GetAttributeList(class, instance int, list []int) ([]byte, erro
 	return d, nil
 }
 
+// GetAttributeSingle
+func (c *Client) GetAttributeSingle(class, instance, attr int) ([]byte, error) {
+	path := pathCIA(class, instance, attr, -1)
+
+	defer c.reset()
+	c.writeHead(path, GetAttr, 0)
+	_, err := c.c.Write(c.wr.Bytes())
+	if err != nil {
+		return nil, err
+	}
+
+	_, ln, err := c.readHead()
+	if err != nil {
+		return nil, err
+	}
+
+	d := make([]byte, ln)
+	err = c.read(&d)
+	if err != nil {
+		return nil, err
+	}
+
+	return d, nil
+}
+
 // ReadTag .
 func (c *Client) ReadTag(tag string, count int) (*Tag, error) {
 	path := constructPath(parsePath(tag))

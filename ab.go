@@ -626,7 +626,7 @@ func (r *req) serviceHandle() bool {
 		}
 
 	case r.protd.Service == SetAttrList:
-		r.p.debug("SetAttributesList")
+		r.p.debug("SetAttributeList")
 		var (
 			attr  uint16
 			count uint16
@@ -728,7 +728,7 @@ func (r *req) serviceHandle() bool {
 		}
 
 	case r.protd.Service == GetAttr:
-		r.p.debug("GetAttributesSingle")
+		r.p.debug("GetAttributeSingle")
 
 		at, aok, in := r.p.GetClassInstanceAttr(r.class, r.instance, r.attr)
 
@@ -751,7 +751,7 @@ func (r *req) serviceHandle() bool {
 		}
 
 	case r.protd.Service == SetAttr:
-		r.p.debug("SetAttributesSingle")
+		r.p.debug("SetAttributeSingle")
 
 		var (
 			aok bool

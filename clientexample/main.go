@@ -39,9 +39,16 @@ func main() {
 	gal, err := c.GetAttributeList(0x6F, 1, []int{1, 6})
 	if err != nil {
 		fmt.Println(err)
+	} else {
+		fmt.Println(gal)
+	}
+
+	gas, err := c.GetAttributeSingle(plc.FileClass, 200, 4)
+	if err != nil {
+		fmt.Println(err)
 		return
 	}
-	fmt.Println(gal)
+	fmt.Println(gas)
 
 	// t, err := c.ReadTag("testSTRUCT", 1)
 	// if err != nil {
