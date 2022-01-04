@@ -213,6 +213,7 @@ func (p *PLC) loadEDS(fn string) error {
 
 	p.Class[IdentityClass] = defaultIdentityClass()
 	i := p.Class[IdentityClass].inst[1]
+	i.getall = []int{1, 2, 3, 4, 5, 6, 7}
 
 	majRev := uint16(1)
 	minRev := uint16(1)
