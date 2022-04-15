@@ -3,6 +3,7 @@ package plcconnector
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 )
@@ -143,7 +144,11 @@ func (p *PLC) ImportMemoryJSON(file string) error {
 		}
 		if c.Read {
 			if len(c.Rx) != len(tag.data) {
-				return errors.New("data length mismatch " + n)
+				if p.Verbose {
+					fmt.Println(file, "data length mismatch", n)
+				}
+				continue
+				// return errors.New("data length mismatch " + n)
 			}
 			copy(tag.data, c.Rx)
 		}
