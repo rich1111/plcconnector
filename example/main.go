@@ -126,8 +126,10 @@ func main() {
 		p.NewTag(structTest{abc: 123, def: 1.234}, "testSTRUCT")
 		p.NewTag([2]structTest{{abc: 123, def: 1.234}, {abc: 456, def: 7.89}}, "testSTRUCT2")
 
-		p.NewTag([4]structTest2{{ala: 5.5, kot: -111, pies: [8]int8{0, 1, 2, 3, 4, 5, 6, 7}},
-			{ala: -5.5, kot: 111, pies: [8]int8{8, 9, 10, 11, 12, 13, 14, 15}}}, "testSTRUCT3")
+		p.NewTag([4]structTest2{
+			{ala: 5.5, kot: -111, pies: [8]int8{0, 1, 2, 3, 4, 5, 6, 7}},
+			{ala: -5.5, kot: 111, pies: [8]int8{8, 9, 10, 11, 12, 13, 14, 15}},
+		}, "testSTRUCT3")
 
 		p.NewUDT("DATATYPE POSITION DINT x; DINT y; END_DATATYPE")
 		p.NewUDT("DATATYPE HMM (FamilyType := NoFamily) POSITION sprites[8]; LINT money; END_DATATYPE")

@@ -963,7 +963,6 @@ func (p *PLC) readTag(path []pathEl, count uint16) ([]uint8, uint32, int, bool) 
 	defer p.tMut.RUnlock()
 
 	tg, tgtyp, tl, copyFrom, index, err := p.parsePathEl(path)
-
 	if err != nil {
 		p.tagError(ReadTag, PathSegmentError, nil)
 		return nil, 0, 0, false
@@ -998,7 +997,6 @@ func (p *PLC) readModWriteTag(path []pathEl, orMask, andMask []uint8) bool {
 	defer p.tMut.Unlock()
 
 	tg, tgtyp, _, copyFrom, index, err := p.parsePathEl(path)
-
 	if err != nil {
 		p.tagError(ReadModifyWrite, PathSegmentError, nil)
 		return false
@@ -1025,7 +1023,6 @@ func (p *PLC) saveTag(path []pathEl, typ uint16, count int, data []uint8, offset
 	defer p.tMut.Unlock()
 
 	tg, tgtyp, tl, copyFrom, index, err := p.parsePathEl(path)
-
 	if err != nil {
 		p.tagError(WriteTag, PathSegmentError, nil)
 		return false
@@ -1075,9 +1072,11 @@ func (p *PLC) addTag(t Tag, instance int) {
 	in.attr[5] = TagUDINT(0, "SymbolObjectAddress")
 	in.attr[6] = TagUDINT(0, "SoftwareControl")
 	in.attr[7] = TagUINT(uint16(t.ElemLen()), "BaseTypeSize")
-	in.attr[8] = &Tag{Name: "Dimensions", data: []uint8{uint8(t.Dim[0]), uint8(t.Dim[0] >> 8), uint8(t.Dim[0] >> 16), uint8(t.Dim[0] >> 24),
+	in.attr[8] = &Tag{Name: "Dimensions", data: []uint8{
+		uint8(t.Dim[0]), uint8(t.Dim[0] >> 8), uint8(t.Dim[0] >> 16), uint8(t.Dim[0] >> 24),
 		uint8(t.Dim[1]), uint8(t.Dim[1] >> 8), uint8(t.Dim[1] >> 16), uint8(t.Dim[1] >> 24),
-		uint8(t.Dim[2]), uint8(t.Dim[2] >> 8), uint8(t.Dim[2] >> 16), uint8(t.Dim[2] >> 24)}}
+		uint8(t.Dim[2]), uint8(t.Dim[2] >> 8), uint8(t.Dim[2] >> 16), uint8(t.Dim[2] >> 24),
+	}}
 	in.attr[9] = TagBOOL(false, "SafetyFlag")
 	in.attr[10] = TagUSINT(t.prot, "PPDControl")      // 0: full access, 1: reserved, 2: read only, 3: no access
 	in.attr[11] = TagUSINT(0, "ConstantTagIndicator") // 0: normal, 1: constant

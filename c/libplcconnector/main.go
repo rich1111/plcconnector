@@ -5,7 +5,6 @@ import "C"
 
 import (
 	"net"
-
 	"strconv"
 	"unsafe"
 
