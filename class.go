@@ -45,6 +45,13 @@ func (in *Instance) SetAttrDINT(no int, v int32) {
 	in.m.Unlock()
 }
 
+// SetAttrUSINT .
+func (in *Instance) SetAttrUSINT(no int, v uint8) {
+	in.m.Lock()
+	in.attr[no].data[0]= v
+	in.m.Unlock()
+}
+
 // SetAttrUINT .
 func (in *Instance) SetAttrUINT(no int, v uint16) {
 	in.m.Lock()
@@ -232,4 +239,26 @@ func defaultIdentityClass() *Class {
 	c.SetInstance(1, i)
 
 	return c
+}
+
+func (p *PLC) CreateDefaultAssemblyClass(inputInstance int, outputInstance int) *Class {
+	c := NewClass("Assembly", 0)
+	c.inst[0].getall = []int{1, 2, 3, 4, 5, 6, 7}
+	c.Name = "Assembly"
+
+	in1 := NewInstance(4)
+	in1.attr[4] = TagUINT(0, "Size")
+	c.SetInstance(inputInstance, in1)
+
+	in2 := NewInstance(4)
+	in2.attr[4] = TagUINT(0, "Size")
+	c.SetInstance(outputInstance, in2)
+
+	p.Class[AssemblyClass] = c
+
+	return c
+}
+
+func (p *PLC) SetSizeTagForAssemblyClass(instance int, val uint16) {
+	p.GetClassInstance(AssemblyClass, instance).SetAttrUINT(4, val)
 }

@@ -1124,3 +1124,72 @@ func (p *PLC) UpdateTag(name string, offset int, data []uint8) bool {
 	}
 	return true
 }
+
+//
+// Added for Assembly Class
+//
+func (p *PLC) addInOutTagForAssemblyClass(t Tag, instance int) {
+	if t.data == nil {
+		t.data = make([]uint8, t.ElemLen()*t.Dims())
+	}
+
+	in := p.Class[AssemblyClass].inst[instance]
+
+	in.attr[1] = TagString(t.Name, "InputOutput")
+	typ := uint16(t.Type)
+	if t.Dim[2] > 0 {
+		typ |= TypeArray3D
+	} else if t.Dim[1] > 0 {
+		typ |= TypeArray2D
+	} else if t.Dim[0] > 0 {
+		typ |= TypeArray1D
+	}
+	if t.Type >= TypeStructHead {
+		in.attr[2] = TagUINT(TypeStruct+uint16(t.st.i), "InputOutputType")
+	} else {
+		in.attr[2] = TagUINT(typ, "InputOutputType")
+	}
+
+	in.attr[3] = &t		// Input/Output Data tag
+
+	name := strings.ToLower(t.Name)
+	t.in = in
+
+	p.tMut.Lock()
+	p.tags[name] = &t
+	p.tMut.Unlock()
+}
+
+func (p *PLC) CreateInOutTagForAssemblyClass(typ string, name string, instance int, writable bool, getter func() []uint8, setter func([]uint8) uint8) {
+	var t Tag
+	st, ok := p.tids[typ]
+	if ok {
+		t.st = &st
+		t.Type = TypeStructHead | int(t.st.h)
+		t.data = make([]uint8, t.st.l)
+	} else {
+		udt, n := udtFromString(typ)
+		if udt == nil {
+			return
+		}
+		if n != "" {
+			p.newUDT(udt, n, 0, 0)
+			name = n
+		}
+		t.Type = p.stringToType(udt[0].T)
+		t.Dim[0] = udt[0].C
+		t.Dim[1] = udt[0].C2
+		t.Dim[2] = udt[0].C3
+		t.data = make([]uint8, t.Dims()*t.Len())
+	}
+	t.Name = name
+
+	t.getter = getter
+	t.setter = setter
+
+	if writable {	// if Output instance, set settable
+		t.write = true
+	}
+
+	p.addInOutTagForAssemblyClass(t, instance)
+}

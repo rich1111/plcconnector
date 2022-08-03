@@ -34,6 +34,7 @@ const (
 const (
 	IdentityClass = 0x01
 	MessageRouter = 0x02
+	AssemblyClass = 0x04
 	ConnManager   = 0x06
 	FileClass     = 0x37
 

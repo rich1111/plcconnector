@@ -7,8 +7,13 @@ import (
 	"os/signal"
 	"syscall"
 
-	plc "github.com/podeszfa/plcconnector"
+	plc "github.com/rich1111/plcconnector"
 )
+
+
+const assemblyInInstance = 0x65
+const assemblyOutInstance = 0x66
+
 
 func call(service int, status int, tag *plc.Tag) {
 	switch service {
@@ -156,6 +161,25 @@ func main() {
 
 		p.CreateTag("INT[4,2]", "array2D_3")
 		p.CreateTag("INT[8,2,4]", "array3D_3")
+
+
+
+		// ADD Assembly Class
+		p.CreateDefaultAssemblyClass(assemblyInInstance, assemblyOutInstance)
+
+		p.NewUDT("DATATYPE IN8DI8DO USINT diStatus; UDINT diCounterValue[8]; USINT doStatus; END_DATATYPE")
+		p.NewUDT("DATATYPE OUT8DI8DO USINT doStatus; END_DATATYPE")
+
+		p.CreateInOutTagForAssemblyClass("IN8DI8DO", "testIN8DI8DO", assemblyInInstance, false, assemblyClassInputGetter, nil)
+		p.SetSizeTagForAssemblyClass(assemblyInInstance, 34)
+
+		p.CreateInOutTagForAssemblyClass("OUT8DI8DO", "testOUT8DI8DO", assemblyOutInstance, true, nil,
+			func (data []uint8) uint8 {
+				fmt.Println(data)
+				p.GetClassInstance(plc.AssemblyClass, assemblyOutInstance).SetAttrUSINT(3, data[0])
+				return 0
+		})
+		p.SetSizeTagForAssemblyClass(assemblyOutInstance, 1)
 	}
 
 	// nie wyświetlaj dodatkowych informacji
@@ -170,4 +194,9 @@ func main() {
 
 	// serwer
 	p.Serve("0.0.0.0:44818")
+}
+
+
+func assemblyClassInputGetter() []uint8 {
+	return []uint8{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34}
 }
