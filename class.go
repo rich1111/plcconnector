@@ -197,6 +197,14 @@ func (p *PLC) GetClassInstanceAttr(class int, instance int, attr int) (*Tag, boo
 	return at, aok, in != nil
 }
 
+// SetClassInstanceAttrGetterSetter Set Getter/Setter
+func (p *PLC) SetClassInstanceAttrGetterSetter(class int, instance int, attr int, getter func() []uint8, setter func([]uint8) uint8) {
+	if at, aOK, inOK := p.GetClassInstanceAttr(class, instance, attr); aOK && inOK {
+		at.getter = getter
+		at.setter = setter
+	}
+}
+
 // SetInstance .
 func (c *Class) SetInstance(no int, in *Instance) {
 	c.m.Lock()
