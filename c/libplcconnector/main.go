@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"unsafe"
 
-	plc "github.com/podeszfa/plcconnector"
+	plc "github.com/rich1111/plcconnector"
 )
 
 func main() {}
